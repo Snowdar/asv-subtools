@@ -1,0 +1,506 @@
+# -*- coding:utf-8 -*-
+
+# Copyright xmuspeech (Author: Snowdar 2019-08-01)
+
+import logging
+import types
+import math
+import itertools as it
+from torch._six import inf
+from functools import partial, wraps
+import warnings
+from bisect import bisect_right
+
+import torch
+import torch.optim as optim
+from torch.optim.optimizer import Optimizer
+
+import libs.support.utils as utils
+
+# Logger
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
+## Wrapper ✿
+def get_optimizer(model, params:dict={}):
+    # Suggested weight_decay: 1e-4 for l2 regularization (sgd, adam) and 
+    #                         1e-1 for decouped weight decay (sgdw, adamw, radam, ralamb, adamod etc.)
+    default_params = {
+        "name":"adamW",
+        "learn_rate":0.001,
+        "beta1":0.9,
+        "beta2":0.999,
+        "beta3":0.999,
+        "weight_decay":1e-4,
+        "lookahead.k":5,
+        "lookahead.alpha":0.
+    }
+
+    used_params = utils.assign_params_dict(default_params, params)
+
+    # Base params
+    learn_rate = used_params["learn_rate"]
+    beta1 = used_params["beta1"]
+    beta2 = used_params["beta1"]
+    beta3 = used_params["beta1"]
+    weight_decay = used_params["weight_decay"]
+
+    # Select optimizer
+    name = default_params["name"]
+    if name == "sgd":
+        base_optimizer = optim.SGD(model.parameters(), lr=learn_rate, momentum=beta1, weight_decay=weight_decay)
+    elif name == "sgdW":
+        base_optimizer = SGDW(model.parameters(), lr=learn_rate, momentum=beta1, weight_decay=weight_decay)
+    elif name == "adam":
+        base_optimizer = optim.Adam(model.parameters(), lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
+    elif name == "adamW":
+        base_optimizer = optim.AdamW(model.parameters(), lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
+    elif name == "radam":
+        base_optimizer = RAdam(model.parameters(), lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
+    elif name == "ralamb":
+        base_optimizer = Ralamb(model.parameters(), lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
+    elif name == "adamod":
+        base_optimizer = AdaMod(model.parameters(), lr=learn_rate, betas=(beta1, beta2), beta3=beta3, weight_decay=weight_decay)
+    else:
+        raise ValueError("Do not support {0} optimizer now.".format(name))
+    
+    # Using alpha to decide whether to use lookahead
+    if used_params["lookahead.alpha"] > 0:
+        logger.info("Use lookahead optimizer with alpha={} and k={}".format(used_params["lookahead.alpha"], used_params["lookahead.k"]))
+        optimizer = Lookahead(base_optimizer, k=used_params["lookahead.k"], alpha=used_params["lookahead.alpha"])
+    else:
+        optimizer = base_optimizer
+
+    return optimizer
+
+
+## Optim-wrapper ✿
+class Lookahead(Optimizer):
+    """https://github.com/lonePatient/lookahead_pytorch/blob/master/optimizer.py
+    """
+    def __init__(self, base_optimizer, k=5, alpha=0.5):
+        if not 0.0 <= alpha <= 1.0:
+            raise ValueError(f'Invalid slow update rate: {alpha}')
+        if not 1 <= k:
+            raise ValueError(f'Invalid lookahead steps: {k}')
+        self.optimizer = base_optimizer
+        self.param_groups = self.optimizer.param_groups
+        self.alpha = alpha
+        self.k = k
+        self.init_weights = False
+
+        for group in self.param_groups:
+            group["step_counter"] = 0
+
+    def step(self, closure=None):
+        # Init weights after model in a certrain device and keep the device of weights same to model. [ZM 2018-09-01]
+        if not self.init_weights and self.alpha > 0:
+            self.slow_weights = [[p.clone().detach() for p in group['params']]
+                                    for group in self.param_groups]
+
+            for w in it.chain(*self.slow_weights):
+                w.requires_grad = False
+            
+            self.init_weights = True
+
+        loss = None
+        if closure is not None:
+            loss = closure()
+        loss = self.optimizer.step()
+        if self.alpha > 0:
+            for group,slow_weights in zip(self.param_groups,self.slow_weights):
+                group['step_counter'] += 1
+                if group['step_counter'] % self.k != 0:
+                    continue
+                for p,q in zip(group['params'],slow_weights):
+                    if p.grad is None:
+                        continue
+                    q.data.add_(self.alpha,p.data - q.data)
+                    p.data.copy_(q.data)
+        return loss
+
+
+## Optimizer ✿
+class SGDW(Optimizer):
+    r"""Implements stochastic gradient descent (optionally with momentum) with decouped weight decay.
+
+    Nesterov momentum is based on the formula from
+    `On the importance of initialization and momentum in deep learning`__.
+
+    Args:
+        params (iterable): iterable of parameters to optimize or dicts defining
+            parameter groups
+        lr (float): learning rate
+        momentum (float, optional): momentum factor (default: 0)
+        weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
+        dampening (float, optional): dampening for momentum (default: 0)
+        nesterov (bool, optional): enables Nesterov momentum (default: False)
+
+    Example:
+        >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+        >>> optimizer.zero_grad()
+        >>> loss_fn(model(input), target).backward()
+        >>> optimizer.step()
+
+    __ http://www.cs.toronto.edu/%7Ehinton/absps/momentum.pdf
+
+    .. note::
+        The implementation of SGD with Momentum/Nesterov subtly differs from
+        Sutskever et. al. and implementations in some other frameworks.
+
+        Considering the specific case of Momentum, the update can be written as
+
+        .. math::
+                  v_{t+1} = \mu * v_{t} + g_{t+1} \\
+                  p_{t+1} = p_{t} - lr * v_{t+1}
+
+        where p, g, v and :math:`\mu` denote the parameters, gradient,
+        velocity, and momentum respectively.
+
+        This is in contrast to Sutskever et. al. and
+        other frameworks which employ an update of the form
+
+        .. math::
+             v_{t+1} = \mu * v_{t} + lr * g_{t+1} \\
+             p_{t+1} = p_{t} - v_{t+1}
+
+        The Nesterov version is analogously modified.
+    """
+
+    def __init__(self, params, lr=0.1, momentum=0, dampening=0,
+                 weight_decay=0, nesterov=False):
+        if lr < 0.0:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+        if momentum < 0.0:
+            raise ValueError("Invalid momentum value: {}".format(momentum))
+        if weight_decay < 0.0:
+            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+
+        defaults = dict(lr=lr, momentum=momentum, dampening=dampening,
+                        weight_decay=weight_decay, nesterov=nesterov)
+        if nesterov and (momentum <= 0 or dampening != 0):
+            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
+        super(SGDW, self).__init__(params, defaults)
+
+    def __setstate__(self, state):
+        super(SGDW, self).__setstate__(state)
+        for group in self.param_groups:
+            group.setdefault('nesterov', False)
+
+    def step(self, closure=None):
+        """Performs a single optimization step.
+
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+            momentum = group['momentum']
+            dampening = group['dampening']
+            nesterov = group['nesterov']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                d_p = p.grad.data
+
+                if momentum != 0:
+                    param_state = self.state[p]
+                    if 'momentum_buffer' not in param_state:
+                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                    else:
+                        buf = param_state['momentum_buffer']
+                        buf.mul_(momentum).add_(1 - dampening, d_p)
+                    if nesterov:
+                        d_p = d_p.add(momentum, buf)
+                    else:
+                        d_p = buf
+
+                if group['weight_decay'] != 0:
+                    p.data.add_(-group['weight_decay'] * group['lr'], p.data)
+
+                p.data.add_(-group['lr'], d_p)
+
+        return loss
+
+
+class RAdam(Optimizer):
+    '''https://github.com/lonePatient/lookahead_pytorch/blob/master/optimizer.py
+    
+    a PyTorch implementation of the RAdam Optimizer from th paper
+    On the Variance of the Adaptive Learning Rate and Beyond.
+    https://arxiv.org/abs/1908.03265
+    Example:
+        >>> from optimizer import RAdam
+        >>> optimizer = RAdam(model.parameters(), lr=0.001)
+    Note, here the weight decay is not L2 regularization.
+    '''
+
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), N_sma_threshhold=4, eps=1e-8, weight_decay=0):
+        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
+        self.N_sma_threshhold = N_sma_threshhold
+        self.buffer = [[None, None, None] for ind in range(10)]
+        super(RAdam, self).__init__(params, defaults)
+
+    def __setstate__(self, state):
+        super(RAdam, self).__setstate__(state)
+
+    def step(self, closure=None):
+
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                grad = p.grad.data.float()
+                if grad.is_sparse:
+                    raise RuntimeError('RAdam does not support sparse gradients')
+
+                p_data_fp32 = p.data.float()
+
+                state = self.state[p]
+
+                if len(state) == 0:
+                    state['step'] = 0
+                    state['exp_avg'] = torch.zeros_like(p_data_fp32)
+                    state['exp_avg_sq'] = torch.zeros_like(p_data_fp32)
+                else:
+                    state['exp_avg'] = state['exp_avg'].type_as(p_data_fp32)
+                    state['exp_avg_sq'] = state['exp_avg_sq'].type_as(p_data_fp32)
+
+                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
+                beta1, beta2 = group['betas']
+
+                exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
+                exp_avg.mul_(beta1).add_(1 - beta1, grad)
+
+                state['step'] += 1
+                buffered = self.buffer[int(state['step'] % 10)]
+                if state['step'] == buffered[0]:
+                    N_sma, step_size = buffered[1], buffered[2]
+                else:
+                    buffered[0] = state['step']
+                    beta2_t = beta2 ** state['step']
+                    N_sma_max = 2 / (1 - beta2) - 1
+                    N_sma = N_sma_max - 2 * state['step'] * beta2_t / (1 - beta2_t)
+                    buffered[1] = N_sma
+                    if N_sma > self.N_sma_threshhold:
+                        step_size = group['lr'] * math.sqrt((1 - beta2_t) * (N_sma - 4) / (N_sma_max - 4) * (N_sma - 2) / N_sma * N_sma_max / (N_sma_max - 2)) / (1 - beta1 ** state['step'])
+                    else:
+                        step_size = group['lr'] / (1 - beta1 ** state['step'])
+                    buffered[2] = step_size
+
+                if group['weight_decay'] != 0:
+                    p_data_fp32.add_(-group['weight_decay'] * group['lr'], p_data_fp32)
+
+                if N_sma > self.N_sma_threshhold:
+                    denom = exp_avg_sq.sqrt().add_(group['eps'])
+                    p_data_fp32.addcdiv_(-step_size, exp_avg, denom)
+                else:
+                    p_data_fp32.add_(-step_size, exp_avg)
+
+                p.data.copy_(p_data_fp32)
+
+        return loss
+
+
+class Ralamb(Optimizer):
+    '''https://github.com/lonePatient/lookahead_pytorch/blob/master/optimizer.py
+    Ralamb optimizer [RAdam + Layer-wise Adaptive Rate Scaling (LARS) trick]
+    '''
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), N_sma_threshhold=4, eps=1e-8, weight_decay=0):
+        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
+        self.N_sma_threshhold = N_sma_threshhold
+        self.buffer = [[None, None, None] for ind in range(10)]
+        super(Ralamb, self).__init__(params, defaults)
+
+    def __setstate__(self, state):
+        super(Ralamb, self).__setstate__(state)
+
+    def step(self, closure=None):
+
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                grad = p.grad.data.float()
+                if grad.is_sparse:
+                    raise RuntimeError('Ralamb does not support sparse gradients')
+
+                p_data_fp32 = p.data.float()
+
+                state = self.state[p]
+
+                if len(state) == 0:
+                    state['step'] = 0
+                    state['exp_avg'] = torch.zeros_like(p_data_fp32)
+                    state['exp_avg_sq'] = torch.zeros_like(p_data_fp32)
+                else:
+                    state['exp_avg'] = state['exp_avg'].type_as(p_data_fp32)
+                    state['exp_avg_sq'] = state['exp_avg_sq'].type_as(p_data_fp32)
+
+                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
+                beta1, beta2 = group['betas']
+
+                # Decay the first and second moment running average coefficient
+                # m_t
+                exp_avg.mul_(beta1).add_(1 - beta1, grad)
+                # v_t
+                exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
+
+                state['step'] += 1
+                buffered = self.buffer[int(state['step'] % 10)]
+
+                if state['step'] == buffered[0]:
+                    N_sma, radam_step = buffered[1], buffered[2]
+                else:
+                    buffered[0] = state['step']
+                    beta2_t = beta2 ** state['step']
+                    N_sma_max = 2 / (1 - beta2) - 1
+                    N_sma = N_sma_max - 2 * state['step'] * beta2_t / (1 - beta2_t)
+                    buffered[1] = N_sma
+
+                    # more conservative since it's an approximated value
+                    if N_sma > self.N_sma_threshhold:
+                        radam_step = group['lr'] * math.sqrt((1 - beta2_t) * (N_sma - 4) / (N_sma_max - 4) * (N_sma - 2) / N_sma * N_sma_max / (N_sma_max - 2)) / (1 - beta1 ** state['step'])
+                    else:
+                        radam_step = group['lr'] / (1 - beta1 ** state['step'])
+                    buffered[2] = radam_step
+
+                if group['weight_decay'] != 0:
+                    p_data_fp32.add_(-group['weight_decay'] * group['lr'], p_data_fp32)
+
+                weight_norm = p.data.pow(2).sum().sqrt().clamp(0, 10)
+                radam_norm = p_data_fp32.pow(2).sum().sqrt()
+                if weight_norm == 0 or radam_norm == 0:
+                    trust_ratio = 1
+                else:
+                    trust_ratio = weight_norm / radam_norm
+
+                state['weight_norm'] = weight_norm
+                state['adam_norm'] = radam_norm
+                state['trust_ratio'] = trust_ratio
+
+                # more conservative since it's an approximated value
+                if N_sma > self.N_sma_threshhold:
+                    denom = exp_avg_sq.sqrt().add_(group['eps'])
+                    p_data_fp32.addcdiv_(-radam_step * trust_ratio, exp_avg, denom)
+                else:
+                    p_data_fp32.add_(-radam_step * trust_ratio, exp_avg)
+
+                p.data.copy_(p_data_fp32)
+
+        return loss
+
+
+class AdaMod(Optimizer):
+    """Implements AdaMod algorithm with Decoupled Weight Decay (arxiv.org/abs/1711.05101)
+    It has been proposed in `Adaptive and Momental Bounds for Adaptive Learning Rate Methods`_.
+    Arguments:
+        params (iterable): iterable of parameters to optimize or dicts defining
+            parameter groups
+        lr (float, optional): learning rate (default: 1e-3)
+        betas (Tuple[float, float], optional): coefficients used for computing
+            running averages of gradient and its square (default: (0.9, 0.999))
+        beta3 (float, optional): smoothing coefficient for adaptive learning rates (default: 0.9999)
+        eps (float, optional): term added to the denominator to improve
+            numerical stability (default: 1e-8)
+        weight_decay (float, optional): weight decay rather than L2 penalty (default: 0)
+
+        Reference: https://github.com/lancopku/AdaMod.
+    """
+
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), beta3=0.999,
+                 eps=1e-8, weight_decay=0):
+        if not 0.0 <= lr:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+        if not 0.0 <= eps:
+            raise ValueError("Invalid epsilon value: {}".format(eps))
+        if not 0.0 <= betas[0] < 1.0:
+            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
+        if not 0.0 <= betas[1] < 1.0:
+            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
+        if not 0.0 <= beta3 < 1.0:
+            raise ValueError("Invalid beta3 parameter: {}".format(beta3))
+        defaults = dict(lr=lr, betas=betas, beta3=beta3, eps=eps,
+                        weight_decay=weight_decay)
+        super(AdaMod, self).__init__(params, defaults)
+
+    def __setstate__(self, state):
+        super(AdaMod, self).__setstate__(state)
+
+    def step(self, closure=None):
+        """Performs a single optimization step.
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                grad = p.grad.data
+                if grad.is_sparse:
+                    raise RuntimeError(
+                        'AdaMod does not support sparse gradients')
+
+                state = self.state[p]
+
+                # State initialization
+                if len(state) == 0:
+                    state['step'] = 0
+                    # Exponential moving average of gradient values
+                    state['exp_avg'] = torch.zeros_like(p.data)
+                    # Exponential moving average of squared gradient values
+                    state['exp_avg_sq'] = torch.zeros_like(p.data)
+                    # Exponential moving average of actual learning rates
+                    state['exp_avg_lr'] = torch.zeros_like(p.data)
+
+                exp_avg, exp_avg_sq, exp_avg_lr = state['exp_avg'], state['exp_avg_sq'], state['exp_avg_lr']
+                beta1, beta2 = group['betas']
+
+                state['step'] += 1
+
+                # Decay the first and second moment running average coefficient
+                exp_avg.mul_(beta1).add_(1 - beta1, grad)
+                exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
+
+                denom = exp_avg_sq.sqrt().add_(group['eps'])
+
+                bias_correction1 = 1 - beta1 ** state['step']
+                bias_correction2 = 1 - beta2 ** state['step']
+                step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
+
+                if group['weight_decay'] != 0:
+                    p.data.add_(-group['weight_decay'] * group['lr'], p.data)
+
+                # Applies momental bounds on actual learning rates
+                step_size = torch.full_like(denom, step_size)
+                step_size.div_(denom)
+                exp_avg_lr.mul_(group['beta3']).add_(1 - group['beta3'], step_size)
+                step_size = torch.min(step_size,  exp_avg_lr)
+                step_size.mul_(exp_avg)
+
+                p.data.add_(-step_size)
+
+        return loss
+
+
+

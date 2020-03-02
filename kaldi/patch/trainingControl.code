@@ -1,0 +1,42 @@
+
+# Some extra code for controling training model, which should be inserted by yourself.
+
+# Copyright xmuspeech (Author:Snowdar 2019-02-24)
+
+## For frame_level_objf ##
+# subtools/steps/libs/nnet3/train/frame_level_objf/common.py
+# after
+        threads.append(thread)
+# add 
+########################################################
+        control={"SleepTime":3,"Limit":8}
+        if os.path.isfile(dir+"/control.conf"):
+            for line in open(dir+"/control.conf","r"):
+                control[line.split("=")[0]]=int(line.split("=")[1])
+
+        print("Sleep %ds..."%(control["SleepTime"]))
+        time.sleep(control["SleepTime"])
+
+        while(len(common_lib.threading.enumerate())>=control["Limit"]+1):
+            time.sleep(10)
+#######################################################
+
+
+## For chain_objf ##
+# subtools/steps/libs/nnet3/train/chain_objf/acoustic_model.py
+# after
+        threads.append(thread)
+# add 
+# notice: should "import time" in this py file
+########################################################
+        control={"SleepTime":10,"Limit":8}
+        if os.path.isfile(dir+"/control.conf"):
+            for line in open(dir+"/control.conf","r"):
+                control[line.split("=")[0]]=int(line.split("=")[1])
+
+        print("Sleep %ds..."%(control["SleepTime"]))
+        time.sleep(control["SleepTime"])
+
+        while(len(common_lib.threading.enumerate())>=control["Limit"]+1):
+            time.sleep(10)
+#######################################################
