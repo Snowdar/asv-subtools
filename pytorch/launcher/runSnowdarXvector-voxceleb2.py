@@ -181,7 +181,7 @@ if stage <= 2 and endstage >= 0:
     kaldi_common.execute_command("sh subtools/pytorch/pipeline/preprocess_to_egs.sh "
                                  "--stage {stage} --endstage {endstage} "
                                  "--nj {nj} --cmn {cmn} --limit-utts {limit_utts} --min-chunk {chunk_size} "
-                                 "--sample-type {sample_type} --chunk-num {chunk_num} --scale {scale} --force-clear {force_clear}"
+                                 "--sample-type {sample_type} --chunk-num {chunk_num} --scale {scale} --force-clear {force_clear} "
                                  "--valid-num-utts {valid_utts} --valid-chunk-num {valid_chunk_num_every_utt} "
                                  "{traindata} {egs_dir}".format(stage=stage, endstage=endstage, nj=preprocess_nj, 
                                  cmn=str(cmn).lower(), limit_utts=limit_utts, chunk_size=chunk_size, sample_type=sample_type, 
