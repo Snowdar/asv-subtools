@@ -185,7 +185,7 @@ if stage <= 2 and endstage >= 0:
                                  "--valid-num-utts {valid_utts} --valid-chunk-num {valid_chunk_num_every_utt} "
                                  "{traindata} {egs_dir}".format(stage=stage, endstage=endstage, nj=preprocess_nj, 
                                  cmn=str(cmn).lower(), limit_utts=limit_utts, chunk_size=chunk_size, sample_type=sample_type, 
-                                 chunk_num=chunk_num, scale=scale, force_clear=force_clear, valid_utts=valid_utts,
+                                 chunk_num=chunk_num, scale=scale, force_clear=str(force_clear).lower(), valid_utts=valid_utts,
                                  valid_chunk_num_every_utt=valid_chunk_num_every_utt, traindata=traindata, egs_dir=egs_dir))
 
 #### Train model
