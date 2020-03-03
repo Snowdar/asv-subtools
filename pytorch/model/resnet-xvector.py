@@ -13,12 +13,13 @@ class ResnetXvector(TopVirtualNnet):
     """ A resnet x-vector framework """
     
     def init(self, inputs_dim, num_targets, aug_dropout=0.2, training=True, extracted_embedding="near", 
-             resnet_params={}, fc_params={}, margin_loss=False, margin_loss_params={},
+             resnet_params={}, fc1=False, fc1_params={}, fc2_params={}, margin_loss=False, margin_loss_params={},
              use_step=False, step_params={}, transfer_from="softmax_loss"):
 
         ## params
         default_resnet_params = {
             "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
+            "head_maxpool":False, "head_maxpool_params":{"kernel_size":3, "stride":1, "padding":1},
             "block":"BasicBlock",
             "layers":[3, 4, 6, 3],
             "planes":[32, 64, 128, 256], # a.k.a channels.
@@ -45,7 +46,8 @@ class ResnetXvector(TopVirtualNnet):
             }
 
         resnet_params = utils.assign_params_dict(default_resnet_params, resnet_params)
-        fc_params = utils.assign_params_dict(default_fc_params, fc_params)
+        fc1_params = utils.assign_params_dict(default_fc_params, fc1_params)
+        fc2_params = utils.assign_params_dict(default_fc_params, fc2_params)
         margin_loss_params =utils.assign_params_dict(default_margin_loss_params, margin_loss_params)
         step_params = utils.assign_params_dict(default_step_params, step_params)
 
@@ -65,7 +67,14 @@ class ResnetXvector(TopVirtualNnet):
                             * resnet_params["planes"][3]
 
         self.stats = StatisticsPooling(resnet_output_dim, stddev=True)
-        self.fc = ReluBatchNormTdnnLayer(self.stats.get_output_dim(), resnet_params["planes"][3], **fc_params)
+        self.fc1 = ReluBatchNormTdnnLayer(self.stats.get_output_dim(), resnet_params["planes"][3], **fc1_params) if fc1 else None
+
+        if fc1:
+            fc2_in_dim = resnet_params["planes"][3]
+        else:
+            fc2_in_dim = self.stats.get_output_dim()
+
+        self.fc2 = ReluBatchNormTdnnLayer(fc2_in_dim, resnet_params["planes"][3], **fc2_params)
 
         ## Do not need when extracting embedding.
         if training :
@@ -93,7 +102,8 @@ class ResnetXvector(TopVirtualNnet):
         # [samples-index, channel, frames-dim-index, frames-index] -> [samples-index, channel*frames-dim-index, frames-index]
         x = x.reshape(x.shape[0], x.shape[1]*x.shape[2], x.shape[3])
         x = self.stats(x) 
-        x = self.fc(x)
+        x = self.auto(self.fc1, x)
+        x = self.fc2(x)
 
         return x
 
@@ -125,10 +135,14 @@ class ResnetXvector(TopVirtualNnet):
         x = x.reshape(x.shape[0], x.shape[1]*x.shape[2], x.shape[3])
         x = self.stats(x)
 
-        if self.extracted_embedding == "near":
-            xvector = self.fc.affine(x)
+        if self.extracted_embedding == "far":
+            assert self.fc1 is not None
+            xvector = self.fc1.affine(x)
+        elif self.extracted_embedding == "near":
+            x = self.auto(self.fc1, x)
+            xvector = self.fc2.affine(x)
         else:
-            raise TypeError("Expected near position, but got {}".format(self.extracted_embedding))
+            raise TypeError("Expected far or near position, but got {}".format(self.extracted_embedding))
 
         return xvector
 

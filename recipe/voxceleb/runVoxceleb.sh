@@ -27,6 +27,16 @@ subtools/computeAugmentedVad.sh --vad-conf subtools/conf/vad-5.5.conf data/mfcc_
 subtools/filterDataDir.sh --split-aug true data/mfcc_23_pitch/voxceleb_train_aug/ data/voxceleb1_train/utt2spk \
                                 data/mfcc_23_pitch/voxceleb1_train_aug
 
+# Get a copy of clean dataset for scoring by spliting from voxceleb_train_aug
+subtools/filterDataDir.sh --check false --split-aug false data/mfcc_23_pitch/voxceleb_train_aug/ data/voxceleb_train/utt2spk \
+                                data/mfcc_23_pitch/voxceleb_train
+
+subtools/filterDataDir.sh --split-aug false data/mfcc_23_pitch/voxceleb_train_aug/ data/voxceleb1_train/utt2spk \
+                                data/mfcc_23_pitch/voxceleb1_train
+
+subtools/filterDataDir.sh --split-aug false data/mfcc_23_pitch/voxceleb_train_aug/ data/voxceleb2_train/utt2spk \
+                                data/mfcc_23_pitch/voxceleb2_train
+
 # Make features for testset
 subtools/makeFeatures.sh --pitch true --pitch-config subtools/conf/pitch.conf data/mfcc_23_pitch/voxceleb1_test/ mfcc \
                                 subtools/conf/sre-mfcc-23.conf

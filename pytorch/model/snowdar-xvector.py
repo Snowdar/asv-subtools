@@ -107,9 +107,10 @@ class Xvector(TopVirtualNnet):
 
         x = inputs
 
-        x = self.auto(self.aug_dropout, x)
+        x = self.auto(self.aug_dropout, x) # * 0.8 / 0.8**0.5 
 
         x = self.tdnn1(x)
+        
         if self.skip_connection:
             identity = x
         x = self.auto(self.se1, x)
