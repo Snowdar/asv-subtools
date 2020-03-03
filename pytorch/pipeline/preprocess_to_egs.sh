@@ -52,7 +52,8 @@ if [[ $stage -le 0 && 0 -le $endstage ]];then
     if [ "$force_clear" == "true" ];then
         rm -rf ${traindata}_nosil
         rm -rf $fetures_exp/${traindata}_nosil
-    elif [ ! -d "${traindata}_nosil" ];then
+
+        [ ! -d "${traindata}_nosil" ] && \
         subtools/kaldi/sid/nnet3/xvector/prepare_feats_for_egs.sh --nj $nj --cmd "run.pl" --compress $compress --cmn $cmn \
                                                    $traindata ${traindata}_nosil $fetures_exp/${traindata}_nosil || exit 1
     else

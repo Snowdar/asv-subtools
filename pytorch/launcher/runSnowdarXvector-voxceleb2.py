@@ -164,8 +164,8 @@ suffix = "params" # Used in saved model file.
 exist_model=""  # Use it in transfer learning.
 ##--------------------------------------------------##
 ## Main params
-traindata="data/mfcc_23_pitch/voxceleb_all_train_aug" # voxceleb1.train + voxceleb2.train
-egs_dir="exp/egs/mfcc_23_pitch_voxceleb_all_train_aug" + "_" + sample_type
+traindata="data/mfcc_23_pitch/voxceleb_train_aug" # voxceleb1.train + voxceleb2.train
+egs_dir="exp/egs/mfcc_23_pitch_voxceleb_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
 model_dir="exp/standard_xv_baseline_warmR_voxceleb2_adam"
