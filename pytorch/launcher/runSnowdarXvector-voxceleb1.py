@@ -110,6 +110,8 @@ gpu_id = args.gpu_id # If NULL, then it will be auto-specified.
 run_lr_finder = args.run_lr_finder
 
 egs_params = {
+    "use_fast_loader":True, # It is a queue loader to prefetch batch and storage.
+    "max_prefetch":10,
     "batch_size":512, 
     "shuffle":True, 
     "num_workers":2,
@@ -120,7 +122,7 @@ egs_params = {
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
     "extend":False, 
-    "aug_dropout":0.5,
+    "aug_dropout":0.2,
     "training":True, "extracted_embedding":"far", "SE":False, "se_ratio":4,
     "tdnn_layer_params":{"momentum":0.99, "nonlinearity":'relu'},
     "tdnn6":True, "tdnn7_params":{"nonlinearity":"default", "bn":True},

@@ -110,6 +110,8 @@ gpu_id = args.gpu_id # If NULL, then it will be auto-specified.
 run_lr_finder = args.run_lr_finder
 
 egs_params = {
+    "use_fast_loader":True, # It is a queue loader to prefetch batch and storage.
+    "max_prefetch":10,
     "batch_size":512, 
     "shuffle":True, 
     "num_workers":2,

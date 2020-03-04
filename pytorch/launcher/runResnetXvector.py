@@ -110,6 +110,8 @@ gpu_id = args.gpu_id # If NULL, then it will be auto-specified.
 run_lr_finder = args.run_lr_finder
 
 egs_params = {
+    "use_fast_loader":True, # It is a queue loader to prefetch batch and storage.
+    "max_prefetch":10,
     "batch_size":512, 
     "shuffle":True, 
     "num_workers":2,
@@ -191,7 +193,7 @@ traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/resnet-xvector.py"
-model_dir="exp/resnet35_xv_baseline_warmR_voxceleb1_ralamb"
+model_dir="exp/resnet_xv_baseline_warmR_voxceleb1_ralamb"
 ##--------------------------------------------------##
 ##
 #### Set seed

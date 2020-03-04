@@ -14,6 +14,8 @@ from torch.utils.data import DataLoader
 
 import libs.support.utils as utils
 import libs.support.kaldi_io as kaldi_io
+from libs.support.prefetch_generator import BackgroundGenerator
+
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -61,24 +63,29 @@ class ChunkEgs(Dataset):
 class BaseBunch():
     """BaseBunch:(trainset,[valid]).
     """
-    def __init__(self, trainset:ChunkEgs, valid:ChunkEgs=None, batch_size=512, shuffle=True, 
-                 num_workers=0, pin_memory=False, drop_last=True, queue_loader=False, queue_length=10):
+    def __init__(self, trainset:ChunkEgs, valid:ChunkEgs=None, use_fast_loader=False, max_prefetch=10,
+                 batch_size=512, shuffle=True, num_workers=0, pin_memory=False, drop_last=True):
 
-        self.train_loader = DataLoader(trainset, batch_size = batch_size, shuffle=shuffle, num_workers=num_workers, 
-                                       pin_memory=pin_memory, drop_last=drop_last)
+        if use_fast_loader:
+            self.train_loader = DataLoaderFast(max_prefetch, trainset, batch_size = batch_size, shuffle=shuffle, 
+                                               num_workers=num_workers, pin_memory=pin_memory, drop_last=drop_last)
+        else:
+            self.train_loader = DataLoader(trainset, batch_size = batch_size, shuffle=shuffle, num_workers=num_workers, 
+                                           pin_memory=pin_memory, drop_last=drop_last)
+
         self.num_batch_train = len(self.train_loader)
 
-        if pin_memory:
-            logger.info("The pin_memory is true, so do not use queue_loader.")
-            queue_loader = False
-
-        if queue_loader:
-            self.train_loader = QueueLoader(self.train_loader, queue_length=queue_length)
 
         if valid is not None:
             valid_batch_size = min(batch_size, len(valid)) # To save GPU memory
-            self.valid_loader = DataLoader(valid, batch_size = valid_batch_size, shuffle=False, num_workers=0, 
-                                           pin_memory=pin_memory, drop_last=False)
+
+            if use_fast_loader:
+                self.valid_loader = DataLoaderFast(max_prefetch, valid, batch_size = valid_batch_size, shuffle=False, num_workers=0, 
+                                               pin_memory=pin_memory, drop_last=False)
+            else:
+                self.valid_loader = DataLoader(valid, batch_size = valid_batch_size, shuffle=False, num_workers=0, 
+                                               pin_memory=pin_memory, drop_last=False)
+
             self.num_batch_valid = len(self.valid_loader)
         else:
             self.valid_loader = None
@@ -111,6 +118,17 @@ class BaseBunch():
         bunch = self.get_bunch_from_csv(train_csv, valid_csv, data_loader_params_dict)
         return bunch, info
 
+
+class DataLoaderFast(DataLoader):
+    """Use prefetch_generator to fetch batch to avoid waitting.
+    """
+    def __init__(self, max_prefetch, *args, **kwargs):
+        assert max_prefetch >= 1
+        self.max_prefetch = max_prefetch
+        super(DataLoaderFast, self).__init__(*args, **kwargs)
+
+    def __iter__(self):
+        return BackgroundGenerator(super(DataLoaderFast, self).__iter__(), self.max_prefetch)
 
 ## Function
 def get_info_from_egsdir(egsdir):
