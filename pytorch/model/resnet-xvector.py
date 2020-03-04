@@ -22,11 +22,12 @@ class ResnetXvector(TopVirtualNnet):
         ## params
         default_resnet_params = {
             "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
-            "head_maxpool":True, "head_maxpool_params":{"kernel_size":3, "stride":2, "padding":1},
+            "head_maxpool":True, "head_maxpool_params":{"kernel_size":3, "stride":1, "padding":1},
             "block":"BasicBlock",
             "layers":[3, 4, 6, 3],
             "planes":[32, 64, 128, 256], # a.k.a channels.
             "convXd":2,
+            "norm_layer_params":{"momentum":0.5, "affine":True},
             "full_pre_activation":True,
             "zero_init_residual":False
             }

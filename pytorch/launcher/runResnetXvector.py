@@ -128,6 +128,7 @@ model_params = {
             "layers":[3, 4, 6, 3],
             "planes":[32, 64, 128, 256],
             "convXd":2,
+            "norm_layer_params":{"momentum":0.5, "affine":True},
             "full_pre_activation":True,
             "zero_init_residual":False},
     "fc1":True,
