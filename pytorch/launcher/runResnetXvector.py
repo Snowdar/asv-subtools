@@ -119,14 +119,15 @@ egs_params = {
 
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = { 
-    "aug_dropout":0.2,
+    "aug_dropout":0.2, "tail_dropout":0.,
     "training":True, "extracted_embedding":"far",
     "resnet_params":{
             "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
-            "head_maxpool":False, "head_maxpool_params":{"kernel_size":3, "stride":1, "padding":1},
+            "head_maxpool":True, "head_maxpool_params":{"kernel_size":3, "stride":2, "padding":1},
             "block":"BasicBlock",
             "layers":[3, 4, 6, 3],
             "planes":[32, 64, 128, 256],
+            "convXd":2,
             "full_pre_activation":True,
             "zero_init_residual":False},
     "fc1":True,
@@ -189,7 +190,7 @@ traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/resnet-xvector.py"
-model_dir="exp/resnet18_xv_baseline_warmR_voxceleb1_ralamb"
+model_dir="exp/resnet35_xv_baseline_warmR_voxceleb1_ralamb"
 ##--------------------------------------------------##
 ##
 #### Set seed

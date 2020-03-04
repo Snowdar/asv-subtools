@@ -2,27 +2,31 @@
 
 # Copyright xmuspeech (Author: Snowdar 2020-02-28)
 
-import torch.nn
+import sys
+import torch
 import torch.nn.functional as F
-import libs.support.utils as utils
 
+sys.path.insert(0, "subtools/pytorch")
+
+import libs.support.utils as utils
 from libs.nnet import *
 
 
 class ResnetXvector(TopVirtualNnet):
     """ A resnet x-vector framework """
     
-    def init(self, inputs_dim, num_targets, aug_dropout=0.2, training=True, extracted_embedding="near", 
+    def init(self, inputs_dim, num_targets, aug_dropout=0.2, tail_dropout=0., training=True, extracted_embedding="near", 
              resnet_params={}, fc1=False, fc1_params={}, fc2_params={}, margin_loss=False, margin_loss_params={},
              use_step=False, step_params={}, transfer_from="softmax_loss"):
 
         ## params
         default_resnet_params = {
             "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
-            "head_maxpool":False, "head_maxpool_params":{"kernel_size":3, "stride":1, "padding":1},
+            "head_maxpool":True, "head_maxpool_params":{"kernel_size":3, "stride":2, "padding":1},
             "block":"BasicBlock",
             "layers":[3, 4, 6, 3],
             "planes":[32, 64, 128, 256], # a.k.a channels.
+            "convXd":2,
             "full_pre_activation":True,
             "zero_init_residual":False
             }
@@ -56,15 +60,19 @@ class ResnetXvector(TopVirtualNnet):
         self.extracted_embedding = extracted_embedding # only near here.
         self.use_step = use_step
         self.step_params = step_params
+        self.convXd = resnet_params["convXd"]
         
         ## Nnet.
         self.aug_dropout = torch.nn.Dropout2d(p=aug_dropout) if aug_dropout > 0 else None
 
-        self.resnet = ResNet(**resnet_params)
+        # [batch, 1, feats-dim, frames] for 2d and  [batch, feats-dim, frames] for 1d.
+        # Should keep the channel/plane is always in 1-dim of tensor (index-0 based).
+        inplanes = 1 if self.convXd == 2 else inputs_dim
+        self.resnet = ResNet(inplanes, **resnet_params)
 
         # It is just equal to Ceil function.
         resnet_output_dim = (inputs_dim + self.resnet.get_downsample_multiple() - 1) // self.resnet.get_downsample_multiple() \
-                            * resnet_params["planes"][3]
+                            * resnet_params["planes"][3] if self.convXd == 2 else resnet_params["planes"][3]
 
         self.stats = StatisticsPooling(resnet_output_dim, stddev=True)
         self.fc1 = ReluBatchNormTdnnLayer(self.stats.get_output_dim(), resnet_params["planes"][3], **fc1_params) if fc1 else None
@@ -75,6 +83,8 @@ class ResnetXvector(TopVirtualNnet):
             fc2_in_dim = self.stats.get_output_dim()
 
         self.fc2 = ReluBatchNormTdnnLayer(fc2_in_dim, resnet_params["planes"][3], **fc2_params)
+
+        self.tail_dropout = torch.nn.Dropout2d(p=tail_dropout) if tail_dropout > 0 else None
 
         ## Do not need when extracting embedding.
         if training :
@@ -98,12 +108,14 @@ class ResnetXvector(TopVirtualNnet):
         x = inputs
         x = self.auto(self.aug_dropout, x) # This auto function is equal to "x = layer(x) if layer is not None else x" for convenience.
         # [samples-index, frames-dim-index, frames-index] -> [samples-index, 1, frames-dim-index, frames-index]
-        x = self.resnet(x.unsqueeze(1))
+        x = x.unsqueeze(1) if self.convXd == 2 else x
+        x = self.resnet(x)
         # [samples-index, channel, frames-dim-index, frames-index] -> [samples-index, channel*frames-dim-index, frames-index]
-        x = x.reshape(x.shape[0], x.shape[1]*x.shape[2], x.shape[3])
+        x = x.reshape(x.shape[0], x.shape[1]*x.shape[2], x.shape[3]) if self.convXd == 2 else x
         x = self.stats(x) 
         x = self.auto(self.fc1, x)
         x = self.fc2(x)
+        x = self.auto(self.tail_dropout, x)
 
         return x
 
@@ -131,8 +143,10 @@ class ResnetXvector(TopVirtualNnet):
         """
 
         x = inputs
-        x = self.resnet(x.unsqueeze(1))
-        x = x.reshape(x.shape[0], x.shape[1]*x.shape[2], x.shape[3])
+        # Tensor shape is not modified in libs.nnet.resnet.py for calling free, such as using this framework in cv.
+        x = x.unsqueeze(1) if self.convXd == 2 else x
+        x = self.resnet(x)
+        x = x.reshape(x.shape[0], x.shape[1]*x.shape[2], x.shape[3]) if self.convXd == 2 else x
         x = self.stats(x)
 
         if self.extracted_embedding == "far":
@@ -169,4 +183,18 @@ class ResnetXvector(TopVirtualNnet):
                 self.loss.m = self.compute_decay_value(*self.step_params["m_tuple"], current_postion, self.T)
 
 
+# Test.
+if __name__ == "__main__":
+    # Let bach-size:128, fbank:40, frames:200.
+    tensor = torch.randn(128, 40, 200)
+    print("Test resnet2d ...")
+    resnet2d = ResnetXvector(40, 1211, resnet_params={"convXd":2})
+    print(resnet2d)
+    print(resnet2d(tensor).shape)
+    print("\n")
+    print("Test resnet1d ...")
+    resnet1d = ResnetXvector(40, 1211, resnet_params={"convXd":1})
+    print(resnet1d)
+    print(resnet1d(tensor).shape)
 
+    print("Test done.")

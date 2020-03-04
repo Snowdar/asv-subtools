@@ -2,7 +2,7 @@
 
 # Copyright xmuspeech (Author: Snowdar 2020-02-05)
 
-import torch.nn
+import torch
 import torch.nn.functional as F
 import libs.support.utils as utils
 

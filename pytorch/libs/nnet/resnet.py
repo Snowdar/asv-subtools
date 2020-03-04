@@ -9,22 +9,22 @@ import torch
 import torch.nn as nn
 
 
-def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
+def conv3x3(in_planes, out_planes, Conv=nn.Conv2d, stride=1, groups=1, dilation=1):
     """3x3 convolution with padding"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
+    return Conv(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=dilation, groups=groups, bias=False, dilation=dilation)
 
 
-def conv1x1(in_planes, out_planes, stride=1):
+def conv1x1(in_planes, out_planes, Conv=nn.Conv2d, stride=1):
     """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+    return Conv(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 
 class BasicBlock(nn.Module):
     expansion = 1
     __constants__ = ['downsample']
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
+    def __init__(self, inplanes, planes, Conv=nn.Conv2d, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, norm_layer=None, full_pre_activation=True):
         super(BasicBlock, self).__init__()
         if norm_layer is None:
@@ -39,25 +39,25 @@ class BasicBlock(nn.Module):
         self.full_pre_activation = full_pre_activation
 
         if self.full_pre_activation:
-            self._full_pre_activation(inplanes, planes, stride, norm_layer)
+            self._full_pre_activation(inplanes, planes, Conv, stride, norm_layer)
         else:
-            self._original(inplanes, planes, stride, norm_layer)
+            self._original(inplanes, planes, Conv, stride, norm_layer)
 
-    def _original(self, inplanes, planes, stride, norm_layer):
-        self.conv1 = conv3x3(inplanes, planes, stride)
+    def _original(self, inplanes, planes, Conv, stride, norm_layer):
+        self.conv1 = conv3x3(inplanes, planes, Conv, stride)
         self.bn1 = norm_layer(planes)
         self.relu1 = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3(planes, planes)
+        self.conv2 = conv3x3(planes, planes, Conv)
         self.bn2 = norm_layer(planes)
         self.relu2 = nn.ReLU(inplace=True)
 
-    def _full_pre_activation(self, inplanes, planes, stride, norm_layer):
+    def _full_pre_activation(self, inplanes, planes, Conv, stride, norm_layer):
         self.bn1 = norm_layer(inplanes)
         self.relu1 = nn.ReLU(inplace=True)
-        self.conv1 = conv3x3(inplanes, planes, stride)
+        self.conv1 = conv3x3(inplanes, planes, Conv, stride)
         self.bn2 = norm_layer(planes)
         self.relu2 = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3(planes, planes)
+        self.conv2 = conv3x3(planes, planes, Conv)
 
     def _original_forward(self, x):
         identity = x
@@ -110,18 +110,18 @@ class Bottleneck(nn.Module):
     expansion = 4
     __constants__ = ['downsample']
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
+    def __init__(self, inplanes, planes, Conv=nn.Conv2d, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, norm_layer=None, full_pre_activation=False):
         super(Bottleneck, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         width = int(planes * (base_width / 64.)) * groups
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
-        self.conv1 = conv1x1(inplanes, width)
+        self.conv1 = conv1x1(inplanes, width, Conv)
         self.bn1 = norm_layer(width)
-        self.conv2 = conv3x3(width, width, stride, groups, dilation)
+        self.conv2 = conv3x3(width, width, Conv, stride, groups, dilation)
         self.bn2 = norm_layer(width)
-        self.conv3 = conv1x1(width, planes * self.expansion)
+        self.conv3 = conv1x1(width, planes * self.expansion, Conv)
         self.bn3 = norm_layer(planes * self.expansion)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
@@ -157,17 +157,29 @@ class Bottleneck(nn.Module):
 class ResNet(nn.Module):
     """Just return a structure (preconv + resnet) without avgpool and final linear.
     """
-    def __init__(self, block="BasicBlock", layers=[3, 4, 6, 3], planes=[32, 64, 128, 256], full_pre_activation=True,
+    def __init__(self, head_inplanes, block="BasicBlock", layers=[3, 4, 6, 3], planes=[32, 64, 128, 256], convXd=2, 
+                 full_pre_activation=True,
                  head_conv=True, head_conv_params={"kernel_size":3, "stride":1, "padding":1},
                  head_maxpool=False, head_maxpool_params={"kernel_size":3, "stride":1, "padding":1},
                  zero_init_residual=False, groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None):
         super(ResNet, self).__init__()
+
+        if convXd != 1 and convXd != 2:
+            raise TypeError("Expected 1d or 2d conv, but got {}.".format(convXd))
+
         if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
+            if convXd == 2:
+                norm_layer = nn.BatchNorm2d
+            else:
+                norm_layer = nn.BatchNorm1d
+
         self._norm_layer = norm_layer
 
         self.inplanes = planes[0]
+        if not head_conv and self.in_planes != head_inplanes:
+            raise ValueError("The inplanes is not equal to resnet first block" \
+                             "inplanes without head conv({} vs. {}).".format(head_inplanes, self.inplanes))
         self.dilation = 1
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
@@ -192,15 +204,18 @@ class ResNet(nn.Module):
         self.downsample_multiple = 1
         self.full_pre_activation = full_pre_activation
 
+        self.Conv = nn.Conv2d if convXd == 2 else nn.Conv1d
+
         if self.head_conv:
-            # Keep conv1.outplanes == layer1.inplanes 
-            self.conv1 = nn.Conv2d(1, self.inplanes, **head_conv_params, bias=False)
+            # Keep conv1.outplanes == layer1.inplanes
+            self.conv1 = self.Conv(head_inplanes, self.inplanes, **head_conv_params, bias=False)
             self.bn1 = norm_layer(self.inplanes)
             self.relu = nn.ReLU(inplace=True)
             self.downsample_multiple *= head_conv_params["stride"]
 
         if self.head_maxpool:
-            self.maxpool = nn.MaxPool2d(**head_maxpool_params)
+            Maxpool = nn.MaxPool2d if convXd == 2 else nn.MaxPool1d
+            self.maxpool = Maxpool(**head_maxpool_params)
             self.downsample_multiple *= head_maxpool_params["stride"]
 
         self.layer1 = self._make_layer(used_block, planes[0], layers[0])
@@ -217,10 +232,10 @@ class ResNet(nn.Module):
         #self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, self.Conv):
                 torch.nn.init.normal_(m.weight, 0., 0.01)
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+            elif isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
@@ -246,17 +261,17 @@ class ResNet(nn.Module):
             stride = 1
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                conv1x1(self.inplanes, planes * block.expansion, stride),
+                conv1x1(self.inplanes, planes * block.expansion, self.Conv, stride),
                 norm_layer(planes * block.expansion),
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
+        layers.append(block(self.inplanes, planes, self.Conv, stride, downsample, self.groups,
                             self.base_width, previous_dilation, norm_layer, 
                             full_pre_activation=self.full_pre_activation))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes, groups=self.groups,
+            layers.append(block(self.inplanes, planes, self.Conv, groups=self.groups,
                                 base_width=self.base_width, dilation=self.dilation,
                                 norm_layer=norm_layer, full_pre_activation=self.full_pre_activation))
 
