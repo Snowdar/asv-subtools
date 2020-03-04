@@ -232,18 +232,23 @@ class ResNet(nn.Module):
         #self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         #self.fc = nn.Linear(512 * block.expansion, num_classes)
 
+        if "affine" in norm_layer_params.keys():
+            norm_layer_affine = norm_layer_params["affine"]
+        else:
+            norm_layer_affine = True # torch.nn default it True
+
         for m in self.modules():
             if isinstance(m, self.Conv):
                 torch.nn.init.normal_(m.weight, 0., 0.01)
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.GroupNorm)) and norm_layer_params["affine"]:
+            elif isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.GroupNorm)) and norm_layer_affine:
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
         # Zero-initialize the last BN in each residual branch,
         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
         # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
-        if zero_init_residual and norm_layer_params["affine"]:
+        if zero_init_residual and norm_layer_affine:
             for m in self.modules():
                 if isinstance(m, Bottleneck):
                     nn.init.constant_(m.bn3.weight, 0)

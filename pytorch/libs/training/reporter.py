@@ -107,10 +107,11 @@ class Reporter():
 
                 snapshot, training_point, current_lr = res
                 current_epoch, current_iter, num_batchs_train = training_point
-                info_dict = {"epoch":current_epoch+1, "iter":current_iter+1, "lr":"{0:.8f}".format(current_lr)}
+                update_iters = current_epoch * num_batchs_train + current_iter + 1
+                info_dict = {"epoch":current_epoch+1, "iter":current_iter+1, "position":update_iters, 
+                             "lr":"{0:.8f}".format(current_lr)}
                 info_dict.update(snapshot)
                 self.record(info_dict, training_point)
-                update_iters = current_epoch * num_batchs_train + current_iter + 1
                 self.bar.update(update_iters, current_epoch=current_epoch+1, current_iter=current_iter+1)
             except BaseException as e:
                 self.bar.finish()
