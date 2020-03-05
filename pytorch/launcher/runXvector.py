@@ -107,9 +107,12 @@ cmn = True # traditional cmn process
 chunk_size = 200
 limit_utts = 8
 
+
 sample_type="speaker_balance" # sequential | speaker_balance
 chunk_num=0 # -1 means using scale, 0 means using max and >0 means itself.
+overlap=0.1
 scale=1.5 # Get max / num_spks * scale for every speaker.
+valid_split_type="--total-spk" # --totat-spk or --default
 valid_utts = 1024
 valid_chunk_num_every_utt = 2
 ##--------------------------------------------------##
@@ -184,15 +187,16 @@ utils.set_all_seed(1024) # Note that, in different machine, random still will be
 if stage <= 2 and endstage >= 0:
     # Here only give limited options because it is not convenient.
     # Suggest to pre-execute this shell script to make it freedom and then continue to run this launcher.
-    kaldi_common.execute_command("sh subtools/pytorch/pipeline/preprocess_to_egs.sh "
-                                 "--stage {stage} --endstage {endstage} "
-                                 "--nj {nj} --cmn {cmn} --limit-utts {limit_utts} --min-chunk {chunk_size} "
+   kaldi_common.execute_command("sh subtools/pytorch/pipeline/preprocess_to_egs.sh "
+                                 "--stage {stage} --endstage {endstage} --valid-split-type {valid_split_type} "
+                                 "--nj {nj} --cmn {cmn} --limit-utts {limit_utts} --min-chunk {chunk_size} --overlap {overlap} "
                                  "--sample-type {sample_type} --chunk-num {chunk_num} --scale {scale} --force-clear {force_clear} "
                                  "--valid-num-utts {valid_utts} --valid-chunk-num {valid_chunk_num_every_utt} "
-                                 "{traindata} {egs_dir}".format(stage=stage, endstage=endstage, nj=preprocess_nj, 
-                                 cmn=str(cmn).lower(), limit_utts=limit_utts, chunk_size=chunk_size, sample_type=sample_type, 
-                                 chunk_num=chunk_num, scale=scale, force_clear=str(force_clear).lower(), valid_utts=valid_utts,
-                                 valid_chunk_num_every_utt=valid_chunk_num_every_utt, traindata=traindata, egs_dir=egs_dir))
+                                 "{traindata} {egs_dir}".format(stage=stage, endstage=endstage, valid_split_type=valid_split_type, 
+                                 nj=preprocess_nj, cmn=str(cmn).lower(), limit_utts=limit_utts, chunk_size=chunk_size, overlap=overlap, 
+                                 sample_type=sample_type, chunk_num=chunk_num, scale=scale, force_clear=str(force_clear).lower(), 
+                                 valid_utts=valid_utts, valid_chunk_num_every_utt=valid_chunk_num_every_utt, traindata=traindata, 
+                                 egs_dir=egs_dir))
 
 
 #### Train model

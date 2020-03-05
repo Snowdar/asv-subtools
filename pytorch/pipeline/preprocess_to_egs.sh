@@ -23,7 +23,7 @@ limit_utts=8
 # Get chunk egs
 valid_sample=true
 valid_num_utts=1024
-valid_split_type="--total-spk"
+valid_split_type="--default" #"--total-spk"
 sample_type="speaker_balance" # sequential | speaker_balance
 chunk_num=-1
 scale=1.5

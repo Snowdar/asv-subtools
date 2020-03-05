@@ -126,7 +126,7 @@ class Reporter():
 
     def finish(self):
         self.queue.put(None)
-        # self.bar.finish()
+        self.bar.finish()
 
 
 class LRFinderReporter():

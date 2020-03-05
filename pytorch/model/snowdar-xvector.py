@@ -12,7 +12,7 @@ class Xvector(TopVirtualNnet):
     """ A composite x-vector framework """
     
     ## base parameters - components - loss - training strategy
-    def init(self, inputs_dim, num_targets, extend=False, aug_dropout=0.2, skip_connection=False,
+    def init(self, inputs_dim, num_targets, extend=False, aug_dropout=0.2, tail_dropout=0., skip_connection=False,
              training=True, extracted_embedding="far", SE=False, se_ratio=4,
              tdnn_layer_params={"momentum":0.5, "nonlinearity":'relu',"nonlinearity_params":{"inplace":True}},
              tdnn6=True, tdnn7_params={"nonlinearity":"default", "bn":True, "bias":True},
@@ -80,6 +80,8 @@ class Xvector(TopVirtualNnet):
 
         self.tdnn7 = ReluBatchNormTdnnLayer(tdnn7_dim,512, **tdnn7_params, momentum=tdnn_layer_params["momentum"])
 
+        self.tail_dropout = torch.nn.Dropout2d(p=tail_dropout) if tail_dropout > 0 else None
+
         # Do not need when extracting embedding.
         if training :
             if margin_loss:
@@ -108,7 +110,6 @@ class Xvector(TopVirtualNnet):
         x = inputs
 
         x = self.auto(self.aug_dropout, x) # * 0.8 / 0.8**0.5 
-
         x = self.tdnn1(x)
         
         if self.skip_connection:
@@ -136,10 +137,10 @@ class Xvector(TopVirtualNnet):
         x = self.auto(self.se5, x)
         x = self.stats(x)
         x = self.auto(self.tdnn6, x)
+        x = self.tdnn7(x)
+        x = self.auto(self.tail_dropout, x)
 
-        outputs = self.tdnn7(x)
-
-        return outputs
+        return x
 
 
     @utils.for_device_free

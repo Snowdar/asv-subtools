@@ -66,18 +66,29 @@ class TdnnAffine(torch.nn.Module):
         else:
             self.register_parameter('bias', None)
 
+        
         # init weight and bias. It is important
         self.init_weight()
 
-        # Used to skip some frames index according to context
-        self.mask = torch.randn(output_dim, input_dim, 0)
-        for index in range(self.left_context, self.right_context + 1):
-            if index in context:
-                fixed_value = torch.ones(output_dim, input_dim, 1)
-            else:
-                fixed_value = torch.zeros(output_dim, input_dim, 1)
+        # Save GPU memory for no skiping case
+        if len(context) != self.tot_context:
+            # Used to skip some frames index according to context
+            self.mask = torch.tensor([[[ 1 if index in context else 0 \
+                                        for index in range(self.left_context, self.right_context + 1) ]]])
+        else:
+            self.mask = None
 
-            self.mask=torch.cat((self.mask, fixed_value), dim = 2)
+        ## Deprecated: the broadcast method could be used to save GPU memory, 
+        # self.mask = torch.randn(output_dim, input_dim, 0)
+        # for index in range(self.left_context, self.right_context + 1):
+        #     if index in context:
+        #         fixed_value = torch.ones(output_dim, input_dim, 1)
+        #     else:
+        #         fixed_value = torch.zeros(output_dim, input_dim, 1)
+
+        #     self.mask=torch.cat((self.mask, fixed_value), dim = 2)
+
+        # Save GPU memory of thi case.
 
         self.selected_device = False
 
@@ -96,19 +107,20 @@ class TdnnAffine(torch.nn.Module):
         assert len(inputs.shape) == 3
         assert inputs.shape[1] == self.input_dim
 
+        # Do not use conv1d.padding for self.left_context + self.right_context != 0 case.
         if self.pad:
             inputs = F.pad(inputs, (-self.left_context, self.right_context), mode="constant", value=0)
 
         assert inputs.shape[2] >=  self.tot_context
 
-        if not self.selected_device :
+        if not self.selected_device and self.mask is not None:
             # To save the CPU -> GPU moving time
             # Another simple case, for a temporary tensor, jus specify the device when creating it.
             # such as, this_tensor = torch.tensor([1.0], device=inputs.device)
             self.mask = to_device(self, self.mask)
             self.selected_device = True
 
-        filters = self.weight * self.mask
+        filters = self.weight  * self.mask if self.mask is not None else self.weight
 
         if self.norm_w:
             filters = F.normalize(filters, dim=1)
@@ -116,7 +128,7 @@ class TdnnAffine(torch.nn.Module):
         if self.norm_f:
             inputs = F.normalize(inputs, dim=1)
 
-        outputs = F.conv1d(inputs, filters, self.bias, self.stride, 0, 1, 1)
+        outputs = F.conv1d(inputs, filters, self.bias, self.stride, padding=0, dilation=1, groups=1)
 
         return outputs
 
@@ -369,7 +381,6 @@ class StatisticsPooling(torch.nn.Module):
             var = torch.sum((inputs - mean)**2, dim=2) / counts
             std = torch.unsqueeze(torch.sqrt(var.clamp(min=self.eps)), dim=2)
             return torch.cat((mean, std), dim=1)
-
         else:
             return mean
 

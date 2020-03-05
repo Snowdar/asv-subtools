@@ -99,8 +99,10 @@ limit_utts = 8
 
 sample_type="speaker_balance" # sequential | speaker_balance
 chunk_num=-1 # -1 means using scale, 0 means using max and >0 means itself.
+overlap=0.1
 scale=1.5 # Get max / num_spks * scale for every speaker.
-valid_utts = 1024
+valid_split_type="--total-spk" # --totat-spk or --default
+valid_utts = 1211
 valid_chunk_num_every_utt = 2
 ##--------------------------------------------------##
 ## Training options
@@ -122,9 +124,9 @@ egs_params = {
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
     "extend":False, 
-    "aug_dropout":0.2,
+    "aug_dropout":0.2, "tail_dropout":0.,
     "training":True, "extracted_embedding":"far", "SE":False, "se_ratio":4,
-    "tdnn_layer_params":{"momentum":0.99, "nonlinearity":'relu'},
+    "tdnn_layer_params":{"momentum":0.5, "nonlinearity":'relu'},
     "tdnn6":True, "tdnn7_params":{"nonlinearity":"default", "bn":True},
     "attentive_pooling":False, "attentive_pooling_params":{"hidden_size":64},
     "LDE_pooling":False, "LDE_pooling_params":{"c_num":64, "nodes":128},
@@ -143,7 +145,7 @@ optimizer_params = {
     "beta3":0.999,
     "weight_decay":3e-4,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
     "lookahead.k":5,
-    "lookahead.alpha":0 # 0 means not using lookahead and if used, suggest to set it as 0.5.
+    "lookahead.alpha":0  # 0 means not using lookahead and if used, suggest to set it as 0.5.
 }
 
 lr_scheduler_params = {
@@ -152,7 +154,7 @@ lr_scheduler_params = {
     "warmR.T_max":7,
     "warmR.T_mult":1,
     "warmR.factor":1.0,  # The max_lr_decay_factor.
-    "warmR.eta_min":4e-8
+    "warmR.eta_min":1e-4
 }
 
 epochs = 21 # Total epochs to train. It is important.
@@ -170,7 +172,7 @@ traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/standard_xv_baseline_warmR_voxceleb1_adam"
+model_dir="exp/standard_xv_voxceleb1_ralamb" + "_" + sample_type
 ##--------------------------------------------------##
 ##
 #### Set seed
@@ -181,14 +183,15 @@ if stage <= 2 and endstage >= 0:
     # Here only give limited options because it is not convenient.
     # Suggest to pre-execute this shell script to make it freedom and then continue to run this launcher.
     kaldi_common.execute_command("sh subtools/pytorch/pipeline/preprocess_to_egs.sh "
-                                 "--stage {stage} --endstage {endstage} "
-                                 "--nj {nj} --cmn {cmn} --limit-utts {limit_utts} --min-chunk {chunk_size} "
+                                 "--stage {stage} --endstage {endstage} --valid-split-type {valid_split_type} "
+                                 "--nj {nj} --cmn {cmn} --limit-utts {limit_utts} --min-chunk {chunk_size} --overlap {overlap} "
                                  "--sample-type {sample_type} --chunk-num {chunk_num} --scale {scale} --force-clear {force_clear} "
                                  "--valid-num-utts {valid_utts} --valid-chunk-num {valid_chunk_num_every_utt} "
-                                 "{traindata} {egs_dir}".format(stage=stage, endstage=endstage, nj=preprocess_nj, 
-                                 cmn=str(cmn).lower(), limit_utts=limit_utts, chunk_size=chunk_size, sample_type=sample_type, 
-                                 chunk_num=chunk_num, scale=scale, force_clear=str(force_clear).lower(), valid_utts=valid_utts,
-                                 valid_chunk_num_every_utt=valid_chunk_num_every_utt, traindata=traindata, egs_dir=egs_dir))
+                                 "{traindata} {egs_dir}".format(stage=stage, endstage=endstage, valid_split_type=valid_split_type, 
+                                 nj=preprocess_nj, cmn=str(cmn).lower(), limit_utts=limit_utts, chunk_size=chunk_size, overlap=overlap, 
+                                 sample_type=sample_type, chunk_num=chunk_num, scale=scale, force_clear=str(force_clear).lower(), 
+                                 valid_utts=valid_utts, valid_chunk_num_every_utt=valid_chunk_num_every_utt, traindata=traindata, 
+                                 egs_dir=egs_dir))
 
 #### Train model
 if stage <= 3 <= endstage:
