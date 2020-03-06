@@ -70,7 +70,7 @@ if [ "$score_norm" == "true" ];then
         [[ "$force" == "true" ]] && rm -rf data/$prefix/$cohort_set
         if [ "$cohort_method" == "sub" ];then
             cohort_set=${cohort_set_from}_cohort_sub_${sub_num}$sub_option
-            [ ! -d data/$prefix/$cohort_set ] && subtools/utils/subset_data_dir.sh $sub_option \
+            [ ! -d data/$prefix/$cohort_set ] && subtools/kaldi/utils/subset_data_dir.sh $sub_option \
             data/$prefix/$cohort_set_from $sub_num data/$prefix/$cohort_set
         elif [ "$cohort_method" == "mean" ];then
             cohort_set=${cohort_set_from}_cohort_mean
