@@ -3,7 +3,7 @@
 # Copyright xmuspeech (Author: Snowdar 2019-08-01)
 
 import math
-
+import numpy as np
 import torch
 from torch.optim.lr_scheduler import _LRScheduler
 
@@ -24,6 +24,7 @@ class LRSchedulerWrapper():
             "warmR.T_mult":1,
             "warmR.factor":1.0,
             "warmR.eta_min":4e-8,
+            "warmR.log_decay":False,
             "warmR.lr_decay_step":1
         }
 
@@ -86,7 +87,7 @@ class CosineAnnealingWarmRestarts(_LRScheduler):
     Base lr decay has been added. [Snowdar 2019-08-29]
     """
 
-    def __init__(self, optimizer, T_0, T_mult=1, eta_min=0, factor=1.0, last_epoch=-1):
+    def __init__(self, optimizer, T_0, T_mult=1, eta_min=0, factor=1.0, log_decay=False, last_epoch=-1):
         if T_0 <= 0 or not isinstance(T_0, int):
             raise ValueError("Expected positive integer T_0, but got {}".format(T_0))
         if T_mult <=0: # or not isinstance(T_mult, int):
@@ -98,12 +99,19 @@ class CosineAnnealingWarmRestarts(_LRScheduler):
         self.factor = factor
         self.this_factor = 1
         self.T_cur = last_epoch
+        self.log_decay = log_decay
         super(CosineAnnealingWarmRestarts, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
-        return [self.eta_min + (base_lr * self.this_factor - self.eta_min) * 
-                (1 + math.cos(math.pi * self.T_cur / self.T_i)) / 2
-                for base_lr in self.base_lrs]
+        if self.log_decay:
+            eta_min = np.log10(self.eta_min)
+            return [ 10**(eta_min + (np.log10(base_lr * self.this_factor) - eta_min) * 
+                    (1 + math.cos(math.pi * self.T_cur / self.T_i)) / 2)
+                    for base_lr in self.base_lrs]
+        else:
+            return [self.eta_min + (base_lr * self.this_factor - self.eta_min) * 
+                    (1 + math.cos(math.pi * self.T_cur / self.T_i)) / 2
+                    for base_lr in self.base_lrs]
 
     def step(self, epoch=None):
         """Step could be called after every batch update

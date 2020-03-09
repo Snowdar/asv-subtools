@@ -129,6 +129,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         self.feature_normalize = feature_normalize
         self.mhe_loss = mhe_loss
         self.mhe_w = mhe_w
+        self.lambda_factor = 0
 
         self.eps = eps
 
@@ -188,7 +189,8 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         else:
             raise ValueError("Do not support this {0} margin w.r.t [ am | aam | sm1 | sm2 | sm3 ]".format(self.method))
 
-        outputs = self.s * cosine_theta.scatter(1, targets.unsqueeze(1), penalty_cosine_theta)
+        outputs = self.s * cosine_theta.scatter(1, targets.unsqueeze(1), 
+                  1/(1+self.lambda_factor) * penalty_cosine_theta + self.lambda_factor/(1+self.lambda_factor) * cosine_theta_target)
 
         # Here reported loss will be always higher than softmax loss for the absolute margin penalty and 
         # it is a lie about why we can not decrease the loss to a mininum value. We 
@@ -207,6 +209,9 @@ class MarginSoftmaxLoss(TopVirtualLoss):
             return self.loss_function(outputs/self.t, targets) + the_mhe_loss
         else:
             return self.loss_function(outputs/self.t, targets)
+    
+    def step(self, lambda_factor):
+        self.lambda_factor = lambda_factor
 
     def extra_repr(self):
         return '(~affine): ~(input_dim={input_dim}, num_targets={num_targets}, method={method}, margin={m}, s={s}, t={t}, ' \

@@ -158,7 +158,8 @@ lr_scheduler_params = {
     "warmR.T_max":6,
     "warmR.T_mult":1,
     "warmR.factor":0.7,  # The max_lr_decay_factor.
-    "warmR.eta_min":4e-8
+    "warmR.eta_min":4e-8,
+    "warmR.log_decay":False
 }
 
 epochs = 18 # Total epochs to train. It is important. Here 18 = 6 -> 12 -> 18 with warmR.T_mult=1 and warmR.T_max=6.
@@ -239,8 +240,9 @@ if stage <= 3 <= endstage:
     else:
         trainer.run()
 
-    # Use del to avoid memeory account after training done and continue to execute stage 4.
-    # It dose not work and it is still a probelm.
+    # Plan to use del to avoid memeory account after training done and continue to execute stage 4.
+    # But it dose not work and is still a problem.
+    # Here, give the runLauncher.sh to avoid this problem.
     del bunch, model, optimizer, lr_scheduler, trainer
 
 

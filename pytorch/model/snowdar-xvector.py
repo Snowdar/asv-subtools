@@ -21,8 +21,10 @@ class Xvector(TopVirtualNnet):
              focal_loss=False, focal_loss_params={"gamma":2},
              margin_loss=False, margin_loss_params={"method":"am", "m":0.2, "feature_normalize":True, 
                                                     "s":30, "mhe_loss":False, "mhe_w":0.01},
-             use_step=False, step_params={"t":False, "s":False, "m":False, "T":None, "record_T":0,
-                                          "t_tuple":(0.5, 1.2), "s_tuple":(30, 12), "m_tuple":(0, 0.2)},
+             use_step=False, step_params={"T":None, "record_T":0,
+                                          "s":False, "s_tuple":(30, 12), "s_list":None,
+                                          "t":False, "t_tuple":(0.5, 1.2), 
+                                          "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4},
              transfer_from="softmax_loss"):
 
         # Var
@@ -210,19 +212,23 @@ class Xvector(TopVirtualNnet):
     def step(self, epoch, this_iter, epoch_batchs):
         # heated up for t, s, m
         if self.use_step:
-            if self.step_params["record_T"] < self.step_params["T"][epoch]:
-                self.current_epoch = epoch*epoch_batchs
-                self.T = self.step_params["T"][epoch] * epoch_batchs
-                self.step_params["record_T"] = self.step_params["T"][epoch]
+            if self.step_params["T"] is not None:
+                if self.step_params["record_T"] < self.step_params["T"][epoch]:
+                    self.current_epoch = epoch*epoch_batchs
+                    self.T = self.step_params["T"][epoch] * epoch_batchs
+                    self.step_params["record_T"] = self.step_params["T"][epoch]
 
-            current_postion = self.current_epoch + this_iter
+                current_postion = self.current_epoch + this_iter
 
             if self.step_params["t"]:
                 self.loss.t = self.compute_decay_value(*self.step_params["t_tuple"], current_postion, self.T)
             if self.step_params["s"]:
-                self.loss.s = self.compute_decay_value(*self.step_params["s_tuple"], current_postion, self.T)
+                self.loss.s = self.step_params["s_tuple"][self.step_params["s_list"][epoch]]
+
             if self.step_params["m"]:
-                self.loss.m = self.compute_decay_value(*self.step_params["m_tuple"], current_postion, self.T)
+                lambda_factor = max(self.step_params["lambda_0"], 
+                                 self.step_params["lambda_b"]*(1+self.step_params["gamma"]*current_postion)**(-self.step_params["alpha"]))
+                self.loss.step(lambda_factor)
             
             
 

@@ -102,7 +102,7 @@ chunk_num=-1 # -1 means using scale, 0 means using max and >0 means itself.
 overlap=0.1
 scale=1.5 # Get max / num_spks * scale for every speaker.
 valid_split_type="--total-spk" # --totat-spk or --default
-valid_utts = 1211
+valid_utts = 1024
 valid_chunk_num_every_utt = 2
 ##--------------------------------------------------##
 ## Training options
@@ -134,7 +134,10 @@ model_params = {
     "margin_loss":False, 
     "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 
                           "s":30, "mhe_loss":False, "mhe_w":0.01},
-    "use_step":False, "step_params":{}
+    "use_step":False, 
+    "step_params":{"t":False, "s":False, "record_T":0, "T":[], "t_tuple":(0.5, 1.2), 
+                   "s_tuple":(30, 12),
+                   "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4}
 }
 
 optimizer_params = {
@@ -151,10 +154,11 @@ optimizer_params = {
 lr_scheduler_params = {
     "name":"warmR",
     "warmR.lr_decay_step":400, # 0 means decay after every epoch and 1 means every iter. 
-    "warmR.T_max":7,
+    "warmR.T_max":1,
     "warmR.T_mult":1,
     "warmR.factor":1.0,  # The max_lr_decay_factor.
-    "warmR.eta_min":1e-4
+    "warmR.eta_min":4e-8,
+    "warmR.log_decay":False
 }
 
 epochs = 21 # Total epochs to train. It is important.
@@ -172,7 +176,7 @@ traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/standard_xv_voxceleb1_ralamb" + "_" + sample_type
+model_dir="exp/standard_xv_warmR_voxceleb1"
 ##--------------------------------------------------##
 ##
 #### Set seed
