@@ -17,7 +17,6 @@ fi
 launcher=$1
 shift
 
-
-[[ "$stage" -le 3 && "$endstage" -ge 3 ]] && python3 $launcher $@ --stage=$stage --endstage=3
+[[ "$stage" -le 3 && "$endstage" -ge 3 ]] && python3 $launcher $@ --stage=$stage --endstage=3 || exit 1 
 
 [[ "$stage" -le 4 && "$endstage" -ge 4 ]] && python3 $launcher --stage=4
