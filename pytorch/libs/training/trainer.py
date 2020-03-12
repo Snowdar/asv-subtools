@@ -211,6 +211,14 @@ class SimpleTrainer(_BaseTrainer):
                     if model.use_step:
                         model.step(*self.training_point)
 
+                    if lr_scheduler is not None:
+                        # It is not convenient to wrap lr_scheduler (doing).
+                        if isinstance(lr_scheduler, LRSchedulerWrapper):
+                            lr_scheduler.step(self.training_point)
+                        else:
+                            # For some pytorch lr_schedulers, but it is not available for all.
+                            lr_scheduler.step(this_epoch)
+
                     loss, acc = self.train_one_batch(batch)
 
                     if data.valid_loader and self.reporter.is_report(self.training_point):
@@ -222,15 +230,6 @@ class SimpleTrainer(_BaseTrainer):
                                     "train_acc":"{0:.2f}".format(acc*100), "valid_acc":""}
 
                     self.reporter.update(snapshot)
-
-                    if lr_scheduler is not None:
-                        # It is not convenient to wrap lr_scheduler (doing).
-                        if isinstance(lr_scheduler, LRSchedulerWrapper):
-                            lr_scheduler.step(self.training_point)
-                        else:
-                            # For some pytorch lr_schedulers, but it is not available for all.
-                            lr_scheduler.step(this_epoch)
-
                 self.save_model()
             self.reporter.finish()
         except BaseException as e:

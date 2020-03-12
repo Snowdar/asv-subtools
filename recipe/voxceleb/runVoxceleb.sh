@@ -47,8 +47,8 @@ subtools/computeVad.sh data/mfcc_23_pitch/voxceleb1_test/ subtools/conf/vad-5.5.
 
 ### Training (preprocess + get_egs + training + extract_xvectors)
 # The launcher is a python script which is the main pipeline for it is independent with the data preparing and the scoring.
-python3 subtools/pytorch/launcher/runSnowdarXvector-voxceleb1.py --stage=0
-python3 subtools/pytorch/launcher/runSnowdarXvector-voxceleb2.py --stage=0
+subtools/pytorch/launcher/runLauncher.sh --stage=0 subtools/pytorch/launcher/runSnowdarXvector-voxceleb1.py
+subtools/pytorch/launcher/runLauncher.sh --stage=0 subtools/pytorch/launcher/runSnowdarXvector-voxceleb2.py
 
 
 ### Back-end scoring

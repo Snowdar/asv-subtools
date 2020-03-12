@@ -399,16 +399,20 @@ class AttentionAlphaComponent(torch.nn.Module):
     def __init__(self, input_dim, hidden_size=64, context=[0]):
         super(AttentionAlphaComponent, self).__init__()
 
-        self.relu = ReluBactchNormTdnnLayer(input_dim, hidden_size, context=context)
+        self.input_dim = input_dim
+        self.hidden_size = hidden_size
+        self.relu_affine = ReluBatchNormTdnnLayer(input_dim, hidden_size, context=context)
         # Dim=2 means to apply softmax in different frames-index (batch is a 3-dim tensor in this case)
-        self.softmax = SoftmaxAffineLayer(hidden_size, 1, dim=2, log=False, bias=False)
+        self.softmax_affine = SoftmaxAffineLayer(hidden_size, 1, dim=2, log=False, bias=True)
     
     def forward(self, inputs):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
-        return self.softmax(self.relu(inputs))
+        return self.softmax_affine(self.relu_affine(inputs))
 
+    def extra_repr(self):
+        return '{input_dim}, hidden_size={hidden_size}'.format(**self.__dict__)
 
 class AttentiveStatisticsPooling(torch.nn.Module):
     """ An attentive statistics pooling layer according to []"""
@@ -448,6 +452,7 @@ class AttentiveStatisticsPooling(torch.nn.Module):
 
     def get_output_dim(self):
         return self.output_dim
+
 
 
 class LDEPooling(torch.nn.Module):

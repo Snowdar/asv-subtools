@@ -53,9 +53,10 @@ class Reporter():
             # The case to recover training
             if self.trainer.params["start_epoch"] > 0:
                 self.start_write_log = True
-            else:
-                with open(self.record_file, "w") as f:
-                    f.truncate()
+            elif os.path.exists(self.record_file):
+                # Do backup to avoid clearing the loss log when re-running a same launcher.
+                bk_file = "{0}.bk.{1}".format(self.record_file, time.strftime('%Y_%m_%d.%H_%M_%S',time.localtime(time.time())))
+                shutil.move(self.record_file, bk_file)
         else:
             self.record_file = None
 
@@ -89,10 +90,8 @@ class Reporter():
                 if self.start_write_log:
                     dataframe.to_csv(self.record_file, mode='a', header=False, index=False)
                 else:
-                    if os.path.exists(self.record_file):
-                        # Do backup to avoid clearing the loss log when re-running a same launcher.
-                        bk_file = "{0}.bk.{1}".format(self.record_file, time.strftime('%Y_%m_%d.%H_%M_%S',time.localtime(time.time())))
-                        shutil.move(self.record_file, bk_file)
+                    # with open(self.record_file, "w") as f:
+                    #     f.truncate()
                     dataframe.to_csv(self.record_file, header=True, index=False)
                     self.start_write_log = True
                 self.record_value.clear()

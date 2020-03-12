@@ -195,7 +195,7 @@ traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/resnet-xvector.py"
-model_dir="exp/resnet_xv_baseline_warmR_voxceleb1_ralamb"
+model_dir="exp/resnet_xv_baseline_warmR_voxceleb1"
 ##--------------------------------------------------##
 ##
 #### Set seed
