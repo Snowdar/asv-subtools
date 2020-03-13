@@ -28,6 +28,7 @@ class Xvector(TopVirtualNnet):
         ## Params.
         default_dropout_params = {
             "type":"default", # default | random
+            "start_p":0.,
             "dim":2,
             "inplace":True
         }

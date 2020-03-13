@@ -32,9 +32,12 @@ class RandomDropout(torch.nn.Module):
     Reference: Bouthillier, X., Konda, K., Vincent, P., & Memisevic, R. (2015). 
                Dropout as data augmentation. arXiv preprint arXiv:1506.08700. 
     """
-    def __init__(self, p=0.5, dim=2, inplace=True):
+    def __init__(self, p=0.5, start_p=0., dim=2, inplace=True):
         super(RandomDropout, self).__init__()
 
+        assert 0. <= start_p <= p <= 1.
+
+        self.start_p = start_p
         self.p = p
         self.dim = dim
         self.inplace = inplace
@@ -47,8 +50,8 @@ class RandomDropout(torch.nn.Module):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
-        if self.training and self.p > 0:
-            self.init_value.uniform_(0, self.p)
+        if self.training and self.p > 0.:
+            self.init_value.uniform_(self.start_p, self.p)
             if self.dim == 1:
                 outputs = F.dropout(inputs, self.init_value, inplace=self.inplace)
             elif self.dim == 2:
@@ -67,10 +70,11 @@ def get_dropout(p=0., dropout_params={}):
 
 def get_dropout_from_wrapper(p=0., dropout_params={}):
 
-    assert 0 <= p <= 1
+    assert 0. <= p <= 1.
 
     default_dropout_params = {
             "type":"default", # default | random
+            "start_p":0.,
             "dim":2,
             "inplace":True,
         }
@@ -84,7 +88,8 @@ def get_dropout_from_wrapper(p=0., dropout_params={}):
     if name == "default":
         return get_default_dropout(p=p, dim=dropout_params["dim"], inplace=dropout_params["inplace"])
     elif name == "random":
-        return RandomDropout(p=p, dim=dropout_params["dim"], inplace=dropout_params["inplace"])
+        return RandomDropout(p=p, start_p=dropout_params["start_p"], dim=dropout_params["dim"], 
+                             inplace=dropout_params["inplace"])
     elif name == "alpha":
         return torch.nn.AlphaDropout(p=p, inplace=dropout_params["inplace"])
     elif name == "context":
