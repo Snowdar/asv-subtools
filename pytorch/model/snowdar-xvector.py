@@ -12,31 +12,65 @@ class Xvector(TopVirtualNnet):
     """ A composite x-vector framework """
     
     ## base parameters - components - loss - training strategy
-    def init(self, inputs_dim, num_targets, extend=False, aug_dropout=0.2, tail_dropout=0., skip_connection=False,
-             training=True, extracted_embedding="far", SE=False, se_ratio=4,
-             tdnn_layer_params={"momentum":0.5, "nonlinearity":'relu',"nonlinearity_params":{"inplace":True}},
-             tdnn6=True, tdnn7_params={"nonlinearity":"default", "bn":True, "bias":True},
+    def init(self, inputs_dim, num_targets, extend=False, skip_connection=False,
+             aug_dropout=0., tail_dropout=0., dropout_params={},
+             SE=False, se_ratio=4,
+             tdnn_layer_params={},
+             tdnn6=True, tdnn7_params={},
              attentive_pooling=False, attentive_pooling_params={"hidden_size":64},
              LDE_pooling=False, LDE_pooling_params={"c_num":64, "nodes":128},
              focal_loss=False, focal_loss_params={"gamma":2},
-             margin_loss=False, margin_loss_params={"method":"am", "m":0.2, "feature_normalize":True, 
-                                                    "s":30, "mhe_loss":False, "mhe_w":0.01},
-             use_step=False, step_params={"T":None, "record_T":0,
-                                          "s":False, "s_tuple":(30, 12), "s_list":None,
-                                          "t":False, "t_tuple":(0.5, 1.2), 
-                                          "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4},
-             transfer_from="softmax_loss"):
+             margin_loss=False, margin_loss_params={},
+             use_step=False, step_params={},
+             transfer_from="softmax_loss",
+             training=True, extracted_embedding="far"):
 
-        # Var
+        ## Params.
+        default_dropout_params = {
+            "type":"default", # default | random
+            "dim":2,
+            "inplace":True
+        }
+
+        default_tdnn_layer_params = {
+            "momentum":0.5, "nonlinearity":'relu', "nonlinearity_params":{"inplace":True}
+        }
+
+        default_tdnn7_params = {
+            "nonlinearity":"default", "bn":True, "bias":True
+        }
+
+        default_margin_loss_params = {
+            "method":"am", "m":0.2, 
+            "feature_normalize":True, "s":30, 
+            "mhe_loss":False, "mhe_w":0.01
+        }
+
+        default_step_params = {
+            "T":None, "record_T":0,
+            "s":False, "s_tuple":(30, 12), "s_list":None,
+            "t":False, "t_tuple":(0.5, 1.2), 
+            "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4
+        }
+
+        dropout_params = utils.assign_params_dict(default_dropout_params, dropout_params)
+        tdnn_layer_params = utils.assign_params_dict(default_tdnn_layer_params, tdnn_layer_params)
+        tdnn7_params = utils.assign_params_dict(default_tdnn7_params, tdnn7_params)
+        margin_loss_params = utils.assign_params_dict(default_margin_loss_params, margin_loss_params)
+        step_params = utils.assign_params_dict(default_step_params, step_params)
+
+        ## Var.
         self.skip_connection = skip_connection
         self.use_step = use_step
         self.step_params = step_params
 
         self.extracted_embedding = extracted_embedding # For extract.
         
-        # Nnet
-        self.aug_dropout = torch.nn.Dropout2d(p=aug_dropout) if aug_dropout > 0 else None
+        ## Nnet.
+        # head
+        self.aug_dropout = get_dropout_from_wrapper(aug_dropout, dropout_params)
 
+        # frame level
         self.tdnn1 = ReluBatchNormTdnnLayer(inputs_dim,512,[-2,-1,0,1,2], **tdnn_layer_params)
         self.se1 = SEBlock(512, se_ratio=se_ratio) if SE else None
         self.ex_tdnn1 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
@@ -61,8 +95,9 @@ class Xvector(TopVirtualNnet):
         self.tdnn5 = ReluBatchNormTdnnLayer(512,nodes,**tdnn_layer_params)
         self.se5 = SEBlock(nodes, se_ratio=se_ratio) if SE else None
 
+        # pooling
         if LDE_pooling:
-            self.stats = LDEPooling(nodes, **LDE_pooling_params )
+            self.stats = LDEPooling(nodes, **LDE_pooling_params)
         elif attentive_pooling:
             self.stats = AttentiveStatisticsPooling(nodes, **attentive_pooling_params, stddev=True)
         else:
@@ -70,6 +105,7 @@ class Xvector(TopVirtualNnet):
 
         stats_dim = self.stats.get_output_dim()
 
+        # segment level
         if tdnn6:
             self.tdnn6 = ReluBatchNormTdnnLayer(stats_dim, 512, **tdnn_layer_params)
             tdnn7_dim = 512
@@ -82,8 +118,10 @@ class Xvector(TopVirtualNnet):
 
         self.tdnn7 = ReluBatchNormTdnnLayer(tdnn7_dim,512, **tdnn7_params, momentum=tdnn_layer_params["momentum"])
 
-        self.tail_dropout = torch.nn.Dropout2d(p=tail_dropout) if tail_dropout > 0 else None
+        # tail
+        self.tail_dropout = get_dropout_from_wrapper(aug_dropout, dropout_params)
 
+        # loss
         # Do not need when extracting embedding.
         if training :
             if margin_loss:

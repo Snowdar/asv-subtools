@@ -3,7 +3,7 @@
 // Copyright 2017   Johns Hopkins University (author: Daniel Povey)
 //           2017   Johns Hopkins University (author: Daniel Garcia-Romero)
 //           2017   David Snyder
-//           2019   xmuspeech (author: ZM)
+//           2019   xmuspeech (author: Snowdar)
 
 // See ../../COPYING for clarification regarding multiple authors
 //

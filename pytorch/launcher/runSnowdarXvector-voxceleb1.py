@@ -22,7 +22,7 @@ import libs.training.trainer as trainer
 import libs.support.kaldi_common as kaldi_common
 import libs.support.utils as utils
 
-"""A launcher script with python version (Snowdar's launcher to do experiments w.r.t snowdar-xvecotr.py).
+"""A launcher script with python version (Snowdar's launcher to do experiments w.r.t snowdar-xvector.py).
 To support more freedom without limitation of parameters transfer from shell to python.
 Note, this launcher does not contains dataset preparation, augmentation, extracting acoustic features and back-end scoring etc.
 (see subtools/newCopyData.sh, subtools/makeFeatures.sh.sh, subtools/computeVad.sh, 
@@ -124,7 +124,7 @@ egs_params = {
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
     "extend":False, 
-    "aug_dropout":0.2, "tail_dropout":0.,
+    "aug_dropout":0.2, "tail_dropout":0., "dropout_params":{"type":"default", "dim":2, "inplace":True},
     "training":True, "extracted_embedding":"far", "SE":False, "se_ratio":4,
     "tdnn_layer_params":{"momentum":0.5, "nonlinearity":'relu'},
     "tdnn6":True, "tdnn7_params":{"nonlinearity":"default", "bn":True},

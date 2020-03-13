@@ -1,7 +1,7 @@
 // gmmbin/gmm-global-est-map.cc
 
 // Copyright 2009-2011  Saarland University;  Microsoft Corporation
-//           2019       xmuspeech  ZM
+//           2019       xmuspeech  Snowdar
 
 // See ../../COPYING for clarification regarding multiple authors
 //

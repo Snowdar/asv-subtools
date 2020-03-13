@@ -1,7 +1,7 @@
 // gmmbin/gmm-global-init-from-feats-mmi.cc
 
 // Copyright 2013   Johns Hopkins University (author: Daniel Povey)
-//           2019   xmuspeech (author: ZM)
+//           2019   xmuspeech (author: Snowdar)
 
 // See ../../COPYING for clarification regarding multiple authors
 //

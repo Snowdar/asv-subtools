@@ -1,7 +1,7 @@
 // gmmbin/gmm-global-est-gaussians-ebw.cc
 
 // Copyright 2009-2011  Petr Motlicek  Chao Weng
-//           2019       xmuspeech  ZM
+//           2019       xmuspeech  Snowdar
 
 // See ../../COPYING for clarification regarding multiple authors
 //

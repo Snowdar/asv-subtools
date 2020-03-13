@@ -19,7 +19,7 @@ class ResnetXvector(TopVirtualNnet):
              resnet_params={}, fc1=False, fc1_params={}, fc2_params={}, margin_loss=False, margin_loss_params={},
              use_step=False, step_params={}, transfer_from="softmax_loss"):
 
-        ## params
+        ## Params.
         default_resnet_params = {
             "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
             "head_maxpool":True, "head_maxpool_params":{"kernel_size":3, "stride":1, "padding":1},
@@ -53,7 +53,7 @@ class ResnetXvector(TopVirtualNnet):
         resnet_params = utils.assign_params_dict(default_resnet_params, resnet_params)
         fc1_params = utils.assign_params_dict(default_fc_params, fc1_params)
         fc2_params = utils.assign_params_dict(default_fc_params, fc2_params)
-        margin_loss_params =utils.assign_params_dict(default_margin_loss_params, margin_loss_params)
+        margin_loss_params = utils.assign_params_dict(default_margin_loss_params, margin_loss_params)
         step_params = utils.assign_params_dict(default_step_params, step_params)
 
 

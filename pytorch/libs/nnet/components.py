@@ -509,24 +509,6 @@ class ImportantScale(torch.nn.Module):
         return outputs
 
 
-class ContextDropout(torch.nn.Module):
-    """It dropouts in the context dimensionality to achieve two purposes:
-           1.make training with random chunk-length
-           2.decrease the context dependence to augment the training data
-    """
-    def __init__(self, p=0.):
-        super(ContextDropout, self).__init__()
-
-        self.dropout2d = torch.nn.Dropout2d(p=p)
-
-    def forward(self, intputs):
-        """
-        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
-        """
-        outputs = self.dropout2d(inputs.transpose(1,2)).transpose(1,2)
-        return outputs
-
-
 class AdaptivePCMN(torch.nn.Module):
     """ Using adaptive parametric Cepstral Mean Normalization to replace traditional CMN.
         It is implemented according to [Ozlem Kalinli, etc. "Parametric Cepstral Mean Normalization 

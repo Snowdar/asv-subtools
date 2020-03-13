@@ -12,6 +12,7 @@ split_type=order
 use_gpu=false
 gpu_id=""
 force=false
+sleep_time=3
 nnet_config=config/nnet.config
 
 echo "$0 $@"
@@ -72,7 +73,7 @@ output="ark:| copy-vector ark:- ark,scp:$dir/xvector.JOB.ark,$dir/xvector.JOB.sc
 
 if [ $stage -le 1 ]; then
       echo "$0: extracting xvectors from pytorch nnet"
-      trap "subtools/linux/kill_pid_tree.sh --show true $$ && echo -e '\nAll killed'" INT
+      trap "subtools/linux/kill_pid_tree.sh --show true $$ && echo -e '\nAll killed\n' && exit 1" INT
       if $use_gpu; then
         pids=""
         for g in $(seq $nj); do
@@ -80,10 +81,10 @@ if [ $stage -le 1 ]; then
             python3 subtools/pytorch/pipeline/onestep/extract_embeddings.py --use-gpu=$use_gpu --gpu-id="$gpu_id" \
                     --nnet-config=$srcdir/$nnet_config \
                     "$srcdir/$model" "`echo $feats | sed s/JOB/$g/g`" "`echo $output | sed s/JOB/$g/g`" || exit 1 &
-          sleep 1
+          sleep $sleep_time
         pids="$pids $!"
         done
-      trap "subtools/linux/kill_pid_tree.sh --show true $pids && echo -e '\nAll killed'" INT
+      trap "subtools/linux/kill_pid_tree.sh --show true $pids && echo -e '\nAll killed' && exit 1" INT
       wait
       else
       $cmd JOB=1:$nj ${dir}/log/extract.JOB.log \
