@@ -32,7 +32,7 @@ class RandomDropout(torch.nn.Module):
     Reference: Bouthillier, X., Konda, K., Vincent, P., & Memisevic, R. (2015). 
                Dropout as data augmentation. arXiv preprint arXiv:1506.08700. 
     """
-    def __init__(self, p=0.5, start_p=0., dim=2, inplace=True):
+    def __init__(self, p=0.5, start_p=0., dim=2, method="uniform", std=0.1, inplace=True):
         super(RandomDropout, self).__init__()
 
         assert 0. <= start_p <= p <= 1.
@@ -40,18 +40,28 @@ class RandomDropout(torch.nn.Module):
         self.start_p = start_p
         self.p = p
         self.dim = dim
+        self.method = method
+        self.std = std
         self.inplace = inplace
         self.init_value = torch.tensor(1.)
 
         if self.dim != 1 and self.dim != 2 and self.dim != 3:
             raise TypeError("Expected dim = 1, 2 or 3, but got {}".format(self.dim))
 
+        if self.method != "uniform" and self.method != "normal":
+            raise TypeError("Do not support {} method for random dropout.".format(self.method))
+
     def forward(self, inputs):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
         if self.training and self.p > 0.:
-            self.init_value.uniform_(self.start_p, self.p)
+            if self.method == "uniform":
+                self.start_p = min(self.start_p, self.p)
+                self.init_value.uniform_(self.start_p, self.p)
+            else:
+                self.init_value = max(0, min(0.5, self.init_value.normal_(self.p, self.std)))
+
             if self.dim == 1:
                 outputs = F.dropout(inputs, self.init_value, inplace=self.inplace)
             elif self.dim == 2:
@@ -97,14 +107,14 @@ def get_dropout_from_wrapper(p=0., dropout_params={}):
     else:
         raise TypeError("Do not support {} dropout in current wrapper.".format(name))
 
-def get_default_dropout(p=0., dim=2):
+def get_default_dropout(p=0., dim=2, inplace=True):
     """Wrapper for torch's dropout.
     """
     if dim == 1:
-        return torch.nn.Dropout(p=p)
+        return torch.nn.Dropout(p=p, inplace=inplace)
     elif dim == 2:
-        return torch.nn.Dropout2d(p=p)
+        return torch.nn.Dropout2d(p=p, inplace=inplace)
     elif dim == 3:
-        return torch.nn.Dropout3d(p=p)
+        return torch.nn.Dropout3d(p=p, inplace=inplace)
     else:
         raise TypeError("Expected dim = 1, 2 or 3, but got {}".format(dim))

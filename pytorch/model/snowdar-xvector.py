@@ -30,6 +30,8 @@ class Xvector(TopVirtualNnet):
             "type":"default", # default | random
             "start_p":0.,
             "dim":2,
+            "method":"uniform", # uniform | normal
+            "std":0.1, # for normal
             "inplace":True
         }
 
@@ -51,7 +53,8 @@ class Xvector(TopVirtualNnet):
             "T":None, "record_T":0,
             "s":False, "s_tuple":(30, 12), "s_list":None,
             "t":False, "t_tuple":(0.5, 1.2), 
-            "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4
+            "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
+            "p":False, "p_tuple":(0.5, 0.1)
         }
 
         dropout_params = utils.assign_params_dict(default_dropout_params, dropout_params)
@@ -261,6 +264,7 @@ class Xvector(TopVirtualNnet):
 
             if self.step_params["t"]:
                 self.loss.t = self.compute_decay_value(*self.step_params["t_tuple"], current_postion, self.T)
+
             if self.step_params["s"]:
                 self.loss.s = self.step_params["s_tuple"][self.step_params["s_list"][epoch]]
 
@@ -268,7 +272,9 @@ class Xvector(TopVirtualNnet):
                 lambda_factor = max(self.step_params["lambda_0"], 
                                  self.step_params["lambda_b"]*(1+self.step_params["gamma"]*current_postion)**(-self.step_params["alpha"]))
                 self.loss.step(lambda_factor)
-            
+
+            if self.step_params["p"]:
+                self.aug_dropout.p = self.compute_decay_value(*self.step_params["p_tuple"], current_postion, self.T)
             
 
 
