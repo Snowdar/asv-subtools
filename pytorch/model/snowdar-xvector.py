@@ -13,7 +13,7 @@ class Xvector(TopVirtualNnet):
     
     ## base parameters - components - loss - training strategy
     def init(self, inputs_dim, num_targets, extend=False, skip_connection=False,
-             aug_dropout=0., tail_dropout=0., dropout_params={},
+             aug_dropout=0., hidden_dropout=0., dropout_params={},
              SE=False, se_ratio=4,
              tdnn_layer_params={},
              tdnn6=True, tdnn7_params={},
@@ -76,6 +76,7 @@ class Xvector(TopVirtualNnet):
 
         # frame level
         self.tdnn1 = ReluBatchNormTdnnLayer(inputs_dim,512,[-2,-1,0,1,2], **tdnn_layer_params)
+        self.hidden_dropout = get_dropout_from_wrapper(hidden_dropout, dropout_params)
         self.se1 = SEBlock(512, se_ratio=se_ratio) if SE else None
         self.ex_tdnn1 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
         self.ex_se1 = SEBlock(512, se_ratio=se_ratio) if SE and extend else None
@@ -122,9 +123,6 @@ class Xvector(TopVirtualNnet):
 
         self.tdnn7 = ReluBatchNormTdnnLayer(tdnn7_dim,512, **tdnn7_params, momentum=tdnn_layer_params["momentum"])
 
-        # tail
-        self.tail_dropout = get_dropout_from_wrapper(aug_dropout, dropout_params)
-
         # loss
         # Do not need when extracting embedding.
         if training :
@@ -153,8 +151,9 @@ class Xvector(TopVirtualNnet):
 
         x = inputs
 
-        x = self.auto(self.aug_dropout, x) # * 0.8 / 0.8**0.5 
+        x = self.auto(self.aug_dropout, x)
         x = self.tdnn1(x)
+        x = self.auto(self.hidden_dropout, x)
         
         if self.skip_connection:
             identity = x
@@ -182,7 +181,6 @@ class Xvector(TopVirtualNnet):
         x = self.stats(x)
         x = self.auto(self.tdnn6, x)
         x = self.tdnn7(x)
-        x = self.auto(self.tail_dropout, x)
 
         return x
 

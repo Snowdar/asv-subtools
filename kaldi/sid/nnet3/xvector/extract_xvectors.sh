@@ -4,6 +4,7 @@
 #               2017  Johns Hopkins University (Author: Daniel Povey)
 #               2017  Johns Hopkins University (Author: Daniel Garcia Romero)
 #               2019  xmuspeech (Author: Snowdar)
+#               2020  xmuspeech (Author: Hao Lu "Add diarisation")
 # Apache 2.0.
 
 # This script extracts embeddings (called "xvectors" here) from a set of
@@ -30,6 +31,13 @@ clean=false
 model=final.raw # or any other model, such 180.raw 
 offline=true # If true, use offline mod to speed up
 split_type=order # default | order . The order way is used to speed up with offline mod.
+
+# Diarisation
+sliding=false
+window=1.5
+period=0.75
+min_segment=0.5
+hard_min=false
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -80,6 +88,35 @@ fi
 
 
 mkdir -p $dir/log
+
+# Diarisation
+if [ "$sliding" == "true" ]; then
+sub_data=$dir/subsegments_data
+mkdir -p $sub_data
+# Set up sliding-window subsegments
+  if $hard_min; then
+    awk -v min=$min_segment '{if($4-$3 >= min){print $0}}' $data/segments \
+        > $dir/pruned_segments
+    segments=$dir/pruned_segments
+  else
+    segments=$data/segments
+  fi
+
+  [ ! -f $segments ] && echo "Expected $segments to exist." && exit 1
+
+  subtools/kaldi/utils/data/get_uniform_subsegments.py \
+      --max-segment-duration=$window \
+      --overlap-duration=$(perl -e "print ($window-$period);") \
+      --max-remaining-duration=$min_segment \
+      --constant-duration=True \
+      $segments > $dir/subsegments
+  subtools/kaldi/utils/data/subsegment_data_dir.sh $data \
+      $dir/subsegments $sub_data
+
+# Creat visual vad
+subtools/createVisualVad.sh $sub_data
+data=$sub_data
+fi
 
 case $split_type in
     default)

@@ -105,8 +105,13 @@ class _BaseTrainer():
         ## Select device
         self.select_device()
 
-    def save_model(self):
-        model_path = '{0}/{1}.{2}'.format(self.params["model_dir"], self.training_point[0]+1, self.params["suffix"])
+    def save_model(self, from_epoch=True):
+        if from_epoch:
+            model_name = self.training_point[0]+1
+        else:
+            model_name = "{}.{}".format(self.training_point[0]+1, self.training_point[1]+1)
+
+        model_path = '{0}/{1}.{2}'.format(self.params["model_dir"], model_name, self.params["suffix"])
         logger.info("Save model from {0}/{1} of {2} epoch to {3}.".format(self.training_point[1]+1, self.training_point[2], 
                                                                  self.training_point[0]+1, model_path))
         torch.save(self.elements["model"].state_dict(), model_path)

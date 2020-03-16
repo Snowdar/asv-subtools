@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Copyright xmuspeech (Author: Snowdar 2019-06-03)
+#                     (Author: Hao Lu  2020-03-13 "Add diarisation")
 
 nj=30
 cmd="run.pl"
@@ -14,6 +15,13 @@ gpu_id=""
 force=false
 sleep_time=3
 nnet_config=config/nnet.config
+
+# Diarisation
+sliding=false
+window=1.5
+period=0.75
+min_segment=0.5
+hard_min=false
 
 echo "$0 $@"
 
@@ -44,6 +52,36 @@ num=0
 rm -rf $dir/log/* # It is important for the checking.
 
 # Start
+
+# Diarisation
+if [ "$sliding" == "true" ]; then
+sub_data=$dir/subsegments_data
+mkdir -p $sub_data
+# Set up sliding-window subsegments
+  if $hard_min; then
+    awk -v min=$min_segment '{if($4-$3 >= min){print $0}}' $data/segments \
+        > $dir/pruned_segments
+    segments=$dir/pruned_segments
+  else
+    segments=$data/segments
+  fi
+
+  [ ! -f $segments ] && echo "Expected $segments to exist." && exit 1
+
+  subtools/kaldi/utils/data/get_uniform_subsegments.py \
+      --max-segment-duration=$window \
+      --overlap-duration=$(perl -e "print ($window-$period);") \
+      --max-remaining-duration=$min_segment \
+      --constant-duration=True \
+      $segments > $dir/subsegments
+  subtools/kaldi/utils/data/subsegment_data_dir.sh $data \
+      $dir/subsegments $sub_data
+
+# Creat visual vad
+subtools/createVisualVad.sh $sub_data
+data=$sub_data
+fi
+
 for f in $srcdir/$model $srcdir/$nnet_config $data/feats.scp $data/vad.scp ; do
   [ ! -f $f ] && echo "No such file $f" && exit 1;
 done

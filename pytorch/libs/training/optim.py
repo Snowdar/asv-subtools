@@ -87,13 +87,15 @@ class Lookahead(Optimizer):
         self.param_groups = self.optimizer.param_groups
         self.alpha = alpha
         self.k = k
+        self.is_back_step = False
         self.init_weights = False
 
         for group in self.param_groups:
             group["step_counter"] = 0
 
     def step(self, closure=None):
-        # Init weights after model in a certrain device and keep the device of weights same to model. [ZM 2018-09-01]
+        self.is_back_step = False
+        # Init weights after model in a certrain device and keep the device of weights same to model. [Snowdar 2018-09-01]
         if not self.init_weights and self.alpha > 0:
             self.slow_weights = [[p.clone().detach() for p in group['params']]
                                     for group in self.param_groups]
@@ -112,6 +114,9 @@ class Lookahead(Optimizer):
                 group['step_counter'] += 1
                 if group['step_counter'] % self.k != 0:
                     continue
+                else:
+                    self.is_back_step = True
+
                 for p,q in zip(group['params'],slow_weights):
                     if p.grad is None:
                         continue
