@@ -112,6 +112,11 @@ gpu_id = args.gpu_id # If NULL, then it will be auto-specified.
 run_lr_finder = args.run_lr_finder
 
 egs_params = {
+    "aug":None, # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
+    "aug_params":{"frequency":0.2, "frame":0.2}
+}
+
+loader_params = {
     "use_fast_loader":True, # It is a queue loader to prefetch batch and storage.
     "max_prefetch":10,
     "batch_size":512, 
@@ -124,9 +129,9 @@ egs_params = {
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
     "extend":False, 
-    "aug_dropout":0.2, "tail_dropout":0., 
+    "aug_dropout":0.2, "hidden_dropout":0., 
     "dropout_params":{"type":"default", "start_p":0., "dim":2, "method":"uniform",
-                      "std":0.1, "inplace":True},
+                      "continuous":False, "inplace":True},
     "training":True, "extracted_embedding":"far", "SE":False, "se_ratio":4,
     "tdnn_layer_params":{"momentum":0.5, "nonlinearity":'relu'},
     "tdnn6":True, "tdnn7_params":{"nonlinearity":"default", "bn":True},
@@ -207,7 +212,7 @@ if stage <= 3 <= endstage:
 
     logger.info("Load egs to bunch.")
     # The dict [info] contains feat_dim and num_targets.
-    bunch, info = egs.BaseBunch.get_bunch_from_egsdir(egs_dir, egs_params)
+    bunch, info = egs.BaseBunch.get_bunch_from_egsdir(egs_dir, egs_params, loader_params)
 
     logger.info("Create model from model blueprint.")
     # Another way: import the model.py in this python directly, but it is not friendly to the shell script of extracting and
@@ -220,7 +225,8 @@ if stage <= 3 <= endstage:
     lr_scheduler = learn_rate_scheduler.LRSchedulerWrapper(optimizer, lr_scheduler_params)
 
     # Record params to model_dir
-    utils.write_list_to_file([model_params, optimizer_params, lr_scheduler_params], model_dir+'/config/params.dict')
+    utils.write_list_to_file([egs_params, loader_params, model_params, optimizer_params, 
+                              lr_scheduler_params], model_dir+'/config/params.dict')
 
     logger.info("Init a simple trainer.")
     # Package(Elements:dict, Params:dict}. It is a key parameter's package to trainer and model_dir/config/.

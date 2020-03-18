@@ -11,9 +11,9 @@ from libs.nnet import *
 class Xvector(TopVirtualNnet):
     """ A composite x-vector framework """
     
-    ## base parameters - components - loss - training strategy
+    ## Base parameters - components - loss - training strategy.
     def init(self, inputs_dim, num_targets, extend=False, skip_connection=False,
-             aug_dropout=0., hidden_dropout=0., dropout_params={},
+             aug_dropout=0., context_dropout=0., hidden_dropout=0., dropout_params={},
              SE=False, se_ratio=4,
              tdnn_layer_params={},
              tdnn6=True, tdnn7_params={},
@@ -30,8 +30,8 @@ class Xvector(TopVirtualNnet):
             "type":"default", # default | random
             "start_p":0.,
             "dim":2,
-            "method":"uniform", # uniform | normal
-            "std":0.1, # for normal
+            "method":"uniform", # uniform | normals
+            "continuous":False,
             "inplace":True
         }
 
@@ -71,12 +71,13 @@ class Xvector(TopVirtualNnet):
         self.extracted_embedding = extracted_embedding # For extract.
         
         ## Nnet.
-        # head
+        # Head
         self.aug_dropout = get_dropout_from_wrapper(aug_dropout, dropout_params)
-
-        # frame level
-        self.tdnn1 = ReluBatchNormTdnnLayer(inputs_dim,512,[-2,-1,0,1,2], **tdnn_layer_params)
+        self.context_dropout = ContextDropout(p=context_dropout) if context_dropout > 0 else None
         self.hidden_dropout = get_dropout_from_wrapper(hidden_dropout, dropout_params)
+
+        # Frame level
+        self.tdnn1 = ReluBatchNormTdnnLayer(inputs_dim,512,[-2,-1,0,1,2], **tdnn_layer_params)
         self.se1 = SEBlock(512, se_ratio=se_ratio) if SE else None
         self.ex_tdnn1 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
         self.ex_se1 = SEBlock(512, se_ratio=se_ratio) if SE and extend else None
@@ -100,7 +101,7 @@ class Xvector(TopVirtualNnet):
         self.tdnn5 = ReluBatchNormTdnnLayer(512,nodes,**tdnn_layer_params)
         self.se5 = SEBlock(nodes, se_ratio=se_ratio) if SE else None
 
-        # pooling
+        # Pooling
         if LDE_pooling:
             self.stats = LDEPooling(nodes, **LDE_pooling_params)
         elif attentive_pooling:
@@ -110,7 +111,7 @@ class Xvector(TopVirtualNnet):
 
         stats_dim = self.stats.get_output_dim()
 
-        # segment level
+        # Segment level
         if tdnn6:
             self.tdnn6 = ReluBatchNormTdnnLayer(stats_dim, 512, **tdnn_layer_params)
             tdnn7_dim = 512
@@ -123,7 +124,7 @@ class Xvector(TopVirtualNnet):
 
         self.tdnn7 = ReluBatchNormTdnnLayer(tdnn7_dim,512, **tdnn7_params, momentum=tdnn_layer_params["momentum"])
 
-        # loss
+        # Loss
         # Do not need when extracting embedding.
         if training :
             if margin_loss:
@@ -152,9 +153,9 @@ class Xvector(TopVirtualNnet):
         x = inputs
 
         x = self.auto(self.aug_dropout, x)
+        x = self.auto(self.context_dropout, x)
+
         x = self.tdnn1(x)
-        x = self.auto(self.hidden_dropout, x)
-        
         if self.skip_connection:
             identity = x
         x = self.auto(self.se1, x)
@@ -178,6 +179,7 @@ class Xvector(TopVirtualNnet):
             x += identity
         x = self.tdnn5(x)
         x = self.auto(self.se5, x)
+        x = self.auto(self.hidden_dropout, x)
         x = self.stats(x)
         x = self.auto(self.tdnn6, x)
         x = self.tdnn7(x)

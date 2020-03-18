@@ -392,7 +392,7 @@ def read_mat(file_or_fd, chunk=None):
     return mat
 
 def _read_mat_binary(fd, chunk=None):
-    # chunk:[start_line_index, end_line_index] # ZM 2019-09-19
+    # chunk:[start_line_index, end_line_index] # Snowdar 2019-09-19
     # Data type
     header = fd.read(3).decode()
     # 'CM', 'CM2', 'CM3' are possible values,
@@ -424,7 +424,7 @@ def _read_mat_binary(fd, chunk=None):
     return mat
 
 def _read_mat_ascii(fd, chunk=None):
-    # chunk:[start_line_index, end_line_index] # ZM 2019-09-19
+    # chunk:[start_line_index, end_line_index] # Snowdar 2019-09-19
     rows = []
     count = 0
     start_index = 0
@@ -457,7 +457,7 @@ def _read_compressed_mat(fd, format, chunk=None):
         see: https://github.com/kaldi-asr/kaldi/blob/master/src/matrix/compressed-matrix.h
         methods: CompressedMatrix::Read(...), CompressedMatrix::CopyToMat(...),
     """
-    # chunk:[start_line_index, end_line_index] # ZM 2019-09-19
+    # chunk:[start_line_index, end_line_index] # Snowdar 2019-09-19
     assert(format == 'CM ') # The formats CM2, CM3 are not supported...
 
     # Format of header 'struct',

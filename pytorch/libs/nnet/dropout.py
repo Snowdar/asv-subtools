@@ -11,14 +11,13 @@ import libs.support.utils as utils
 
 ## Dropout ✿
 class ContextDropout(torch.nn.Module):
-    """It dropouts in the context dimensionality to achieve two purposes:
-           1.make training with random chunk-length;
-           2.decrease the context dependence to augment the training data.
-        It is still not available now.
+    """It dropouts values in the context (frame/time) dimensionality. 
+    Different to specaugment (see libs/egs/augmentation.py), it is not continuous.
     """
     def __init__(self, p=0.):
         super(ContextDropout, self).__init__()
 
+        self.p = p
         self.dropout2d = torch.nn.Dropout2d(p=p)
 
     def forward(self, inputs):
@@ -34,7 +33,7 @@ class RandomDropout(torch.nn.Module):
     Reference: Bouthillier, X., Konda, K., Vincent, P., & Memisevic, R. (2015). 
                Dropout as data augmentation. arXiv preprint arXiv:1506.08700. 
     """
-    def __init__(self, p=0.5, start_p=0., dim=2, method="uniform", std=0.1, inplace=True):
+    def __init__(self, p=0.5, start_p=0., dim=2, method="uniform", inplace=True):
         super(RandomDropout, self).__init__()
 
         assert 0. <= start_p <= p < 1.
@@ -43,7 +42,6 @@ class RandomDropout(torch.nn.Module):
         self.p = p
         self.dim = dim
         self.method = method
-        self.std = std
         self.inplace = inplace
         self.init_value = torch.tensor(1.)
 
@@ -53,13 +51,21 @@ class RandomDropout(torch.nn.Module):
         if self.method != "uniform" and self.method != "normal":
             raise TypeError("Do not support {} method for random dropout.".format(self.method))
 
+        if self.method == "normal":
+            self.mean = self.p / 2
+            self.std = 0.01**self.p
+        
+
     def forward(self, inputs):
         if self.training and self.p > 0.:
             if self.method == "uniform":
-                self.start_p = min(self.start_p, self.p)
+                # For step training when p decay to mini value.
+                if self.start_p > self.p:
+                    self.start_p = self.p
                 self.init_value.uniform_(self.start_p, self.p)
             else:
-                self.init_value = self.init_value.normal_(self.p, self.std).clamp(min=0., max=0.5)
+                # Only take (0, self.p) of the gaussian curve.
+               self.init_value = self.init_value.normal_(self.mean, self.std).clamp(min=0., max=self.p)
 
             if self.dim == 1:
                 outputs = F.dropout(inputs, self.init_value, inplace=self.inplace)
@@ -81,8 +87,12 @@ class NoiseDropout(torch.nn.Module):
                [2] Li, X., Chen, S., Hu, X., & Yang, J. (2019). Understanding the disharmony between dropout 
                and batch normalization by variance shift. Paper presented at the Proceedings of the IEEE 
                Conference on Computer Vision and Pattern Recognition.
+
+               [3] Shen, X., Tian, X., Liu, T., Xu, F., & Tao, D. (2017). Continuous dropout. IEEE transactions 
+               on neural networks and learning systems, 29(9), 3926-3937. 
+
     """
-    def __init__(self, p=0.5, dim=2, method="uniform", inplace=True):
+    def __init__(self, p=0.5, dim=2, method="uniform", continuous=False, inplace=True):
         super(NoiseDropout, self).__init__()
 
         assert 0. <= p < 1.
@@ -90,6 +100,7 @@ class NoiseDropout(torch.nn.Module):
         self.p = p
         self.dim = dim
         self.method = method
+        self.continuous = continuous
         self.inplace = inplace
 
         if self.dim != 1 and self.dim != 2 and self.dim != 3:
@@ -100,29 +111,46 @@ class NoiseDropout(torch.nn.Module):
 
         if self.method == "normal":
             self.std = (self.p / (1 - self.p))**(0.5)
+        else:
+            self.a = -self.p + 1 # From (-p, p) to (-p+1, p+1) for x. = x(1+r), r~U(-p, p) and 1+r~U(-p+1,p+1)
+            self.b = self.p + 1
+
+        self.init = False # To speed up the computing.
 
     def forward(self, inputs):
         if self.training and self.p > 0.:
-            input_size = inputs.shape
-            if self.dim == 1:
-                noise_size = input_size
-            if self.dim == 2:
-                # Apply the same noise for every frames (a.k.a channels) in one sample.
-                noise_size = (input_size[0], input_size[1], 1)
-            else:
-                noise_size = (input_size[0], input_size[1], 1, 1)
+            if not self.init:
+                input_size = inputs.shape
+                if self.dim == 1:
+                    noise_size = (input_size[0], input_size[1], input_size[2])
+                elif self.dim == 2:
+                    # Apply the same noise for every frames (a.k.a channels) in one sample.
+                    noise_size = (input_size[0], input_size[1], 1)
+                else:
+                    noise_size = (input_size[0], input_size[1], 1, 1)
+
+                self.r = torch.randn(noise_size, device=inputs.device)
+
+                self.init = True
 
             if self.method == "uniform":
-                r = np.random.uniform(-self.p, self.p, size=inputs.shape) + 1
+                if self.continuous:
+                    self.r.uniform_(0, 1)
+                else:
+                    self.r.uniform_(self.a, self.b)
             else:
-                r = np.random.normal(1, self.std, size=inputs.shape)
+                if self.continuous:
+                    self.r.normal_(0.5, self.std).clamp_(min=0.,max=1.)
+                else:
+                    self.r.normal_(1, self.std).clamp_(min=0.)
 
             if self.inplace:
-                return inputs.mul_(torch.tensor(r, device=inputs.device))
+                return inputs.mul_(self.r)
             else:
-                return inputs * torch.tensor(r, device=inputs.device)
+                return inputs * self.r
         else:
             return inputs
+
 
 
 ## Wrapper ✿
@@ -138,8 +166,8 @@ def get_dropout_from_wrapper(p=0., dropout_params={}):
             "type":"default", # default | random
             "start_p":0.,
             "dim":2,
-            "method":"uniform",
-            "std":0.1,
+            "method":"normal",
+            "continuous":False,
             "inplace":True
         }
 
@@ -153,15 +181,14 @@ def get_dropout_from_wrapper(p=0., dropout_params={}):
         return get_default_dropout(p=p, dim=dropout_params["dim"], inplace=dropout_params["inplace"])
     elif name == "random":
         return RandomDropout(p=p, start_p=dropout_params["start_p"], dim=dropout_params["dim"], 
-                             method=dropout_params["method"], std=dropout_params["std"], 
-                             inplace=dropout_params["inplace"])
+                             method=dropout_params["method"], inplace=dropout_params["inplace"])
     elif name == "alpha":
         return torch.nn.AlphaDropout(p=p, inplace=dropout_params["inplace"])
     elif name == "context":
         return ContextDropout(p=p)
     elif name == "noise":
         return NoiseDropout(p=p, dim=dropout_params["dim"], method=dropout_params["method"],
-                            inplace=dropout_params["inplace"])
+                            continuous=dropout_params["continuous"],inplace=dropout_params["inplace"])
     else:
         raise TypeError("Do not support {} dropout in current wrapper.".format(name))
 

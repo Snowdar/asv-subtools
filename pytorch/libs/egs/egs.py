@@ -16,6 +16,8 @@ import libs.support.utils as utils
 import libs.support.kaldi_io as kaldi_io
 from libs.support.prefetch_generator import BackgroundGenerator
 
+# There are specaugment and cutout etc..
+from .augmentation import *
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -29,7 +31,7 @@ class ChunkEgs(Dataset):
     The acoustic feature based egs are not [frames, feature-dim] matrix format any more and it should be seen as 
     a [feature-dim, frames] tensor after transposing.
     """
-    def __init__(self, egs_csv, io_status=True):
+    def __init__(self, egs_csv, io_status=True, aug=None, aug_params={}):
         """
         @egs_csv:
             utt-id:str  chunk_feats_path:offset:str chunk-start:int  chunk-end:int  label:int
@@ -39,6 +41,23 @@ class ChunkEgs(Dataset):
         when kipping seed index.
         """
         self.io_status = io_status
+
+        # Augmentation.
+        default_aug_params = {
+            "frequency":0.2,
+            "frame":0.2
+        }
+
+        aug_params = utils.assign_params_dict(default_aug_params, aug_params)
+
+        if aug is None or aug == "" or aug == False:
+            self.aug = None
+        elif aug == "specaugment":
+            self.aug = SpecAugment(frequency=aug_params["frequency"], frame=aug_params["frame"])
+        elif aug == "cutout":
+            raise NotImplementedError
+        else:
+            raise TypeError("Do not suuport {} augmentation.".format(aug))
 
         assert egs_csv != "" and egs_csv is not None
         self.data_frame = pd.read_csv(egs_csv, sep=" ").values
@@ -54,7 +73,13 @@ class ChunkEgs(Dataset):
 
         egs = kaldi_io.read_mat(self.data_frame[index][1], chunk=chunk)
         target = self.data_frame[index][4]
-        return egs.T, target
+
+        if self.aug is not None:
+            # Note, egs from kaldi_io is read-only and 
+            # use egs = np.require(egs, requirements=['O', 'W']) to make it writeable if needed in augmentation method.
+            return self.aug(egs.T), target
+        else:
+            return egs.T, target
 
     def __len__(self):
         return len(self.data_frame)
@@ -93,8 +118,8 @@ class BaseBunch():
 
 
     @classmethod
-    def get_bunch_from_csv(self, trainset_csv:str, valid_csv:str=None, data_loader_params_dict:dict={}):
-        trainset = ChunkEgs(trainset_csv)
+    def get_bunch_from_csv(self, trainset_csv:str, valid_csv:str=None, egs_params:dict={}, data_loader_params_dict:dict={}):
+        trainset = ChunkEgs(trainset_csv, **egs_params)
         if valid_csv != "" and valid_csv is not None:
             valid = ChunkEgs(valid_csv)
         else:
@@ -112,10 +137,10 @@ class BaseBunch():
         return self.num_batch_train
 
     @classmethod
-    def get_bunch_from_egsdir(self, egsdir:str, data_loader_params_dict:dict={}):
+    def get_bunch_from_egsdir(self, egsdir:str, egs_params:dict={}, data_loader_params_dict:dict={}):
         feat_dim, num_targets, train_csv, valid_csv = get_info_from_egsdir(egsdir)
         info = {"feat_dim":feat_dim, "num_targets":num_targets}
-        bunch = self.get_bunch_from_csv(train_csv, valid_csv, data_loader_params_dict)
+        bunch = self.get_bunch_from_csv(train_csv, valid_csv, egs_params, data_loader_params_dict)
         return bunch, info
 
 

@@ -123,6 +123,11 @@ gpu_id = args.gpu_id # If NULL, then it will be auto-specified.
 run_lr_finder = args.run_lr_finder
 
 egs_params = {
+    "aug":None, # None or specaugment
+    "aug_params":{"frequency":0.2, "frame":0.2}
+}
+
+loader_params = {
     "use_fast_loader":True, # It is a queue loader to prefetch batch and storage.
     "max_prefetch":10,
     "batch_size":512, 
@@ -208,7 +213,7 @@ if stage <= 3 <= endstage:
 
     logger.info("Load egs to bunch.")
     # The dict [info] contains feat_dim and num_targets.
-    bunch, info = egs.BaseBunch.get_bunch_from_egsdir(egs_dir, egs_params)
+    bunch, info = egs.BaseBunch.get_bunch_from_egsdir(egs_dir, egs_params, loader_params)
 
     logger.info("Create model from model blueprint.")
     # Another way: import the model.py in this python directly, but it is not friendly to the shell script of extracting and
@@ -222,7 +227,8 @@ if stage <= 3 <= endstage:
     lr_scheduler = learn_rate_scheduler.LRSchedulerWrapper(optimizer, lr_scheduler_params)
 
     # Record params to model_dir
-    utils.write_list_to_file([model_params, optimizer_params, lr_scheduler_params], model_dir+'/config/params.dict')
+    utils.write_list_to_file([egs_params, loader_params, model_params, optimizer_params, 
+                              lr_scheduler_params], model_dir+'/config/params.dict')
 
     logger.info("Init a simple trainer.")
     # Package(Elements:dict, Params:dict}. It is a key parameter's package to trainer and model_dir/config/.
