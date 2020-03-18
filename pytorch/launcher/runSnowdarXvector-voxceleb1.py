@@ -113,7 +113,7 @@ run_lr_finder = args.run_lr_finder
 
 egs_params = {
     "aug":None, # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
-    "aug_params":{"frequency":0.2, "frame":0.2}
+    "aug_params":{"frequency":0.2, "frame":0.2, "rows":1, "cols",1}
 }
 
 loader_params = {

@@ -45,7 +45,9 @@ class ChunkEgs(Dataset):
         # Augmentation.
         default_aug_params = {
             "frequency":0.2,
-            "frame":0.2
+            "frame":0.2,
+            "rows":1, 
+            "cols",1
         }
 
         aug_params = utils.assign_params_dict(default_aug_params, aug_params)
@@ -53,7 +55,8 @@ class ChunkEgs(Dataset):
         if aug is None or aug == "" or aug == False:
             self.aug = None
         elif aug == "specaugment":
-            self.aug = SpecAugment(frequency=aug_params["frequency"], frame=aug_params["frame"])
+            self.aug = SpecAugment(frequency=aug_params["frequency"], frame=aug_params["frame"], 
+                                   rows=aug_params["rows"], cols=aug_params["cols"])
         elif aug == "cutout":
             raise NotImplementedError
         else:

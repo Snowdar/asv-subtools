@@ -14,7 +14,7 @@ import torch
 import numpy as np 
 
 class SpecAugment():
-    """Implement specaugment for acoustics features' augmentation.
+    """Implement specaugment for acoustics features' augmentation but without time warping.
     Reference: Park, D. S., Chan, W., Zhang, Y., Chiu, C.-C., Zoph, B., Cubuk, E. D., & Le, Q. V. (2019). 
                Specaugment: A simple data augmentation method for automatic speech recognition. arXiv 
                preprint arXiv:1904.08779.
@@ -26,12 +26,16 @@ class SpecAugment():
            [2] Zhong, Z., Zheng, L., Kang, G., Li, S., & Yang, Y. (2017). Random erasing data augmentation. 
                arXiv preprint arXiv:1708.04896. 
     """
-    def __init__(self, frequency=0.2, frame=0.2):
+    def __init__(self, frequency=0.2, frame=0.2, rows=1, cols=1):
         assert 0. <= frequency < 1.
         assert 0. <= frame < 1. # a.k.a time axis.
 
         self.p_f = frequency
         self.p_t = frame
+
+        # Multi-mask.
+        self.rows = rows # Mask rows times for frequency.
+        self.cols = cols # Mask cols times for frame.
 
         self.init = False
 
@@ -62,22 +66,24 @@ class SpecAugment():
                 self.init = True
 
             if self.p_f > 0.:
-                f = np.random.randint(0, self.F + 1)
-                f_0 = np.random.randint(0, self.num_f - f + 1)
+                for i in range(self.rows):
+                    f = np.random.randint(0, self.F + 1)
+                    f_0 = np.random.randint(0, self.num_f - f + 1)
 
-                if numpy_tensor:
-                    inputs[f_0:f_0+f,:].fill(0.)
-                else:
-                    inputs[f_0:f_0+f,:].fill_(0.)
+                    if numpy_tensor:
+                        inputs[f_0:f_0+f,:].fill(0.)
+                    else:
+                        inputs[f_0:f_0+f,:].fill_(0.)
 
             if self.p_t > 0.:
-                t = np.random.randint(0, self.T + 1)
-                t_0 = np.random.randint(0, self.num_t - t + 1)
+                for i in range(self.cols):
+                    t = np.random.randint(0, self.T + 1)
+                    t_0 = np.random.randint(0, self.num_t - t + 1)
 
-                if numpy_tensor:
-                    inputs[:,t_0:t_0+t].fill(0.)
-                else:
-                    inputs[:,t_0:t_0+t].fill_(0.)
+                    if numpy_tensor:
+                        inputs[:,t_0:t_0+t].fill(0.)
+                    else:
+                        inputs[:,t_0:t_0+t].fill_(0.)
 
         return inputs
 
@@ -104,17 +110,17 @@ class Cutout():
 if __name__ == "__main__":
     print("Test aug frenquency only with numpy array...")
     np_array = np.random.randn(8,4)
-    aug_frenquency = SpecAugment(frequency=0.5, frame=0.)
+    aug_frenquency = SpecAugment(frequency=0.5, frame=0., rows=1, cols=1)
     print(aug_frenquency(np_array),"\n")
 
     print("Test aug time only with torch tensor...")
     tensor = torch.randn(4,8)
-    aug_time = SpecAugment(frequency=0., frame=0.5)
+    aug_time = SpecAugment(frequency=0., frame=0.5, rows=1, cols=1)
     print(aug_time(tensor),"\n")
 
     print("Test aug frenquency and time with torch tensor...")
-    tensor = torch.randn(6,8)
-    aug_all =SpecAugment(frequency=0.5, frame=0.5)
+    tensor = torch.randn(8,8)
+    aug_all =SpecAugment(frequency=0.5, frame=0.5, rows=2, cols=2)
     print(aug_all(tensor))
 
     print("Test done.")
