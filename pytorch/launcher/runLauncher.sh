@@ -17,10 +17,21 @@ fi
 launcher=$1
 shift
 
+stage=$(echo "$@" | awk -v stage=$stage '{for(i=1;i<=NF;i++){
+        split($i,a,"=");if(a[1]=="--stage"){change=1;print a[2];}}}END{if(!change){print stage}}')
+endstage=$(echo "$@" | awk -v endstage=$endstage '{for(i=1;i<=NF;i++){
+        split($i,a,"=");if(a[1]=="--endstage"){change=1;print a[2];}}}END{if(!change){print endstage}}')
+
+launcher_options=$(echo "$@" | awk '{for(i=1;i<=NF;i++){
+                                     split($i,a,"=");
+                                     if(a[1]=="--stage" || a[1]=="--endstage")
+                                     {$i="";}
+                                     }}END{print $0;}')
+
 if [[ "$stage" -le 3 && "$endstage" -ge 3 ]];then
-    python3 $launcher $@ --stage=$stage --endstage=3 || exit 1 
+    python3 $launcher $launcher_options --stage=$stage --endstage=3 || exit 1 
 fi
 
 if [[ "$stage" -le 4 && "$endstage" -ge 4 ]];then
-    python3 $launcher --stage=4 || exit 1
+    python3 $launcher $launcher_options --stage=4 || exit 1
 fi

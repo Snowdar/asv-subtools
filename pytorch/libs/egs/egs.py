@@ -47,7 +47,7 @@ class ChunkEgs(Dataset):
             "frequency":0.2,
             "frame":0.2,
             "rows":1, 
-            "cols",1
+            "cols":1
         }
 
         aug_params = utils.assign_params_dict(default_aug_params, aug_params)
