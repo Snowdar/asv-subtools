@@ -109,12 +109,39 @@ class FocalLoss(TopVirtualLoss):
 
 
 class MarginSoftmaxLoss(TopVirtualLoss):
-    """MarginSoftmaxLoss
+    """Margin softmax loss.
+    There are AM, AAM, Double-AM, SM1 (Snowdar Margin softmax loss), SM2 and SM3. 
+    Do not provide A-softmax loss again for its complex implementation and margin limitation.
+    Reference:
+            [1] Liu, W., Wen, Y., Yu, Z., & Yang, M. (2016). Large-margin softmax loss for convolutional neural networks. 
+                Paper presented at the ICML.
+
+            [2] Liu, W., Wen, Y., Yu, Z., Li, M., Raj, B., & Song, L. (2017). Sphereface: Deep hypersphere embedding for 
+                face recognition. Paper presented at the Proceedings of the IEEE conference on computer vision and pattern 
+                recognition.
+
+            [3] Wang, F., Xiang, X., Cheng, J., & Yuille, A. L. (2017). Normface: l2 hypersphere embedding for face 
+                verification. Paper presented at the Proceedings of the 25th ACM international conference on Multimedia.
+
+            [4] Wang, F., Cheng, J., Liu, W., & Liu, H. (2018). Additive margin softmax for face verification. IEEE Signal 
+                Processing Letters, 25(7), 926-930.
+
+            [5] Wang, H., Wang, Y., Zhou, Z., Ji, X., Gong, D., Zhou, J., . . . Liu, W. (2018). Cosface: Large margin cosine 
+                loss for deep face recognition. Paper presented at the Proceedings of the IEEE Conference on Computer Vision 
+                and Pattern Recognition.
+
+            [6] Deng, J., Guo, J., Xue, N., & Zafeiriou, S. (2019). Arcface: Additive angular margin loss for deep face 
+                recognition. Paper presented at the Proceedings of the IEEE Conference on Computer Vision and Pattern 
+                Recognition.
+
+            [7] Zhou, S., Chen, C., Han, G., & Hou, X. (2020). Double Additive Margin Softmax Loss for Face Recognition. 
+                Applied Sciences, 10(1), 60. 
     """
     def init(self, input_dim, num_targets,
              m=0.2, s=30., t=1.,
              feature_normalize=True,
              method="am",
+             double=False,
              mhe_loss=False, mhe_w=0.01,
              reduction='mean', eps=1.0e-10, init=True):
 
@@ -126,6 +153,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         self.t = t # temperature
         self.feature_normalize = feature_normalize
         self.method = method # am | aam | sm1 | sm2 | sm3
+        self.double = double
         self.feature_normalize = feature_normalize
         self.mhe_loss = mhe_loss
         self.mhe_w = mhe_w
@@ -147,7 +175,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         # Init
         if init:
              # torch.nn.init.xavier_normal_(self.weight, gain=1.0)
-            torch.nn.init.normal_(self.weight, 0., 0.01) # it seems well
+            torch.nn.init.normal_(self.weight, 0., 0.01) # it seems well.
 
     def forward(self, inputs, targets):
         """
@@ -175,10 +203,14 @@ class MarginSoftmaxLoss(TopVirtualLoss):
 
         if self.method == "am":
             penalty_cosine_theta = cosine_theta_target - self.m
+            if self.double:
+                cosine_theta.add_(self.m)
         elif self.method == "aam":
             # Another implementation w.r.t cosine(theta+m) = cosine_theta * cos_m - sin_theta * sin_m
             # penalty_cosine_theta = self.cos_m * cosine_theta_target - self.sin_m * torch.sqrt((1-cosine_theta_target**2).clamp(min=0.))
             penalty_cosine_theta = torch.cos(torch.acos(cosine_theta_target) + self.m)
+            if self.double:
+                cosine_theta = torch.cos_(torch.acos_(cosine_theta).add_(-self.m))
         elif self.method == "sm1":
             # penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target) * self.m
             penalty_cosine_theta = (1 + self.m) * cosine_theta_target - self.m
@@ -189,7 +221,8 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         else:
             raise ValueError("Do not support this {0} margin w.r.t [ am | aam | sm1 | sm2 | sm3 ]".format(self.method))
 
-        outputs = self.s * cosine_theta.scatter(1, targets.unsqueeze(1), 
+
+        outputs = self.s * cosine_theta.scatter_(1, targets.unsqueeze(1), 
                   1/(1+self.lambda_factor) * penalty_cosine_theta + self.lambda_factor/(1+self.lambda_factor) * cosine_theta_target)
 
         # Here reported loss will be always higher than softmax loss for the absolute margin penalty and 
@@ -214,7 +247,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         self.lambda_factor = lambda_factor
 
     def extra_repr(self):
-        return '(~affine): ~(input_dim={input_dim}, num_targets={num_targets}, method={method}, margin={m}, s={s}, t={t}, ' \
+        return '(~affine): ~(input_dim={input_dim}, num_targets={num_targets}, method={method}, double={double}, margin={m}, s={s}, t={t}, ' \
                'feature_normalize={feature_normalize}, mhe_loss={mhe_loss}, mhe_w={mhe_w}, eps={eps})'.format(**self.__dict__)
 
 

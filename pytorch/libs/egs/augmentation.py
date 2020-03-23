@@ -14,7 +14,7 @@ import torch
 import numpy as np 
 
 class SpecAugment():
-    """Implement specaugment for acoustics features' augmentation but without time warping.
+    """Implement specaugment for acoustics features' augmentation but without time wraping.
     Reference: Park, D. S., Chan, W., Zhang, Y., Chiu, C.-C., Zoph, B., Cubuk, E. D., & Le, Q. V. (2019). 
                Specaugment: A simple data augmentation method for automatic speech recognition. arXiv 
                preprint arXiv:1904.08779.
@@ -26,7 +26,7 @@ class SpecAugment():
            [2] Zhong, Z., Zheng, L., Kang, G., Li, S., & Yang, Y. (2017). Random erasing data augmentation. 
                arXiv preprint arXiv:1708.04896. 
     """
-    def __init__(self, frequency=0.2, frame=0.2, rows=1, cols=1):
+    def __init__(self, frequency=0.2, frame=0.2, rows=1, cols=1, continuous=False, std=0.2):
         assert 0. <= frequency < 1.
         assert 0. <= frame < 1. # a.k.a time axis.
 
@@ -36,6 +36,9 @@ class SpecAugment():
         # Multi-mask.
         self.rows = rows # Mask rows times for frequency.
         self.cols = cols # Mask cols times for frame.
+
+        self.continuous = continuous
+        self.std = std
 
         self.init = False
 
@@ -70,20 +73,46 @@ class SpecAugment():
                     f = np.random.randint(0, self.F + 1)
                     f_0 = np.random.randint(0, self.num_f - f + 1)
 
-                    if numpy_tensor:
-                        inputs[f_0:f_0+f,:].fill(0.)
+                    if self.continuous:
+                        scale_size = (f, self.num_t)
+                        scale = torch.tensor(np.random.normal(0., self.std, size=scale_size).clip(0., 1.))
+                        if numpy_tensor:
+                            # Use torch.from_numpy to transforms numpy.ndarray to tensor without a deep copy
+                            # and use tensor inplace funtion torch.Tensor.mul_().
+                            inputs = torch.from_numpy(inputs)
+                            inputs[f_0:f_0+f,:].mul_(scale)
+                            inputs = inputs.numpy()
+                        else:
+                            inputs[f_0:f_0+f,:].mul_(scale)
                     else:
-                        inputs[f_0:f_0+f,:].fill_(0.)
+                        inverted_factor = self.num_f / (self.num_f - f)
+                        if numpy_tensor:
+                            inputs[f_0:f_0+f,:].fill(0.)
+                            inputs = torch.from_numpy(inputs).mul_(inverted_factor).numpy()
+                        else:
+                            inputs[f_0:f_0+f,:].fill_(0.)
+                            inputs.mul_(inverted_factor)
+
 
             if self.p_t > 0.:
                 for i in range(self.cols):
                     t = np.random.randint(0, self.T + 1)
                     t_0 = np.random.randint(0, self.num_t - t + 1)
 
-                    if numpy_tensor:
-                        inputs[:,t_0:t_0+t].fill(0.)
+                    if self.continuous:
+                        scale_size = (self.num_f, t)
+                        scale = torch.tensor(np.random.normal(0., self.std, size=scale_size).clip(0., 1.))
+                        if numpy_tensor:
+                            inputs = torch.from_numpy(inputs)
+                            inputs[:,t_0:t_0+t].mul_(scale)
+                            inputs = inputs.numpy()
+                        else:
+                            inputs[:,t_0:t_0+t].mul_(scale)
                     else:
-                        inputs[:,t_0:t_0+t].fill_(0.)
+                        if numpy_tensor:
+                            inputs[:,t_0:t_0+t].fill(0.)
+                        else:
+                            inputs[:,t_0:t_0+t].fill_(0.)
 
         return inputs
 
