@@ -46,7 +46,9 @@ class Xvector(TopVirtualNnet):
         default_margin_loss_params = {
             "method":"am", "m":0.2, 
             "feature_normalize":True, "s":30, 
-            "mhe_loss":False, "mhe_w":0.01
+            "double":False,
+            "mhe_loss":False, "mhe_w":0.01,
+            "inter_loss":0.
         }
 
         default_step_params = {
@@ -96,7 +98,7 @@ class Xvector(TopVirtualNnet):
         self.tdnn4 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params)
         self.se4 = SEBlock(512, se_ratio=se_ratio) if SE else None
 
-        nodes = LDE_pooling_params["nodes"] if LDE_pooling else 1500
+        nodes = LDE_pooling_params.pop("nodes") if LDE_pooling else 1500
 
         self.tdnn5 = ReluBatchNormTdnnLayer(512,nodes,**tdnn_layer_params)
         self.se5 = SEBlock(nodes, se_ratio=se_ratio) if SE else None
@@ -179,11 +181,10 @@ class Xvector(TopVirtualNnet):
             x += identity
         x = self.tdnn5(x)
         x = self.auto(self.se5, x)
-        x = self.auto(self.hidden_dropout, x)
         x = self.stats(x)
         x = self.auto(self.tdnn6, x)
         x = self.tdnn7(x)
-
+        x = self.auto(self.hidden_dropout, x)
         return x
 
 

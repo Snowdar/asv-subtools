@@ -89,4 +89,7 @@ for n in $(seq $nj); do
 done > $data_out/utt2num_frames || exit 1
 rm $featdir/log/utt2num_frames.*
 
+subtools/kaldi/utils/fix_data_dir.sh $data_out
+rm -rf $data_out/.backup
+
 echo "$0: Succeeded creating xvector features for $name"

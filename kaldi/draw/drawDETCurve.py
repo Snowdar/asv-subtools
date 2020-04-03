@@ -41,7 +41,7 @@ trials_path=sys.argv[1]
 score_path=sys.argv[2]
 out_png1=sys.argv[3]
 out_png2=sys.argv[4]
-show=sys.argv[3]
+show=sys.argv[5]
 
 
 trials=load_data(trials_path,3)
@@ -135,7 +135,7 @@ plt.ylim(0,y_max)
 plt.xlim(0,x_max)
 plt.grid(True,linestyle='-.')
 plt.legend(loc=4)
-plt.savefig(out_png1,256)
+plt.savefig(out_png1,dpi=256)
 if show == 'true' :
 	plt.show()
 
@@ -150,7 +150,7 @@ plt.grid(True,linestyle='-.')
 plt.xticks(np.arange(0, width*10, width)) 
 plt.yticks(np.arange(0, width*10, width))
 plt.legend(loc=4)
-plt.savefig(out_png2,256)
+plt.savefig(out_png2,dpi=256)
 if show == 'true' :
 	plt.show()
 

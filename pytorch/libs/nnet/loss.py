@@ -143,6 +143,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
              method="am",
              double=False,
              mhe_loss=False, mhe_w=0.01,
+             inter_loss=0.,
              reduction='mean', eps=1.0e-10, init=True):
 
         self.input_dim = input_dim
@@ -157,7 +158,11 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         self.feature_normalize = feature_normalize
         self.mhe_loss = mhe_loss
         self.mhe_w = mhe_w
+        self.inter_loss = inter_loss
         self.lambda_factor = 0
+
+        if self.method == "sm1":
+            self.alpha = torch.nn.Parameter(torch.randn(num_targets, 1))
 
         self.eps = eps
 
@@ -195,25 +200,38 @@ class MarginSoftmaxLoss(TopVirtualLoss):
 
         self.posterior = (self.s * cosine_theta).detach().unsqueeze(2) # accuracy must be reported before margin penalty added
 
+        if not self.training:
+            # For valid set.
+            outputs = self.s * cosine_theta
+            return self.loss_function(outputs, targets)
+
+
         ## Margin
 
         # cosine_theta [batch_size, num_class]
         # targets.unsqueeze(1) [batch_size, 1]
         cosine_theta_target = cosine_theta.gather(1, targets.unsqueeze(1))
 
+        if self.inter_loss > 0:
+            inter_cosine_theta = torch.softmax(self.s * cosine_theta, dim=1)
+            inter_cosine_theta_target = inter_cosine_theta.gather(1, targets.unsqueeze(1))
+            inter_loss = torch.log((inter_cosine_theta.sum(dim=1) - inter_cosine_theta_target)/(self.num_targets - 1) + self.eps).mean()
+
         if self.method == "am":
             penalty_cosine_theta = cosine_theta_target - self.m
             if self.double:
-                cosine_theta.add_(self.m)
+                double_cosine_theta = cosine_theta + self.m
         elif self.method == "aam":
             # Another implementation w.r.t cosine(theta+m) = cosine_theta * cos_m - sin_theta * sin_m
             # penalty_cosine_theta = self.cos_m * cosine_theta_target - self.sin_m * torch.sqrt((1-cosine_theta_target**2).clamp(min=0.))
             penalty_cosine_theta = torch.cos(torch.acos(cosine_theta_target) + self.m)
             if self.double:
-                cosine_theta = torch.cos_(torch.acos_(cosine_theta).add_(-self.m))
+                double_cosine_theta = torch.cos(torch.acos(cosine_theta).add(-self.m))
         elif self.method == "sm1":
             # penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target) * self.m
-            penalty_cosine_theta = (1 + self.m) * cosine_theta_target - self.m
+            beta = torch.softmax(self.alpha, dim=0)
+            gamma = F.pad(beta.unsqueeze(2),(0,cosine_theta.shape[0]-1),"replicate").squeeze().t().gather(1, targets.unsqueeze(1))
+            penalty_cosine_theta = (1 + self.m * gamma) * cosine_theta_target - self.m
         elif self.method == "sm2":
             penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target**2) * self.m
         elif self.method == "sm3":
@@ -221,8 +239,10 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         else:
             raise ValueError("Do not support this {0} margin w.r.t [ am | aam | sm1 | sm2 | sm3 ]".format(self.method))
 
+        if self.double:
+            cosine_theta = 1/(1+self.lambda_factor) * double_cosine_theta + self.lambda_factor/(1+self.lambda_factor) * cosine_theta
 
-        outputs = self.s * cosine_theta.scatter_(1, targets.unsqueeze(1), 
+        outputs = self.s * cosine_theta.scatter(1, targets.unsqueeze(1), 
                   1/(1+self.lambda_factor) * penalty_cosine_theta + self.lambda_factor/(1+self.lambda_factor) * cosine_theta_target)
 
         # Here reported loss will be always higher than softmax loss for the absolute margin penalty and 
@@ -240,6 +260,8 @@ class MarginSoftmaxLoss(TopVirtualLoss):
             the_mhe_loss = self.mhe_w * torch.mean((normed_sub_weight_clean**2).clamp(min=self.eps)**-1)
 
             return self.loss_function(outputs/self.t, targets) + the_mhe_loss
+        elif self.inter_loss > 0:
+            return self.loss_function(outputs/self.t, targets) + self.inter_loss * inter_loss
         else:
             return self.loss_function(outputs/self.t, targets)
     

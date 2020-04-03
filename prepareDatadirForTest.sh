@@ -3,8 +3,8 @@
 # Copyright xmuspeech (Author:Snowdar 2018-11-29)
 
 if [ $# != 2 ];then
-echo "usage: $0 <wav-dir> <out-dir>"
-echo "e.g.: $0  test/wav test/outdir"
+echo "usage: $0 <wav-dir> <out-data-dir>"
+echo "e.g.: $0  test/wav data/test"
 exit 1
 fi
 

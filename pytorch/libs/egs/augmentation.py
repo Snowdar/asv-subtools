@@ -26,7 +26,7 @@ class SpecAugment():
            [2] Zhong, Z., Zheng, L., Kang, G., Li, S., & Yang, Y. (2017). Random erasing data augmentation. 
                arXiv preprint arXiv:1708.04896. 
     """
-    def __init__(self, frequency=0.2, frame=0.2, rows=1, cols=1, continuous=False, std=0.2):
+    def __init__(self, frequency=0.2, frame=0.2, rows=1, cols=1, random_rows=False, random_cols=False):
         assert 0. <= frequency < 1.
         assert 0. <= frame < 1. # a.k.a time axis.
 
@@ -37,8 +37,8 @@ class SpecAugment():
         self.rows = rows # Mask rows times for frequency.
         self.cols = cols # Mask cols times for frame.
 
-        self.continuous = continuous
-        self.std = std
+        self.random_rows = random_rows
+        self.random_cols = random_cols
 
         self.init = False
 
@@ -69,50 +69,38 @@ class SpecAugment():
                 self.init = True
 
             if self.p_f > 0.:
-                for i in range(self.rows):
+                if self.random_rows:
+                    multi = np.random.randint(1, self.rows+1)
+                else:
+                    multi = self.rows
+
+                for i in range(multi):
                     f = np.random.randint(0, self.F + 1)
                     f_0 = np.random.randint(0, self.num_f - f + 1)
 
-                    if self.continuous:
-                        scale_size = (f, self.num_t)
-                        scale = torch.tensor(np.random.normal(0., self.std, size=scale_size).clip(0., 1.))
-                        if numpy_tensor:
-                            # Use torch.from_numpy to transforms numpy.ndarray to tensor without a deep copy
-                            # and use tensor inplace funtion torch.Tensor.mul_().
-                            inputs = torch.from_numpy(inputs)
-                            inputs[f_0:f_0+f,:].mul_(scale)
-                            inputs = inputs.numpy()
-                        else:
-                            inputs[f_0:f_0+f,:].mul_(scale)
+                    inverted_factor = self.num_f / (self.num_f - f)
+                    if numpy_tensor:
+                        inputs[f_0:f_0+f,:].fill(0.)
+                        inputs = torch.from_numpy(inputs).mul_(inverted_factor).numpy()
                     else:
-                        inverted_factor = self.num_f / (self.num_f - f)
-                        if numpy_tensor:
-                            inputs[f_0:f_0+f,:].fill(0.)
-                            inputs = torch.from_numpy(inputs).mul_(inverted_factor).numpy()
-                        else:
-                            inputs[f_0:f_0+f,:].fill_(0.)
-                            inputs.mul_(inverted_factor)
+                        inputs[f_0:f_0+f,:].fill_(0.)
+                        inputs.mul_(inverted_factor)
 
 
             if self.p_t > 0.:
-                for i in range(self.cols):
+                if self.random_cols:
+                    multi = np.random.randint(1, self.cols+1)
+                else:
+                    multi = self.cols
+
+                for i in range(multi):
                     t = np.random.randint(0, self.T + 1)
                     t_0 = np.random.randint(0, self.num_t - t + 1)
 
-                    if self.continuous:
-                        scale_size = (self.num_f, t)
-                        scale = torch.tensor(np.random.normal(0., self.std, size=scale_size).clip(0., 1.))
-                        if numpy_tensor:
-                            inputs = torch.from_numpy(inputs)
-                            inputs[:,t_0:t_0+t].mul_(scale)
-                            inputs = inputs.numpy()
-                        else:
-                            inputs[:,t_0:t_0+t].mul_(scale)
+                    if numpy_tensor:
+                        inputs[:,t_0:t_0+t].fill(0.)
                     else:
-                        if numpy_tensor:
-                            inputs[:,t_0:t_0+t].fill(0.)
-                        else:
-                            inputs[:,t_0:t_0+t].fill_(0.)
+                        inputs[:,t_0:t_0+t].fill_(0.)
 
         return inputs
 
