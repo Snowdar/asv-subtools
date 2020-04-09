@@ -144,6 +144,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
              double=False,
              mhe_loss=False, mhe_w=0.01,
              inter_loss=0.,
+             ring_loss=0.,
              reduction='mean', eps=1.0e-10, init=True):
 
         self.input_dim = input_dim
@@ -159,10 +160,16 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         self.mhe_loss = mhe_loss
         self.mhe_w = mhe_w
         self.inter_loss = inter_loss
+        self.ring_loss = ring_loss
         self.lambda_factor = 0
 
-        if self.method == "sm1":
-            self.alpha = torch.nn.Parameter(torch.randn(num_targets, 1))
+        #if self.method == "sm1":
+         #   self.alpha = torch.nn.Parameter(torch.randn(num_targets, 1))
+
+        if self.ring_loss > 0:
+            self.r = torch.nn.Parameter(torch.tensor(20.))
+            self.feature_normalize = False
+
 
         self.eps = eps
 
@@ -190,6 +197,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         assert inputs.shape[2] == 1
 
         batch_size = inputs.shape[0]
+
 
         normalized_x = F.normalize(inputs.squeeze(dim=2), dim=1)
         normalized_weight = F.normalize(self.weight.squeeze(dim=2), dim=1)
@@ -229,9 +237,10 @@ class MarginSoftmaxLoss(TopVirtualLoss):
                 double_cosine_theta = torch.cos(torch.acos(cosine_theta).add(-self.m))
         elif self.method == "sm1":
             # penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target) * self.m
-            beta = torch.softmax(self.alpha, dim=0)
-            gamma = F.pad(beta.unsqueeze(2),(0,cosine_theta.shape[0]-1),"replicate").squeeze().t().gather(1, targets.unsqueeze(1))
-            penalty_cosine_theta = (1 + self.m * gamma) * cosine_theta_target - self.m
+            #beta = torch.softmax(self.alpha, dim=0)
+            #gamma = F.pad(beta.unsqueeze(2),(0,cosine_theta.shape[0]-1),"replicate").squeeze().t().gather(1, targets.unsqueeze(1))
+            #penalty_cosine_theta = (1 + self.m * gamma) * cosine_theta_target - self.m
+            penalty_cosine_theta = (1 + self.m) * cosine_theta_target - self.m
         elif self.method == "sm2":
             penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target**2) * self.m
         elif self.method == "sm3":
@@ -249,6 +258,11 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         # it is a lie about why we can not decrease the loss to a mininum value. We 
         # should not report the loss after margin penalty but we really do that to avoid computing the 
         # training loss twice.
+        if self.ring_loss > 0:
+            ring_loss = torch.mean((self.s - self.r)**2)/2
+        else:
+            ring_loss = 0.
+
         if self.mhe_loss:
             sub_weight = normalized_weight - torch.index_select(normalized_weight, 0, targets).unsqueeze(dim=1)
             # [N, C]
@@ -259,11 +273,11 @@ class MarginSoftmaxLoss(TopVirtualLoss):
             # torch.mean means 1/(N*(C-1))
             the_mhe_loss = self.mhe_w * torch.mean((normed_sub_weight_clean**2).clamp(min=self.eps)**-1)
 
-            return self.loss_function(outputs/self.t, targets) + the_mhe_loss
+            return self.loss_function(outputs/self.t, targets) + the_mhe_loss + self.ring_loss * ring_loss
         elif self.inter_loss > 0:
-            return self.loss_function(outputs/self.t, targets) + self.inter_loss * inter_loss
+            return self.loss_function(outputs/self.t, targets) + self.inter_loss * inter_loss + self.ring_loss * ring_loss
         else:
-            return self.loss_function(outputs/self.t, targets)
+            return self.loss_function(outputs/self.t, targets) + self.ring_loss * ring_loss
     
     def step(self, lambda_factor):
         self.lambda_factor = lambda_factor

@@ -48,7 +48,8 @@ class Xvector(TopVirtualNnet):
             "feature_normalize":True, "s":30, 
             "double":False,
             "mhe_loss":False, "mhe_w":0.01,
-            "inter_loss":0.
+            "inter_loss":0.,
+            "ring_loss":0.
         }
 
         default_step_params = {
