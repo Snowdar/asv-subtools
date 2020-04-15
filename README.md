@@ -37,6 +37,7 @@ yum安装出问题残留清理
     package-cleanup --cleandupes
 
 [1] 基本依赖包
+
     pip3 install torch numpy pandas progressbar2
 
 [2] 多GPU训练依赖包 <方案 = Horovod：https://github.com/horovod/horovod#id10>
