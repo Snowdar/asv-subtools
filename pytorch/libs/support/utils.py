@@ -9,7 +9,6 @@ import logging
 import shutil
 import numpy as np
 import pandas as pd
-
 import torch
 
 # Logger
@@ -40,16 +39,28 @@ def auto_select_model_device(model, use_gpu, gpu_id="", benchmark=False):
 
     if use_gpu :
         if gpu_id == "":
-            logger.info("The use_gpu is true and gpu_id is not specified, so select gpu device automatically.")
+            logger.info("The use_gpu is true and gpu id is not specified, so select gpu device automatically.")
             import libs.support.GPU_Manager as gpu
             gm = gpu.GPUManager()
-            gpu_id = gm.auto_choice()
+            gpu_id = [gm.auto_choice()]
         else:
-            logger.info("The use_gpu is true and gpu_id is specified to {0}".format(gpu_id))
+            gpu_id = gpu_id.replace("-", " ")
+            gpu_id = gpu_id.replace(",", " ")
+            gpu_id = [ int(x) for x in gpu_id.split()]
+            logger.info("The use_gpu is true and plan to select GPU {0}.".format(gpu_id))
 
-        torch.cuda.set_device(int(gpu_id))
+        if use_horovod():
+            import horovod.torch as hvd
+            # Just multi GPU case.
+            if hvd.size() > len(gpu_id):
+                raise ValueError("To run horovod with {} nj, " \
+                                 "but just {} GPU ids ({}) are given.".format(hvd.size(), len(gpu_id), gpu_id))
+            torch.cuda.set_device(gpu_id[hvd.rank()])
+        else:
+            # One process in one GPU.
+            torch.cuda.set_device(gpu_id[0])
+
         torch.backends.cudnn.benchmark = benchmark
-
         model.cuda()
 
     return model
@@ -141,19 +152,20 @@ def read_nnet_config(nnet_config:str):
 
 
 def create_model_dir(model_dir:str, model_blueprint:str, stage=-1):
-    if not os.path.exists("{0}/log".format(model_dir)):
-        os.makedirs("{0}/log".format(model_dir))
-
     # Just change the path of blueprint so that use the copy of blueprint which is in the config directory and it could 
     # avoid unkonw influence from the original blueprint which could be changed possibly before some processes needing 
     # this blueprint, such as pipeline/onestep/extracting_embedings.py
     config_model_blueprint = "{0}/config/{1}".format(model_dir, os.path.basename(model_blueprint))
 
-    if not os.path.exists("{0}/config".format(model_dir)):
-        os.makedirs("{0}/config".format(model_dir))
+    if is_main_training():
+        if not os.path.exists("{0}/log".format(model_dir)):
+            os.makedirs("{0}/log".format(model_dir))
 
-    if stage < 0 and model_blueprint != config_model_blueprint:
-        shutil.copy(model_blueprint, config_model_blueprint)
+        if not os.path.exists("{0}/config".format(model_dir)):
+            os.makedirs("{0}/config".format(model_dir))
+
+        if stage < 0 and model_blueprint != config_model_blueprint:
+            shutil.copy(model_blueprint, config_model_blueprint)
     
     return config_model_blueprint
 
@@ -298,8 +310,10 @@ def auto_str(value, auto=True):
     else:
         return str(value)
 
+
 def iterator_to_params_str(iterator, sep=",", auto=True):
     return sep.join(auto_str(x, auto) for x in iterator)
+
 
 def dict_to_params_str(dict, auto=True, connect="=", sep=","):
     params_list = []
@@ -312,5 +326,23 @@ def read_log_csv(csv_path:str):
     dataframe = pd.read_csv(csv_path).drop_duplicates(["epoch", "iter"], keep="last", inplace=True)
     return dataframe
 
+### Multi-GPU training.
+def use_horovod():
+    return os.getenv("USE_HOROVOD") == "true"
 
+def init_horovod():
+    if not use_horovod():
+        os.environ["USE_HOROVOD"] = "true"
+    import horovod.torch as hvd
+    hvd.init()
 
+def is_main_training():
+    if use_horovod():
+        import horovod.torch as hvd
+        # Set rank=0 to main training process. See trainer.init_training().
+        if hvd.rank() == 0:
+            return True
+        else:
+            return False
+    else:
+        return True

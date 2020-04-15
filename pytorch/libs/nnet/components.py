@@ -169,6 +169,7 @@ class TdnnfBlock(torch.nn.Module):
 
     def step(self, epoch, iter):
         pass
+        # To do.
         # Updating weight with semi-orthogonal constraint. Note, updating based on backward has no constraint,
         # so we should add the semi-orthogonal constraint here and extrally updating it in training by ourself.
 

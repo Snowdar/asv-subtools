@@ -75,7 +75,7 @@ class SoftmaxLoss(TopVirtualLoss):
         posterior = self.affine(inputs)
         self.posterior = posterior.detach()
 
-        # The frames-index is 1 now 
+        # The frames-index is 1 now.
         outputs = torch.squeeze(posterior, dim=2)
         return self.loss_function(outputs/self.t, targets)
 

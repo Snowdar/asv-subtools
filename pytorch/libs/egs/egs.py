@@ -97,12 +97,27 @@ class BaseBunch():
     def __init__(self, trainset:ChunkEgs, valid:ChunkEgs=None, use_fast_loader=False, max_prefetch=10,
                  batch_size=512, shuffle=True, num_workers=0, pin_memory=False, drop_last=True):
 
+        if utils.use_horovod():
+            # Multi-GPU training.
+            import horovod.torch as hvd
+            # Partition dataset among workers using DistributedSampler
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                            trainset, num_replicas=hvd.size(), rank=hvd.rank(), shuffle=shuffle)
+            # If use DistributedSampler, the shuffle of DataLoader should be set False.
+            shuffle = False
+
+            if not utils.is_main_training():
+                valid = None
+        else:
+            train_sampler = None
+
         if use_fast_loader:
             self.train_loader = DataLoaderFast(max_prefetch, trainset, batch_size = batch_size, shuffle=shuffle, 
-                                               num_workers=num_workers, pin_memory=pin_memory, drop_last=drop_last)
+                                               num_workers=num_workers, pin_memory=pin_memory, drop_last=drop_last,
+                                               sampler=train_sampler)
         else:
             self.train_loader = DataLoader(trainset, batch_size = batch_size, shuffle=shuffle, num_workers=num_workers, 
-                                           pin_memory=pin_memory, drop_last=drop_last)
+                                           pin_memory=pin_memory, drop_last=drop_last, sampler=train_sampler)
 
         self.num_batch_train = len(self.train_loader)
 
@@ -126,6 +141,9 @@ class BaseBunch():
     @classmethod
     def get_bunch_from_csv(self, trainset_csv:str, valid_csv:str=None, egs_params:dict={}, data_loader_params_dict:dict={}):
         trainset = ChunkEgs(trainset_csv, **egs_params)
+        # For multi-GPU training.
+        if not utils.is_main_training():
+            valid = None
         if valid_csv != "" and valid_csv is not None:
             valid = ChunkEgs(valid_csv)
         else:

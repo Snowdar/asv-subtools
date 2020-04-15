@@ -6,7 +6,7 @@ import torch.nn
 import libs.support.utils as utils
 
 
-#### Import * of libs.nnet in your model.py to use all components and loss.
+#### Use 'from libs.nnet import *' in your model.py to use all components and loss functions.
 
 ## Function
 def for_extract_embedding(maxChunk=10000, isMatrix=True):

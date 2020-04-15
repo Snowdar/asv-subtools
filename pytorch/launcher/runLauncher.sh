@@ -43,3 +43,6 @@ fi
 if [[ "$stage" -le 4 && "$endstage" -ge 4 ]];then
     python3 $launcher $launcher_options --stage=4 || exit 1
 fi
+
+wait
+exit 0

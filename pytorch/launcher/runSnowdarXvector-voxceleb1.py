@@ -113,7 +113,7 @@ run_lr_finder = args.run_lr_finder
 
 egs_params = {
     "aug":None, # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
-    "aug_params":{"frequency":0.2, "frame":0.2, "rows":1, "cols",1}
+    "aug_params":{"frequency":0.2, "frame":0.2, "rows":1, "cols":1}
 }
 
 loader_params = {
@@ -160,7 +160,7 @@ optimizer_params = {
 
 lr_scheduler_params = {
     "name":"warmR",
-    "warmR.lr_decay_step":400, # 0 means decay after every epoch and 1 means every iter. 
+    "warmR.lr_decay_step":0, # 0 means decay after every epoch and 1 means every iter. 
     "warmR.T_max":1,
     "warmR.T_mult":1,
     "warmR.factor":1.0,  # The max_lr_decay_factor.

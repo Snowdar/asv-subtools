@@ -10,7 +10,6 @@ import traceback
 import progressbar
 import pandas as pd
 import numpy as np
-
 import torch
 
 from .reporter import Reporter
@@ -101,6 +100,19 @@ class _BaseTrainer():
         else:
             # Just use the raw initial model or initialize it again by some initial functions here
             pass # Now, it means use the raw initial model
+
+        if utils.use_horovod():
+            import horovod.torch as hvd
+             # For optimizer wrapper such as lookahead.
+            if getattr(self.elements["optimizer"], "optimizer", None) is not None:
+                self.elements["optimizer"].optimizer = hvd.DistributedOptimizer(self.elements["optimizer"].optimizer, 
+                                                       named_parameters=self.elements["model"].named_parameters())
+            else:
+                self.elements["optimizer"] = hvd.DistributedOptimizer(self.elements["optimizer"], 
+                                             named_parameters=self.elements["model"].named_parameters())
+
+            # Broadcast parameters from rank 0 to all other processes.
+            hvd.broadcast_parameters(self.elements["model"].state_dict(), root_rank=0)
 
         ## Select device
         self.select_device()
@@ -199,7 +211,9 @@ class SimpleTrainer(_BaseTrainer):
         """
         try:
             self.init_training()
-            self.reporter = Reporter(self)
+
+            if utils.is_main_training():
+                self.reporter = Reporter(self)
 
             start_epoch = self.params["start_epoch"]
             epochs = self.params["epochs"]
@@ -226,17 +240,24 @@ class SimpleTrainer(_BaseTrainer):
 
                     loss, acc = self.train_one_batch(batch)
 
-                    if data.valid_loader and self.reporter.is_report(self.training_point):
-                        valid_loss, valid_acc = self.compute_validation(data.valid_loader)
-                        snapshot = {"train_loss":"{0:.6f}".format(loss), "valid_loss":"{0:.6f}".format(valid_loss), 
-                                    "train_acc":"{0:.2f}".format(acc*100), "valid_acc":"{0:.2f}".format(valid_acc*100)}
-                    else:
-                        snapshot = {"train_loss":"{0:.6f}".format(loss), "valid_loss":"",
-                                    "train_acc":"{0:.2f}".format(acc*100), "valid_acc":""}
+                    # For multi-GPU training.
+                    if utils.is_main_training():
+                        if data.valid_loader and self.reporter.is_report(self.training_point):
+                            valid_loss, valid_acc = self.compute_validation(data.valid_loader)
+                            snapshot = {"train_loss":"{0:.6f}".format(loss), "valid_loss":"{0:.6f}".format(valid_loss), 
+                                        "train_acc":"{0:.2f}".format(acc*100), "valid_acc":"{0:.2f}".format(valid_acc*100)}
+                        else:
+                            snapshot = {"train_loss":"{0:.6f}".format(loss), "valid_loss":"",
+                                        "train_acc":"{0:.2f}".format(acc*100), "valid_acc":""}
 
-                    self.reporter.update(snapshot)
-                self.save_model()
-            self.reporter.finish()
+                    if utils.is_main_training():
+                        self.reporter.update(snapshot)
+
+                if utils.is_main_training():
+                    self.save_model()
+
+            if utils.is_main_training():
+                self.reporter.finish()
         except BaseException as e:
                 if not isinstance(e, KeyboardInterrupt):
                     traceback.print_exc()

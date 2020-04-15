@@ -1,7 +1,10 @@
 # -*- coding:utf-8 -*-
 
-# Copyright xmuspeech (Author: Snowdar 2020-02-012)
+# Copyright xmuspeech (Author: Snowdar 2020-04-13)
 # Apache 2.0
+
+## Run this launcher by now (multi-GPU training is in testing):
+##         horovodrun -np 4 python3 subtools/pytorch/launcher/runSnowdarXvector-Multi-GPU.py --gpu-id=4,1,2,3
 
 import sys, os
 import logging
@@ -10,7 +13,7 @@ import traceback
 import time
 import math
 import numpy as np
-
+import horovod.torch as hvd
 import torch
 
 sys.path.insert(0, 'subtools/pytorch')
@@ -22,7 +25,7 @@ import libs.training.trainer as trainer
 import libs.support.kaldi_common as kaldi_common
 import libs.support.utils as utils
 
-"""A launcher script with python version (Snowdar's launcher to do experiments w.r.t snowdar-xvecotr.py).
+"""A launcher script with python version (Snowdar's launcher to do experiments w.r.t snowdar-xvector.py).
 To support more freedom without limitation of parameters transfer from shell to python.
 Note, this launcher does not contains dataset preparation, augmentation, extracting acoustic features and back-end scoring etc.
 (see subtools/newCopyData.sh, subtools/makeFeatures.sh.sh, subtools/computeVad.sh, 
@@ -113,7 +116,7 @@ run_lr_finder = args.run_lr_finder
 
 egs_params = {
     "aug":None, # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
-    "aug_params":{"frequency":0.2, "frame":0.2}
+    "aug_params":{"frequency":0.2, "frame":0.2, "rows":1, "cols":1}
 }
 
 loader_params = {
@@ -129,7 +132,9 @@ loader_params = {
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
     "extend":False, 
-    "aug_dropout":0.2, "dropout_params":{"type":"default", "dim":2, "start_p":0., "inplace":True},
+    "aug_dropout":0.2, "hidden_dropout":0., 
+    "dropout_params":{"type":"default", "start_p":0., "dim":2, "method":"uniform",
+                      "continuous":False, "inplace":True},
     "training":True, "extracted_embedding":"far", "SE":False, "se_ratio":4,
     "tdnn_layer_params":{"momentum":0.5, "nonlinearity":'relu'},
     "tdnn6":True, "tdnn7_params":{"nonlinearity":"default", "bn":True},
@@ -139,32 +144,36 @@ model_params = {
     "margin_loss":False, 
     "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 
                           "s":30, "mhe_loss":False, "mhe_w":0.01},
-    "use_step":False, "step_params":{}
+    "use_step":False, 
+    "step_params":{"t":False, "s":False, "record_T":0, "T":[], "t_tuple":(0.5, 1.2), 
+                   "s_tuple":(30, 12),
+                   "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4}
 }
 
 optimizer_params = {
-    "name":"adam",
+    "name":"adamW",
     "learn_rate":0.001,
     "beta1":0.9,
     "beta2":0.999,
     "beta3":0.999,
-    "weight_decay":3e-4,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
+    "weight_decay":3e-1,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
     "lookahead.k":5,
-    "lookahead.alpha":0 # 0 means not using lookahead and if used, suggest to set it as 0.5.
+    "lookahead.alpha":0  # 0 means not using lookahead and if used, suggest to set it as 0.5.
 }
 
 lr_scheduler_params = {
     "name":"warmR",
-    "warmR.lr_decay_step":2000, # 0 means decay after every epoch and 1 means every iter. 
+    "warmR.lr_decay_step":0, # 0 means decay after every epoch and 1 means every iter. 
     "warmR.T_max":1,
-    "warmR.T_mult":2,
+    "warmR.T_mult":1,
     "warmR.factor":1.0,  # The max_lr_decay_factor.
-    "warmR.eta_min":4e-8
+    "warmR.eta_min":4e-8,
+    "warmR.log_decay":False
 }
 
-epochs = 15 # Total epochs to train. It is important.
+epochs = 21 # Total epochs to train. It is important.
 report_times_every_epoch = None
-report_interval_iters = 200 # About validation computation and loss reporting. If report_times_every_epoch is not None, 
+report_interval_iters = 100 # About validation computation and loss reporting. If report_times_every_epoch is not None, 
                             # then compute report_interval_iters by report_times_every_epoch.
 stop_early = False
 suffix = "params" # Used in saved model file.
@@ -173,15 +182,16 @@ suffix = "params" # Used in saved model file.
 exist_model=""  # Use it in transfer learning.
 ##--------------------------------------------------##
 ## Main params
-traindata="data/mfcc_23_pitch/voxceleb_train_aug" # voxceleb1.train + voxceleb2.train
-egs_dir="exp/egs/mfcc_23_pitch_voxceleb_train_aug" + "_" + sample_type
+traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
+egs_dir="paper/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/standard_xv_warmR_voxceleb2"
+model_dir="exp/standard_xv_multi_GPU"
 ##--------------------------------------------------##
 ##
 #### Set seed
 utils.set_all_seed(1024)
+utils.init_horovod() # Multi-GPU training.
 
 #### Preprocess
 if stage <= 2 and endstage >= 0:
@@ -198,9 +208,9 @@ if stage <= 2 and endstage >= 0:
                                  valid_utts=valid_utts, valid_chunk_num_every_utt=valid_chunk_num_every_utt, traindata=traindata, 
                                  egs_dir=egs_dir))
 
-
 #### Train model
 if stage <= 3 <= endstage:
+
     logger.info("Get model_blueprint from model directory.")
     # Save the raw model_blueprint in model_dir/config and get the copy of model_blueprint path.
     model_blueprint = utils.create_model_dir(model_dir, model_blueprint, stage=train_stage)
@@ -219,7 +229,7 @@ if stage <= 3 <= endstage:
     optimizer = optim.get_optimizer(model, optimizer_params)
     lr_scheduler = learn_rate_scheduler.LRSchedulerWrapper(optimizer, lr_scheduler_params)
 
-    # Record params to model_dir
+    # Record params to model_dir.
     utils.write_list_to_file([egs_params, loader_params, model_params, optimizer_params, 
                               lr_scheduler_params], model_dir+'/config/params.dict')
 
@@ -250,9 +260,9 @@ if stage <= 4 <= endstage:
 
     to_extracted_positions = ["far"] # Define this w.r.t model_blueprint.
     to_extracted_data = ["voxceleb1_train_aug", "voxceleb1_test"] # All dataset should be in dataroot/prefix.
-    to_extracted_epochs = ["1", "3", "7", "15"] # It is model's name, such as 10.params or final.params (suffix is w.r.t package).
+    to_extracted_epochs = ["7", "14", "21"] # It is model's name, such as 10.params or final.params (suffix is w.r.t package).
 
-    nj = 5
+    nj = 10
     force = False
     use_gpu = True
     gpu_id = ""
@@ -302,8 +312,32 @@ if stage <= 4 <= endstage:
 
 #### Congratulate! All done.
 ##
-#### Report ####
-## 
+#### Report EER% on voxceleb1.test [ back-end = lda256 + normalization + plda ]
+##  optimizer    learn-rate    weight-decay    epoch    far  
+##  adam         0.001         3e-4 (L2)       7        3.319
+##                                             14       3.028
+##                                             21       3.017
+
+##  adamW        0.001         5e-1            7        3.303
+##                                             14       3.266
+##                                             21       3.028
+
+##  adamod       0.001         5e-1            7        3.282
+##                                             14       3.171
+##                                             21       3.049
+
+##  radam        0.001         5e-1            7        3.218
+##                                             14       3.059
+##                                             21       3.038
+
+##  ralamb       0.001         5e-1            7        3.229
+##                                             14       3.155
+##                                             21       3.028
+
+##  adamW        0.003         5e-1            7        3.181
+##  + lookahead                                14       3.054
+##  k=5,alpha=0.5                              21       3.049
+
 
 
 

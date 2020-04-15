@@ -5,7 +5,7 @@
 # Find a real file from a symbolic link.
 
 cmd=false # If true, decode symbolic link for cmd.
-details=false
+details=false # If true, print any symbolic link.
 
 . subtools/parse_options.sh
 
@@ -45,7 +45,6 @@ while true;do
         else
             echo "[exit] Got $object, but it is not exist. So $origin is a invalid symbolic link."
         fi
-
         exit 1
     fi
 done

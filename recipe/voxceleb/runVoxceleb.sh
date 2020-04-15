@@ -47,22 +47,22 @@ subtools/computeVad.sh data/mfcc_23_pitch/voxceleb1_test/ subtools/conf/vad-5.5.
 
 ### Training (preprocess + get_egs + training + extract_xvectors)
 # The launcher is a python script which is the main pipeline for it is independent with the data preparing and the scoring.
-subtools/pytorch/launcher/runLauncher.sh --stage=0 subtools/pytorch/launcher/runSnowdarXvector-voxceleb1.py
-subtools/pytorch/launcher/runLauncher.sh --stage=0 subtools/pytorch/launcher/runSnowdarXvector-voxceleb2.py
+subtools/pytorch/launcher/runLauncher.sh  subtools/pytorch/launcher/runSnowdarXvector-voxceleb1.py --stage=0
+subtools/pytorch/launcher/runLauncher.sh  subtools/pytorch/launcher/runSnowdarXvector-voxceleb2.py --stage=0
 
 
 ### Back-end scoring
 # Training with only voxceleb1_train_aug
-subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_xv_baseline_warmR_voxceleb1_adam  \
+subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_xv_warmR_voxceleb1  \
                                                        --epochs "7 14 21" --score cosine --score-norm true
-subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_xv_baseline_warmR_voxceleb1_adam  \
-                                                       --epochs "7 14 21" --score plda --score-norm true
+subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_xv_warmR_voxceleb1  \
+                                                       --epochs "7 14 21" --score plda --score-norm false
 
 # Training with voxceleb_train_aug
-subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_xv_baseline_warmR_voxceleb2_adam  \
+subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_xv_warmR_voxceleb2 \
                                                        --epochs "1 3 7 15" --score cosine --score-norm true
-subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/ standard_xv_baseline_warmR_voxceleb2_adam \
-                                                       --epochs "1 3 7 15" --score plda --score-norm true
+subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_xv_warmR_voxceleb2 \
+                                                       --epochs "1 3 7 15" --score plda --score-norm false
 
 ### Done
 #

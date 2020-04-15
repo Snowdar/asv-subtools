@@ -3,7 +3,7 @@
 # Copyright xmuspeech (Author: Snowdar 2020-02-28)
 
 # Reference: torchvision.models.resnet.py
-# Modify this py to apply resnet in xvector framework.
+# The torchvision.models.resnet.py is modified to apply resnet in xvector framework.
 
 import torch
 import torch.nn as nn
