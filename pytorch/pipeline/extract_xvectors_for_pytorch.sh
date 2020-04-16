@@ -27,7 +27,7 @@ echo "$0 $@"
 
 set -e 
 
-if [ -f subtools/path.sh ]; then . ./subtools/path.sh; fi
+if [ -f subtools/path.sh ]; then . subtools/path.sh; fi
 . parse_options.sh || exit 1;
 
 if [[ $# != 3 ]];then
