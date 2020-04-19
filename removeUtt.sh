@@ -43,13 +43,14 @@ fi
 
 echo -e "[`echo $list`] $num utts here will be removed."
 
-for x in wav.scp utt2spk spk2utt feats.scp vad.scp utt2num_frames ;do
+# Backup and Recover
+for x in wav.scp utt2spk spk2utt feats.scp vad.scp utt2num_frames utt2gender spk2gender;do
 [ -f $data/$x.backup ] && cp -f $data/$x.backup $data/$x
 [ ! -f $data/$x.backup ] && [ -f $data/$x ] &&  cp $data/$x $data/$x.backup
-# for y in $utt;do
-# [ -f $data/$x ] && sed -i '/'"$y"'/d' $data/$x 
-# done
+done
 
+# Remove
+for x in wav.scp utt2spk feats.scp vad.scp utt2num_frames utt2gender;do
 [ -f $data/$x ] && [ "$list" != "" ] && echo "$list" | awk 'NR==FNR{a[$1]=1}NR>FNR{if(!a[$1]){print $0}}' - \
    $data/$x > $data/$x.tmp && \
    mv -f $data/$x.tmp $data/$x
@@ -57,10 +58,11 @@ echo "$data/$x done"
 done
 
 subtools/kaldi/utils/utt2spk_to_spk2utt.pl <$data/utt2spk >$data/spk2utt
-# [ -f $data/spk2utt.backup ] && cp -f $data/spk2utt.backup $data/spk2utt
-# [ ! -f $data/spk2utt.backup ] && [ -f $data/spk2utt ] && cp $data/spk2utt $data/spk2utt.backup
-# for y in $utt;do
-# [ -f $data/spk2utt ] && sed -i 's/'"$y"'//g' $data/spk2utt
-# done
 echo "$data/spk2utt done"
+
+if [ -f $data/spk2gender ];then
+subtools/kaldi/utils/filter_scp.pl $data/spk2utt $data/spk2gender > $data/spk2gender.tmp && mv -f $data/spk2gender.tmp $data/spk2gender
+echo "$data/spk2gender done"
+fi
+
 echo 'Remove invalid utts done.'

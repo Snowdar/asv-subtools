@@ -84,18 +84,18 @@ class _BaseTrainer():
         model_blueprint = self.params["model_blueprint"]
         suffix = self.params["suffix"]
 
-        if start_epoch <= 0:
+        if start_epoch <= 0 and utils.is_main_training():
             model_creation = model.get_model_creation()
             utils.write_nnet_config(model_blueprint, model_creation, "{0}/config/nnet.config".format(model_dir))
 
         ## Recover checkpoint | Tansform learning | Initialize parametes 
         if start_epoch > 0:
             # This train_stage is equal to number of completed epoch
-            logger.info("Recover training from {0} epoch.".format(start_epoch))
+            if utils.is_main_training(): logger.info("Recover training from {0} epoch.".format(start_epoch))
             model.load_state_dict(torch.load('{0}/{1}.{2}'.format(model_dir, start_epoch, suffix), 
                                              map_location="cpu"))
         elif os.path.exists(exist_model):
-            logger.info("Use {0} as the initial model to start transform-training.".format(exist_model))
+            if utils.is_main_training(): logger.info("Use {0} as the initial model to start transform-training.".format(exist_model))
             model.load_transform_state_dict(torch.load(exist_model, map_location="cpu"))
         else:
             # Just use the raw initial model or initialize it again by some initial functions here
@@ -163,12 +163,19 @@ class SimpleTrainer(_BaseTrainer):
         loss.backward()
         loss.detach() # For safe.
 
+        # Reference:https://github.com/horovod/horovod/blob/master/horovod/torch/__init__.py:420~423.
+        # Synchronize the grad for grad_norm when using horovod.
+        if utils.use_horovod(): optimizer.synchronize()
         grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), self.params["max_change"])
 
         if math.isnan(grad_norm):
             raise RuntimeError('There is nan problem in iter/epoch: {0}/{1}'.format(self.training_point[1]+1, self.training_point[0]+1))
         else:
-            optimizer.step()
+            if utils.use_horovod():
+                with optimizer.skip_synchronize():
+                    optimizer.step()
+            else:
+                optimizer.step()
 
         accuracy = model.compute_accuracy(model.get_posterior(), targets) if self.params["compute_accuracy"] else None
 
@@ -221,7 +228,7 @@ class SimpleTrainer(_BaseTrainer):
             model = self.elements["model"]
             lr_scheduler = self.elements["lr_scheduler"]
 
-            logger.info("Training will run for {0} epochs.".format(epochs))
+            if utils.is_main_training(): logger.info("Training will run for {0} epochs.".format(epochs))
 
             for this_epoch in range(start_epoch, epochs):
                 for this_iter, batch in enumerate(data.train_loader, 0):
@@ -250,14 +257,9 @@ class SimpleTrainer(_BaseTrainer):
                             snapshot = {"train_loss":"{0:.6f}".format(loss), "valid_loss":"",
                                         "train_acc":"{0:.2f}".format(acc*100), "valid_acc":""}
 
-                    if utils.is_main_training():
-                        self.reporter.update(snapshot)
-
-                if utils.is_main_training():
-                    self.save_model()
-
-            if utils.is_main_training():
-                self.reporter.finish()
+                    if utils.is_main_training(): self.reporter.update(snapshot)
+                if utils.is_main_training(): self.save_model()
+            if utils.is_main_training(): self.reporter.finish()
         except BaseException as e:
                 if not isinstance(e, KeyboardInterrupt):
                     traceback.print_exc()

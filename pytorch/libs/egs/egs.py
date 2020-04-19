@@ -6,8 +6,6 @@ import os
 import logging
 import pandas as pd
 
-from multiprocessing import Process, Queue
-
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
@@ -67,6 +65,8 @@ class ChunkEgs(Dataset):
 
         assert egs_csv != "" and egs_csv is not None
         self.data_frame = pd.read_csv(egs_csv, sep=" ").values
+        # For multi-label.
+        self.num_target_types = self.data_frame.shape[1] - 4 # except utt-id, path, chunk-start and chunk-end.
 
     def set_io_status(self, io_status):
         self.io_status = io_status
@@ -78,7 +78,11 @@ class ChunkEgs(Dataset):
         chunk = [int(self.data_frame[index][2]), int(self.data_frame[index][3])]
 
         egs = kaldi_io.read_mat(self.data_frame[index][1], chunk=chunk)
-        target = self.data_frame[index][4]
+
+        if self.num_target_types == 1:
+            target = self.data_frame[index][4]
+        else:
+            target = self.data_frame[index][4:]
 
         if self.aug is not None:
             # Note, egs from kaldi_io is read-only and 

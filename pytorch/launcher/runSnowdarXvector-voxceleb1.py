@@ -113,7 +113,7 @@ run_lr_finder = args.run_lr_finder
 
 egs_params = {
     "aug":None, # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
-    "aug_params":{"frequency":0.2, "frame":0.2, "rows":1, "cols":1}
+    "aug_params":{"frequency":0.2, "frame":0.2, "rows":1, "cols":1, "random_rows":True,"random_rows":True}
 }
 
 loader_params = {
@@ -155,7 +155,8 @@ optimizer_params = {
     "beta3":0.999,
     "weight_decay":3e-4,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
     "lookahead.k":5,
-    "lookahead.alpha":0  # 0 means not using lookahead and if used, suggest to set it as 0.5.
+    "lookahead.alpha":0,  # 0 means not using lookahead and if used, suggest to set it as 0.5.
+    "gc":False # If true, use gradient centralization.
 }
 
 lr_scheduler_params = {

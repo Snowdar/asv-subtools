@@ -47,7 +47,7 @@ def auto_select_model_device(model, use_gpu, gpu_id="", benchmark=False):
             gpu_id = gpu_id.replace("-", " ")
             gpu_id = gpu_id.replace(",", " ")
             gpu_id = [ int(x) for x in gpu_id.split()]
-            logger.info("The use_gpu is true and plan to select GPU {0}.".format(gpu_id))
+            if is_main_training(): logger.info("The use_gpu is true and training will use GPU {0}.".format(gpu_id))
 
         if use_horovod():
             import horovod.torch as hvd
@@ -157,16 +157,19 @@ def create_model_dir(model_dir:str, model_blueprint:str, stage=-1):
     # this blueprint, such as pipeline/onestep/extracting_embedings.py
     config_model_blueprint = "{0}/config/{1}".format(model_dir, os.path.basename(model_blueprint))
 
+    if not os.path.exists("{0}/log".format(model_dir)):
+            os.makedirs("{0}/log".format(model_dir), exist_ok=True)
+
+    if not os.path.exists("{0}/config".format(model_dir)):
+        os.makedirs("{0}/config".format(model_dir), exist_ok=True)
+
     if is_main_training():
-        if not os.path.exists("{0}/log".format(model_dir)):
-            os.makedirs("{0}/log".format(model_dir))
-
-        if not os.path.exists("{0}/config".format(model_dir)):
-            os.makedirs("{0}/config".format(model_dir))
-
         if stage < 0 and model_blueprint != config_model_blueprint:
             shutil.copy(model_blueprint, config_model_blueprint)
-    
+    else:
+        while(True):
+            if os.path.exists(config_model_blueprint): break
+
     return config_model_blueprint
 
 

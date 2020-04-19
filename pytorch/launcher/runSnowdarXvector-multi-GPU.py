@@ -24,6 +24,7 @@ import libs.training.lr_scheduler as learn_rate_scheduler
 import libs.training.trainer as trainer
 import libs.support.kaldi_common as kaldi_common
 import libs.support.utils as utils
+from  libs.support.logging_stdout import patch_logging_stream
 
 """A launcher script with python version (Snowdar's launcher to do experiments w.r.t snowdar-xvector.py).
 To support more freedom without limitation of parameters transfer from shell to python.
@@ -33,6 +34,9 @@ Note, this launcher does not contains dataset preparation, augmentation, extract
 """
 
 # Logger
+# Change the logging stream from stderr to stdout to be compatible with horovod.
+patch_logging_stream(logging.INFO)
+
 logger = logging.getLogger('libs')
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
@@ -84,6 +88,10 @@ parser.add_argument("--run-lr-finder", type=str, action=kaldi_common.StrToBoolAc
                     default=False, choices=["true", "false"],
                     help="If true, run lr finder rather than training.")
 
+parser.add_argument("--use-horovod", type=str, action=kaldi_common.StrToBoolAction,
+                    default=True, choices=["true", "false"],
+                    help="If true, use horovod to training model with multi-GPU.")
+
 args = parser.parse_args()
 
 ##--------------------------------------------------##
@@ -115,14 +123,14 @@ gpu_id = args.gpu_id # If NULL, then it will be auto-specified.
 run_lr_finder = args.run_lr_finder
 
 egs_params = {
-    "aug":None, # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
-    "aug_params":{"frequency":0.2, "frame":0.2, "rows":1, "cols":1}
+    "aug":"specaugment", # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
+    "aug_params":{"frequency":0.2, "frame":0.2, "rows":2, "cols":2, "random_rows":True,"random_rows":True}
 }
 
 loader_params = {
     "use_fast_loader":True, # It is a queue loader to prefetch batch and storage.
     "max_prefetch":10,
-    "batch_size":512, 
+    "batch_size":128, 
     "shuffle":True, 
     "num_workers":2,
     "pin_memory":False, 
@@ -132,7 +140,7 @@ loader_params = {
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
     "extend":False, 
-    "aug_dropout":0.2, "hidden_dropout":0., 
+    "aug_dropout":0., "hidden_dropout":0., 
     "dropout_params":{"type":"default", "start_p":0., "dim":2, "method":"uniform",
                       "continuous":False, "inplace":True},
     "training":True, "extracted_embedding":"far", "SE":False, "se_ratio":4,
@@ -152,20 +160,21 @@ model_params = {
 
 optimizer_params = {
     "name":"adamW",
-    "learn_rate":0.001,
+    "learn_rate":0.00025,
     "beta1":0.9,
     "beta2":0.999,
     "beta3":0.999,
     "weight_decay":3e-1,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
     "lookahead.k":5,
-    "lookahead.alpha":0  # 0 means not using lookahead and if used, suggest to set it as 0.5.
+    "lookahead.alpha":0,  # 0 means not using lookahead and if used, suggest to set it as 0.5.
+    "gc":False
 }
 
 lr_scheduler_params = {
     "name":"warmR",
-    "warmR.lr_decay_step":0, # 0 means decay after every epoch and 1 means every iter. 
-    "warmR.T_max":1,
-    "warmR.T_mult":1,
+    "warmR.lr_decay_step":1, # 0 means decay after every epoch and 1 means every iter. 
+    "warmR.T_max":3,
+    "warmR.T_mult":2,
     "warmR.factor":1.0,  # The max_lr_decay_factor.
     "warmR.eta_min":4e-8,
     "warmR.log_decay":False
@@ -186,15 +195,15 @@ traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir="paper/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/standard_xv_multi_GPU"
+model_dir="exp/standard_xv_multi_gpu_r1"
 ##--------------------------------------------------##
 ##
 #### Set seed
 utils.set_all_seed(1024)
-utils.init_horovod() # Multi-GPU training.
+if args.use_horovod: utils.init_horovod() # Multi-GPU training.
 
 #### Preprocess
-if stage <= 2 and endstage >= 0:
+if stage <= 2 and endstage >= 0 and utils.is_main_training():
     # Here only give limited options because it is not convenient.
     # Suggest to pre-execute this shell script to make it freedom and then continue to run this launcher.
     kaldi_common.execute_command("sh subtools/pytorch/pipeline/preprocess_to_egs.sh "
@@ -211,29 +220,29 @@ if stage <= 2 and endstage >= 0:
 #### Train model
 if stage <= 3 <= endstage:
 
-    logger.info("Get model_blueprint from model directory.")
+    if utils.is_main_training(): logger.info("Get model_blueprint from model directory.")
     # Save the raw model_blueprint in model_dir/config and get the copy of model_blueprint path.
     model_blueprint = utils.create_model_dir(model_dir, model_blueprint, stage=train_stage)
-
-    logger.info("Load egs to bunch.")
-    # The dict [info] contains feat_dim and num_targets.
-    bunch, info = egs.BaseBunch.get_bunch_from_egsdir(egs_dir, egs_params, loader_params)
-
-    logger.info("Create model from model blueprint.")
-    # Another way: import the model.py in this python directly, but it is not friendly to the shell script of extracting and
-    # I don't want to change anything about extracting script when the model.py is changed.
-    model_py = utils.create_model_from_py(model_blueprint)
-    model = model_py.Xvector(info["feat_dim"], info["num_targets"], **model_params)
-
-    logger.info("Define optimizer and lr_scheduler.")
-    optimizer = optim.get_optimizer(model, optimizer_params)
-    lr_scheduler = learn_rate_scheduler.LRSchedulerWrapper(optimizer, lr_scheduler_params)
 
     # Record params to model_dir.
     utils.write_list_to_file([egs_params, loader_params, model_params, optimizer_params, 
                               lr_scheduler_params], model_dir+'/config/params.dict')
 
-    logger.info("Init a simple trainer.")
+    if utils.is_main_training(): logger.info("Load egs to bunch.")
+    # The dict [info] contains feat_dim and num_targets.
+    bunch, info = egs.BaseBunch.get_bunch_from_egsdir(egs_dir, egs_params, loader_params)
+
+    if utils.is_main_training(): logger.info("Create model from model blueprint.")
+    # Another way: import the model.py in this python directly, but it is not friendly to the shell script of extracting and
+    # I don't want to change anything about extracting script when the model.py is changed.
+    model_py = utils.create_model_from_py(model_blueprint)
+    model = model_py.Xvector(info["feat_dim"], info["num_targets"], **model_params)
+
+    if utils.is_main_training(): logger.info("Define optimizer and lr_scheduler.")
+    optimizer = optim.get_optimizer(model, optimizer_params)
+    lr_scheduler = learn_rate_scheduler.LRSchedulerWrapper(optimizer, lr_scheduler_params)
+
+    if utils.is_main_training(): logger.info("Init a simple trainer.")
     # Package(Elements:dict, Params:dict}. It is a key parameter's package to trainer and model_dir/config/.
     package = ({"data":bunch, "model":model, "optimizer":optimizer, "lr_scheduler":lr_scheduler},
             {"model_dir":model_dir, "model_blueprint":model_blueprint, "exist_model":"", 
@@ -243,24 +252,22 @@ if stage <= 3 <= endstage:
 
     trainer = trainer.SimpleTrainer(package, stop_early=stop_early)
 
-    if run_lr_finder:
+    if run_lr_finder and utils.is_main_training():
         trainer.run_lr_finder("lr_finder_wd1e-1.csv", init_lr=1e-8, final_lr=10., num_iters=2000, beta=0.98)
         endstage = 3 # Do not start extractor.
     else:
         trainer.run()
 
-    del bunch, model, optimizer, lr_scheduler, trainer
-
 
 #### Extract xvector
-if stage <= 4 <= endstage:
+if stage <= 4 <= endstage and utils.is_main_training():
     # There are some params for xvector extracting.
     data_root = "data" # It contains all dataset just like Kaldi recipe.
     prefix = "mfcc_23_pitch" # For to_extracted_data.
 
     to_extracted_positions = ["far"] # Define this w.r.t model_blueprint.
     to_extracted_data = ["voxceleb1_train_aug", "voxceleb1_test"] # All dataset should be in dataroot/prefix.
-    to_extracted_epochs = ["7", "14", "21"] # It is model's name, such as 10.params or final.params (suffix is w.r.t package).
+    to_extracted_epochs = ["21"] # It is model's name, such as 10.params or final.params (suffix is w.r.t package).
 
     nj = 10
     force = False

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Copyright xmuspeech (Author:Snowdar 2020-01-22)
+
 aug_suffixes="reverb noise music babble"
 vad_conf=subtools/conf/vad-5.5.conf
 

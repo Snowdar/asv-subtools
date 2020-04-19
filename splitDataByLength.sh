@@ -26,7 +26,7 @@ for x in feats.scp vad.scp ;do
 done
 
 [ "$outputdir" == "" ] && outputdir=$data/split${nj}order
-[ "$force" != "true" ] && [ -f "$outputdir/.done" ] && echo "[note] It will don't split $data again..." && exit 0
+[ "$force" != "true" ] && [ -f "$outputdir/.done" ] && echo "[Note] Do not split $data again..." && exit 0
 
 echo "Split $data with $nj nj according to length-order ..."
 
