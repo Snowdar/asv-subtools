@@ -3,18 +3,18 @@
 # Copyright xmuspeech (Author:Snowdar 2020-01-22)
 
 aug_suffixes="reverb noise music babble"
-vad_conf=subtools/conf/vad-5.5.conf
 
 . subtools/parse_options.sh
 
 if [[ $# != 2 ]];then
 echo "[exit] Num of parameters is not equal to 2"
-echo "usage:$0 <aug-data-dir> <clean-list|clean-vad>"
+echo "usage:$0 <aug-data-dir> <clean-list|clean-vad> <vad_conf>"
 exit 1
 fi
 
 datadir=$1
 clean_list=$2
+vad_conf=$3
 
 name=$(basename $clean_list)
 if [ "$name" != "vad.scp" ];then

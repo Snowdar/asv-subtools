@@ -95,7 +95,7 @@ def get_chunk_egs(args):
     if args.valid_sample:
         logger.info("Split valid dataset from {0}".format(args.data_dir))
         if args.valid_num_utts > len(dataset)//10:
-            logger.info("Warning: the --valid-num-utts ({0}) of valid set is out of 1/10 * num of original dataset ({1}). Suggest to be less.".format(args.num_utts, len(trainset)))
+            logger.info("Warning: the --valid-num-utts ({0}) of valid set is out of 1/10 * num of original dataset ({1}). Suggest to be less.".format(args.valid_num_utts, len(dataset)))
         trainset, valid = dataset.split(args.valid_num_utts, args.valid_split_type)
     else:
         trainset = dataset
