@@ -2,6 +2,7 @@
 
 # Copyright xmuspeech (Author:Snowdar 2018-7-25)
 
+topdir=data
 force=false # for overwrite
 
 . subtools/parse_options.sh
@@ -18,7 +19,7 @@ srcs=$2
 for src in $srcs;do
 [ ! -d "$src" ] && tmp=$src && src=data/$src && [ ! -d "$src" ] && echo "[exit] No such dir $tmp or $src" && exit 1
 name=`basename $src`
-target=data/${pre}/$name
+target=$topdir/${pre}/$name
 
 [ "$src" == "$target" ] && echo "[Warning] data-dir $src is same to target-data-dir, so skip it" && continue
 [ -d $target ] && [ "$force" == "false" ] && echo "[exit] $target is exist, please delete it carefully by yourself" && exit 1
@@ -26,7 +27,7 @@ target=data/${pre}/$name
 rm -rf $target
 mkdir -p $target
 
-for x in wav.scp utt2spk spk2utt feats.scp vad.scp utt2num_frames utt2dur reco2dur text;do
+for x in wav.scp utt2spk spk2utt feats.scp vad.scp utt2num_frames utt2dur reco2dur text utt2gender spk2gender trials;do
 [ -f $src/$x ] && cp $src/$x $target/ && echo "[ $x ] copy done"
 done
 echo "[note] Your new datadir is $target"

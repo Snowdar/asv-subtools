@@ -3,11 +3,11 @@
 # Copyright xmuspeech (Author: Snowdar 2020-02-23)
 
 ### A record of my experiments about voxceleb1 and voxceleb2 and suggest to execute every script one by one.
-
+### Test is based on voxceleb1-O.
 
 ### Start 
 # Please prepare the data/voxceleb1_train, data/voxceleb2_train and data/voxceleb1_test by yourself (or official make*.pl).
-# voxceleb_train = voxceleb1_train + voxceleb2_train (without test both)
+# voxceleb_train = voxceleb1_train + voxceleb2_train (without test part both)
 subtools/kaldi/utils/combine_data.sh data/voxceleb_train data/voxceleb1_train data/voxceleb2_train
 
 # Get the copies of dataset which is labeled by a prefix like mfcc_23_pitch or fbank_40 etc.

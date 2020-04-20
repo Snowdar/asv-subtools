@@ -3,7 +3,7 @@
 # Copyright xmuspeech (Author:Snowdar 2018-7-25)
 
 pitch=false
-pitch_config=conf/pitch.conf
+pitch_config=subtools/conf/pitch.conf
 cmvn=false
 use_gpu=false
 nj=20 #num-jobs
@@ -13,7 +13,7 @@ exp=exp/features
 
 if [[ $# != 3 ]];then
 echo "[exit] Num of parameters is not equal to 3"
-echo "usage:$0 [--pitch true|false] [--pitch-config "conf/pitch.conf"] [--nj 20|int] <data-dir> <feature-type> <feature-config>"
+echo "usage:$0 [--pitch false|true] [--pitch-config subtools/conf/pitch.conf] [--nj 20|int] <data-dir> <feature-type> <feature-config>"
 echo "[note] Base <feature-type> could be fbank/mfcc/plp/spectrogram and the option --pitch defaults false"
 exit 1
 fi

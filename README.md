@@ -80,6 +80,19 @@ yum安装出问题残留清理
           # 临时启用GCC-6.3（仅当前终端生效）
           scl enable devtoolset-6 bash 或 source /opt/rh/devtoolset-6/enable
 
+     # 若上述方法安装后 import horovod.torch时，出现 "/lib64/libstdc++.so.6: version `GLIBCXX_3.4.20' not found" 问题 < 方案 = 编译安装: https://blog.csdn.net/Yanci_/article/details/80016097>
+          # 下载源码包
+          wget http://mirrors.concertpass.com/gcc/releases/gcc-6.3.0/gcc-6.3.0.tar.gz
+          tar xzf gcc-6.3.0.tar.gz
+          cd gcc-6.3.0
+          ./contrib/download_prerequisites
+          mkdir gcc-build-6.3.0
+          cd gcc-build-6.3.0
+          ../configure --enable-checking=release --enable-languages=c,c++ --disable-multilib
+          make -j 4
+          make install
+
+          在 /root/.bashrc 中添加环境变量 export LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
 
       # 安装GPU支持版本（基于NCCL依赖）
       HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL pip3 install horovod

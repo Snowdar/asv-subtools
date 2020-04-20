@@ -195,7 +195,7 @@ traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir="paper/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/standard_xv_multi_gpu_r1"
+model_dir="exp/standard_xv_multi_gpu_r2"
 ##--------------------------------------------------##
 ##
 #### Set seed
