@@ -13,6 +13,9 @@
 import torch
 import numpy as np 
 
+import libs.support.utils as utils
+
+### Augmentation
 class SpecAugment():
     """Implement specaugment for acoustics features' augmentation but without time wraping.
     Reference: Park, D. S., Chan, W., Zhang, Y., Chiu, C.-C., Zoph, B., Cubuk, E. D., & Le, Q. V. (2019). 
@@ -122,6 +125,31 @@ class Cutout():
 
     def __call__(self):
         pass
+
+### Wrapper
+def get_augmentation(aug=None, aug_params={}):
+    default_aug_params = {
+        "frequency":0.2,
+        "frame":0.,
+        "rows":1, 
+        "cols":0,
+        "random_rows":False, 
+        "random_cols":False
+    }
+
+    aug_params = utils.assign_params_dict(default_aug_params, aug_params)
+
+    if aug is None or aug == "" or aug == False:
+        return None
+    elif aug == "specaugment":
+        return SpecAugment(frequency=aug_params["frequency"], frame=aug_params["frame"], 
+                                rows=aug_params["rows"], cols=aug_params["cols"],
+                                random_rows=aug_params["random_rows"], random_cols=aug_params["random_cols"])
+    elif aug == "cutout":
+        raise NotImplementedError
+    else:
+        raise TypeError("Do not support {} augmentation.".format(aug))
+
 
 # Test.
 if __name__ == "__main__":

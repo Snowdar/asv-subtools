@@ -49,7 +49,7 @@ def auto_select_model_device(model, use_gpu, gpu_id="", benchmark=False):
             gpu_id = [ int(x) for x in gpu_id.split()]
             if is_main_training(): logger.info("The use_gpu is true and training will use GPU {0}.".format(gpu_id))
 
-        if use_horovod():
+        if len(gpu_id) > 1 and use_horovod():
             import horovod.torch as hvd
             # Just multi GPU case.
             if hvd.size() > len(gpu_id):

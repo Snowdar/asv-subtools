@@ -123,7 +123,7 @@ gpu_id = args.gpu_id # If NULL, then it will be auto-specified.
 run_lr_finder = args.run_lr_finder
 
 egs_params = {
-    "aug":"specaugment", # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
+    "aug":None, # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
     "aug_params":{"frequency":0.2, "frame":0.2, "rows":2, "cols":2, "random_rows":True,"random_rows":True}
 }
 
@@ -172,7 +172,7 @@ optimizer_params = {
 
 lr_scheduler_params = {
     "name":"warmR",
-    "warmR.lr_decay_step":1, # 0 means decay after every epoch and 1 means every iter. 
+    "warmR.lr_decay_step":0, # 0 means decay after every epoch and 1 means every iter. 
     "warmR.T_max":3,
     "warmR.T_mult":2,
     "warmR.factor":1.0,  # The max_lr_decay_factor.
@@ -219,7 +219,6 @@ if stage <= 2 and endstage >= 0 and utils.is_main_training():
 
 #### Train model
 if stage <= 3 <= endstage:
-
     if utils.is_main_training(): logger.info("Get model_blueprint from model directory.")
     # Save the raw model_blueprint in model_dir/config and get the copy of model_blueprint path.
     model_blueprint = utils.create_model_dir(model_dir, model_blueprint, stage=train_stage)
@@ -239,6 +238,8 @@ if stage <= 3 <= endstage:
     model = model_py.Xvector(info["feat_dim"], info["num_targets"], **model_params)
 
     if utils.is_main_training(): logger.info("Define optimizer and lr_scheduler.")
+    # Scale learn rate when using multi-gpu to train model.
+    if utils.use_horovod(): optimizer_params["learn_rate"] = optimizer_params["learn_rate"] * hvd.size()
     optimizer = optim.get_optimizer(model, optimizer_params)
     lr_scheduler = learn_rate_scheduler.LRSchedulerWrapper(optimizer, lr_scheduler_params)
 

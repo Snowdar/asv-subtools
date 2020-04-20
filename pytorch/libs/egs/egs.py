@@ -32,7 +32,7 @@ class ChunkEgs(Dataset):
     def __init__(self, egs_csv, io_status=True, aug=None, aug_params={}):
         """
         @egs_csv:
-            utt-id:str  chunk_feats_path:offset:str chunk-start:int  chunk-end:int  label:int
+            utt-id:str  chunk_feats_path:offset:str chunk-start:int  chunk-end:int  [label]xn
 
         Other option
         @io_status: if false, do not read data from disk and return zero, which is useful for saving i/o resource 
@@ -41,32 +41,12 @@ class ChunkEgs(Dataset):
         self.io_status = io_status
 
         # Augmentation.
-        default_aug_params = {
-            "frequency":0.2,
-            "frame":0.2,
-            "rows":1, 
-            "cols":1,
-            "random_rows":False, 
-            "random_cols":False
-        }
-
-        aug_params = utils.assign_params_dict(default_aug_params, aug_params)
-
-        if aug is None or aug == "" or aug == False:
-            self.aug = None
-        elif aug == "specaugment":
-            self.aug = SpecAugment(frequency=aug_params["frequency"], frame=aug_params["frame"], 
-                                   rows=aug_params["rows"], cols=aug_params["cols"],
-                                   random_rows=aug_params["random_rows"], random_cols=aug_params["random_cols"])
-        elif aug == "cutout":
-            raise NotImplementedError
-        else:
-            raise TypeError("Do not suuport {} augmentation.".format(aug))
+        self.aug = get_augmentation(aug, aug_params)
 
         assert egs_csv != "" and egs_csv is not None
         self.data_frame = pd.read_csv(egs_csv, sep=" ").values
         # For multi-label.
-        self.num_target_types = self.data_frame.shape[1] - 4 # except utt-id, path, chunk-start and chunk-end.
+        self.num_target_types = self.data_frame.shape[1] - 4 # Except utt-id, path, chunk-start and chunk-end.
 
     def set_io_status(self, io_status):
         self.io_status = io_status
@@ -95,10 +75,59 @@ class ChunkEgs(Dataset):
         return len(self.data_frame)
 
 
+
+class VectorEgs(Dataset):
+    """It is used for vector of Kaldi format rather than feats matrix.
+    """
+    def __init__(self, egs_csv, io_status=True, aug=None, aug_params={}):
+        """
+        @egs_csv:
+            utt-id:str  chunk_feats_path:offset:str  [label]xn
+
+        Other option
+        @io_status: if false, do not read data from disk and return zero, which is useful for saving i/o resource 
+        when kipping seed index.
+        """
+        self.io_status = io_status
+
+        # Augmentation.
+        self.aug = get_augmentation(aug, aug_params)
+
+        assert egs_csv != "" and egs_csv is not None
+        self.data_frame = pd.read_csv(egs_csv, sep=" ").values
+        # For multi-label.
+        self.num_target_types = self.data_frame.shape[1] - 2 # Except utt-id and path.
+
+    def set_io_status(self, io_status):
+        self.io_status = io_status
+
+    def __getitem__(self, index):
+        if not self.io_status :
+            return 0., 0.
+
+        egs = kaldi_io.read_vec_flt(self.data_frame[index][1])
+
+        if self.num_target_types == 1:
+            target = self.data_frame[index][2]
+        else:
+            target = self.data_frame[index][2:]
+
+        if self.aug is not None:
+            # Note, egs from kaldi_io is read-only and 
+            # use egs = np.require(egs, requirements=['O', 'W']) to make it writeable if needed in augmentation method.
+            return self.aug(egs.T), target
+        else:
+            return egs.T, target
+
+    def __len__(self):
+        return len(self.data_frame)
+
+
+
 class BaseBunch():
     """BaseBunch:(trainset,[valid]).
     """
-    def __init__(self, trainset:ChunkEgs, valid:ChunkEgs=None, use_fast_loader=False, max_prefetch=10,
+    def __init__(self, trainset, valid=None, use_fast_loader=False, max_prefetch=10,
                  batch_size=512, shuffle=True, num_workers=0, pin_memory=False, drop_last=True):
 
         if utils.use_horovod():
@@ -144,12 +173,22 @@ class BaseBunch():
 
     @classmethod
     def get_bunch_from_csv(self, trainset_csv:str, valid_csv:str=None, egs_params:dict={}, data_loader_params_dict:dict={}):
-        trainset = ChunkEgs(trainset_csv, **egs_params)
+        Egs = ChunkEgs
+        if "egs_type" in egs_params.keys():
+            egs_type = egs_params.pop("egs_type")
+            if egs_type == "chunk":
+                pass
+            elif egs_type == "vector":
+                Egs = VectorEgs
+            else:
+                raise TypeError("Do not support {} egs now. Select one from [chunk, vector].".format(egs_type))
+
+        trainset = Egs(trainset_csv, **egs_params)
         # For multi-GPU training.
         if not utils.is_main_training():
             valid = None
         if valid_csv != "" and valid_csv is not None:
-            valid = ChunkEgs(valid_csv)
+            valid = Egs(valid_csv)
         else:
             valid = None
         return self(trainset, valid, **data_loader_params_dict)
