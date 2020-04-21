@@ -6,8 +6,8 @@ aug_suffixes="reverb noise music babble"
 
 . subtools/parse_options.sh
 
-if [[ $# != 2 ]];then
-echo "[exit] Num of parameters is not equal to 2"
+if [[ $# != 3 ]];then
+echo "[exit] Num of parameters is not equal to 3"
 echo "usage:$0 <aug-data-dir> <clean-list|clean-vad> <vad_conf>"
 exit 1
 fi

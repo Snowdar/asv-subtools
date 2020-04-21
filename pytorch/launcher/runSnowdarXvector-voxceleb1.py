@@ -162,7 +162,7 @@ optimizer_params = {
 lr_scheduler_params = {
     "name":"warmR",
     "warmR.lr_decay_step":0, # 0 means decay after every epoch and 1 means every iter. 
-    "warmR.T_max":1,
+    "warmR.T_max":7,
     "warmR.T_mult":1,
     "warmR.factor":1.0,  # The max_lr_decay_factor.
     "warmR.eta_min":4e-8,
