@@ -28,6 +28,16 @@ def to_bool(variable):
         return variable
 
 
+def parse_gpu_id_option(gpu_id):
+    """
+    @gpu_id: str, 1,2,3 or 1-2-3 or "1 2 3"
+    """
+    gpu_id = gpu_id.replace("-", " ")
+    gpu_id = gpu_id.replace(",", " ")
+    gpu_id = [ int(x) for x in gpu_id.split()]
+    return gpu_id
+
+
 def auto_select_model_device(model, use_gpu, gpu_id="", benchmark=False):
     """ Auto select device (cpu/GPU) for model
     @use_gpu: bool or 'true'/'false' string
@@ -44,9 +54,7 @@ def auto_select_model_device(model, use_gpu, gpu_id="", benchmark=False):
             gm = gpu.GPUManager()
             gpu_id = [gm.auto_choice()]
         else:
-            gpu_id = gpu_id.replace("-", " ")
-            gpu_id = gpu_id.replace(",", " ")
-            gpu_id = [ int(x) for x in gpu_id.split()]
+            gpu_id = parse_gpu_id_option(gpu_id)
             if is_main_training(): logger.info("The use_gpu is true and training will use GPU {0}.".format(gpu_id))
 
         if len(gpu_id) > 1 and use_horovod():

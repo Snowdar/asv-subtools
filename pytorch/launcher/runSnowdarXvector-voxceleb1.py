@@ -3,6 +3,11 @@
 # Copyright xmuspeech (Author: Snowdar 2020-02-12)
 # Apache 2.0
 
+# For multi-GPU training, there are two methods to run:
+#    1. horovodrun -np 3 python3 runSnowdarXvector-voxceleb1.py --gpu-id=0,1,2
+#    2. subtools/pytorch/launcher/runLauncher.sh runSnowdarXvector-voxceleb1.py --gpu-id=0,1,2
+# The second method is suggested to use for its convenience.
+
 import sys, os
 import logging
 import argparse
@@ -21,15 +26,29 @@ import libs.training.lr_scheduler as learn_rate_scheduler
 import libs.training.trainer as trainer
 import libs.support.kaldi_common as kaldi_common
 import libs.support.utils as utils
+from  libs.support.logging_stdout import patch_logging_stream
 
 """A launcher script with python version (Snowdar's launcher to do experiments w.r.t snowdar-xvector.py).
 To support more freedom without limitation of parameters transfer from shell to python.
 Note, this launcher does not contains dataset preparation, augmentation, extracting acoustic features and back-end scoring etc.
 (see subtools/newCopyData.sh, subtools/makeFeatures.sh.sh, subtools/computeVad.sh, 
  subtools/augmentDataByNoise.sh and subtools/scoreSets.sh and run these script separately before or after running this launcher).
+
+How to modify and use this launcher:
+    1.Prepare your kaldi format dataset and model.py (model blueprint);
+    2.Give the path of dataset and model blueprint etc. in main parameters field;
+    3.Change the import name of model in function train() a.w.t model.py by yourself;
+    4.Modify any training parameters what you want to change (epochs, optimizer and lr_scheduler etc.);
+    5.Modify extracting parameters in stage 4 a.w.t your own training config;
+    6.Run this lachuner.
+
+Conclusion: preprare -> config -> run.
 """
 
 # Logger
+# Change the logging stream from stderr to stdout to be compatible with horovod.
+patch_logging_stream(logging.INFO)
+
 logger = logging.getLogger('libs')
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
@@ -71,7 +90,8 @@ parser.add_argument("--use-gpu", type=str, action=kaldi_common.StrToBoolAction,
                     help="Use GPU or not.")
 
 parser.add_argument("--gpu-id", type=str, default="",
-                    help="If NULL, then it will be auto-specified.")
+                    help="If NULL, then it will be auto-specified.\n"
+                         "If giving multi-gpu like --gpu-id=1,2,3, then use multi-gpu training.")
 
 parser.add_argument("--benchmark", type=str, action=kaldi_common.StrToBoolAction,
                     default=True, choices=["true", "false"],
@@ -80,6 +100,9 @@ parser.add_argument("--benchmark", type=str, action=kaldi_common.StrToBoolAction
 parser.add_argument("--run-lr-finder", type=str, action=kaldi_common.StrToBoolAction,
                     default=False, choices=["true", "false"],
                     help="If true, run lr finder rather than training.")
+
+parser.add_argument("--sleep", type=int, default=0,
+                    help="The waiting time to launch a launcher.")
 
 args = parser.parse_args()
 
@@ -101,7 +124,7 @@ sample_type="speaker_balance" # sequential | speaker_balance
 chunk_num=-1 # -1 means using scale, 0 means using max and >0 means itself.
 overlap=0.1
 scale=1.5 # Get max / num_spks * scale for every speaker.
-valid_split_type="--total-spk" # --totat-spk or --default
+valid_split_type="--total-spk" # --total-spk or --default
 valid_utts = 1024
 valid_chunk_num_every_utt = 2
 ##--------------------------------------------------##
@@ -190,8 +213,15 @@ model_dir="exp/standard_xv_warmR_voxceleb1"
 #### Set seed
 utils.set_all_seed(1024)
 
+# Use it to run a launcher with a countdown function when there are no extra GPU memory 
+# but you really want to go to bed and know when the GPU memory will be free.
+if args.sleep > 0: time.sleep(args.sleep)
+
+#### Init environment for multi-gpu training if used (num of gpu-id > 1).
+if len(utils.parse_gpu_id_option(args.gpu_id)) > 1: utils.init_horovod()
+
 #### Preprocess
-if stage <= 2 and endstage >= 0:
+if stage <= 2 and endstage >= 0 and utils.is_main_training():
     # Here only give limited options because it is not convenient.
     # Suggest to pre-execute this shell script to make it freedom and then continue to run this launcher.
     kaldi_common.execute_command("sh subtools/pytorch/pipeline/preprocess_to_egs.sh "
@@ -207,21 +237,21 @@ if stage <= 2 and endstage >= 0:
 
 #### Train model
 if stage <= 3 <= endstage:
-    logger.info("Get model_blueprint from model directory.")
+    if utils.is_main_training(): logger.info("Get model_blueprint from model directory.")
     # Save the raw model_blueprint in model_dir/config and get the copy of model_blueprint path.
     model_blueprint = utils.create_model_dir(model_dir, model_blueprint, stage=train_stage)
 
-    logger.info("Load egs to bunch.")
+    if utils.is_main_training(): logger.info("Load egs to bunch.")
     # The dict [info] contains feat_dim and num_targets.
     bunch, info = egs.BaseBunch.get_bunch_from_egsdir(egs_dir, egs_params, loader_params)
 
-    logger.info("Create model from model blueprint.")
+    if utils.is_main_training(): logger.info("Create model from model blueprint.")
     # Another way: import the model.py in this python directly, but it is not friendly to the shell script of extracting and
     # I don't want to change anything about extracting script when the model.py is changed.
     model_py = utils.create_model_from_py(model_blueprint)
     model = model_py.Xvector(info["feat_dim"], info["num_targets"], **model_params)
 
-    logger.info("Define optimizer and lr_scheduler.")
+    if utils.is_main_training(): logger.info("Define optimizer and lr_scheduler.")
     optimizer = optim.get_optimizer(model, optimizer_params)
     lr_scheduler = learn_rate_scheduler.LRSchedulerWrapper(optimizer, lr_scheduler_params)
 
@@ -229,7 +259,7 @@ if stage <= 3 <= endstage:
     utils.write_list_to_file([egs_params, loader_params, model_params, optimizer_params, 
                               lr_scheduler_params], model_dir+'/config/params.dict')
 
-    logger.info("Init a simple trainer.")
+    if utils.is_main_training(): logger.info("Init a simple trainer.")
     # Package(Elements:dict, Params:dict}. It is a key parameter's package to trainer and model_dir/config/.
     package = ({"data":bunch, "model":model, "optimizer":optimizer, "lr_scheduler":lr_scheduler},
             {"model_dir":model_dir, "model_blueprint":model_blueprint, "exist_model":"", 
@@ -239,17 +269,15 @@ if stage <= 3 <= endstage:
 
     trainer = trainer.SimpleTrainer(package, stop_early=stop_early)
 
-    if run_lr_finder:
+    if run_lr_finder and utils.is_main_training():
         trainer.run_lr_finder("lr_finder_wd1e-1.csv", init_lr=1e-8, final_lr=10., num_iters=2000, beta=0.98)
         endstage = 3 # Do not start extractor.
     else:
         trainer.run()
 
-    del bunch, model, optimizer, lr_scheduler, trainer
-
 
 #### Extract xvector
-if stage <= 4 <= endstage:
+if stage <= 4 <= endstage and utils.is_main_training():
     # There are some params for xvector extracting.
     data_root = "data" # It contains all dataset just like Kaldi recipe.
     prefix = "mfcc_23_pitch" # For to_extracted_data.

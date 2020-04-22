@@ -2,7 +2,6 @@
 
 # Copyright xmuspeech (Author:Snowdar 2020-03-08)
 
-wait_time=0
 stage=3
 endstage=4
 horovod_params="--start-timeout 30"
@@ -27,7 +26,7 @@ stage=$(echo "$@" | awk -v stage=$stage '{for(i=1;i<=NF;i++){
 endstage=$(echo "$@" | awk -v endstage=$endstage '{for(i=1;i<=NF;i++){
         split($i,a,"=");if(a[1]=="--endstage"){change=1;print a[2];}}}END{if(!change){print endstage}}')
 
-# Should note the " and space char when giving a parameter to python from shell.
+# Should note the " and space char when giving a parameter from shell to python.
 launcher_options=""
 num_gpu=1
 while true;do
@@ -51,13 +50,6 @@ if [ $num_gpu -gt 1 ];then
 else
     train_cmd="python3"
 fi
-
-
-# Use it to run a launcher with a countdown function when there are no extra GPU memory 
-# but you really want to go to bed and know when the GPU memory will be free.
-[ $wait_time -gt 0 ] && echo "Run this launcher after ${wait_time}s ..."
-sleep $wait_time
-wait
 
 
 # Split this two stage to free GPU memory of model by an exit-python way 

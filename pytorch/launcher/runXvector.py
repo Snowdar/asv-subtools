@@ -3,6 +3,9 @@
 # Copyright xmuspeech (Author: Snowdar 2020-02-06)
 # Apache 2.0
 
+# This script just support singel-GPU training and it is a simple example of standard x-vector.
+# For more, see runSnowdarXvector-*.py and runResnetXvector.py.
+
 import sys, os
 import logging
 import argparse
@@ -112,7 +115,7 @@ sample_type="speaker_balance" # sequential | speaker_balance
 chunk_num=0 # -1 means using scale, 0 means using max and >0 means itself.
 overlap=0.1
 scale=1.5 # Get max / num_spks * scale for every speaker.
-valid_split_type="--total-spk" # --totat-spk or --default
+valid_split_type="--total-spk" # --total-spk or --default
 valid_utts = 1024
 valid_chunk_num_every_utt = 2
 ##--------------------------------------------------##
@@ -148,7 +151,7 @@ model_params = {
 
 optimizer_params = {
     "name":"ralamb",
-    "learn_rate":0.003,
+    "learn_rate":0.001,
     "beta1":0.9,
     "beta2":0.999,
     "beta3":0.999,
@@ -249,7 +252,7 @@ if stage <= 3 <= endstage:
     # Plan to use del to avoid memeory account after training done and continue to execute stage 4.
     # But it dose not work and is still a problem.
     # Here, give the runLauncher.sh to avoid this problem.
-    del bunch, model, optimizer, lr_scheduler, trainer
+    # del bunch, model, optimizer, lr_scheduler, trainer
 
 
 #### Extract xvector
@@ -313,14 +316,7 @@ if stage <= 4 <= endstage:
 #### Congratulate! All done.
 ##
 #### Report EER% on voxceleb1.test [ back-end = lda256/128 + normalization + plda/cosine ]
-##  epoch          far                 near
-##           plda      cosine     plda      cosine
-##  1'       
-##  3'       
-##  7        
-##  14       
-##  15'      4.332
-##  21       
+
 
 
 
