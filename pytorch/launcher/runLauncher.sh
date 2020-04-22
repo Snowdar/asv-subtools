@@ -11,8 +11,8 @@ horovod_params="--start-timeout 30"
 
 if [[ $# < 1 ]];then
 echo "[exit] Num of parameters is zero, expected a launcher."
-echo "$0 <launcher>"
-echo "e.g. $0 subtools/pytorch/launcher/runSnowdarXvector-multi-GPU.py --gpu-id=1,2"
+echo "usage: $0 <launcher> [launcher-options]"
+echo "e.g. $0 subtools/pytorch/launcher/runSnowdarXvector-voxceleb1.py --gpu-id=0,1,2"
 exit 1
 fi
 
