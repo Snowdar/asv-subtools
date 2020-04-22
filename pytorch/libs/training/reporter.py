@@ -126,6 +126,8 @@ class Reporter():
 
     def finish(self):
         self.queue.put(None)
+        # Wait process completed.
+        self.process.join()
         self.bar.finish()
 
 
