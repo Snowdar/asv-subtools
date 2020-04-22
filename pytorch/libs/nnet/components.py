@@ -247,11 +247,11 @@ class _BaseActivationBatchNorm(torch.nn.Module):
     """
     def __init__(self):
         super(_BaseActivationBatchNorm, self).__init__()
-        self.layers = []
         self.affine = None
+        self.activation = None
+        self.batchnorm = None
 
     def add_relu_bn(self, output_dim=None, options:dict={}):
-
         default_params = {
             "bn-relu":False,
             "nonlinearity":'relu',
@@ -265,24 +265,21 @@ class _BaseActivationBatchNorm(torch.nn.Module):
 
         default_params = utils.assign_params_dict(default_params, options)
 
+        # This 'if else' is used to keep a corrected order when printing model.
+        # torch.sequential is not used for I do not want too many layer wrapper and just keep structure as tdnn1.affine 
+        # rather than tdnn1.layers.affine or tdnn1.layers[0] etc..
         if not default_params["bn-relu"]:
-            # relu-bn
+            # ReLU-BN
+            self.after_forward = self._relu_bn_forward
             self.activation = Nonlinearity(default_params["nonlinearity"], **default_params["nonlinearity_params"])
-            if self.activation is not None:
-                self.layers.append(self.activation)
-
             if default_params["bn"]:
                 self.batchnorm = torch.nn.BatchNorm1d(output_dim, momentum = default_params["momentum"], affine = default_params["affine"])
-                self.layers.append(self.batchnorm) 
         else:
-            # bn-relu
+            # BN-ReLU
+            self.after_forward = self._bn_relu_forward
             if default_params["bn"]:
                 self.batchnorm = torch.nn.BatchNorm1d(output_dim, momentum = default_params["momentum"], affine = default_params["affine"])
-                self.layers.append(self.batchnorm)
-
             self.activation = Nonlinearity(default_params["nonlinearity"], **default_params["nonlinearity_params"])
-            if self.activation is not None:
-                self.layers.append(self.activation) 
 
         if default_params["special_init"] and self.affine is not None:
             if default_params["nonlinearity"] in ["relu", "leaky_relu", "tanh", "sigmoid"]:
@@ -293,11 +290,27 @@ class _BaseActivationBatchNorm(torch.nn.Module):
             else:
                 torch.nn.init.xavier_normal_(self.affine.weight, gain=1.0)
 
+    def _bn_relu_forward(self, x):
+        if self.batchnorm is not None:
+            x = self.batchnorm(x)
+        if self.activation is not None:
+            x = self.activation(x)
+        return x
+
+    def _relu_bn_forward(self, x):
+        if self.activation is not None:
+            x = self.activation(x)
+        if self.batchnorm is not None:
+            x = self.batchnorm(x)
+        return x
+
     def forward(self, inputs):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
-        return torch.nn.Sequential(*self.layers)(inputs)
+        x = self.affine(inputs)
+        outputs = self.after_forward(x)
+        return outputs
 
 
 class ReluBatchNormTdnnLayer(_BaseActivationBatchNorm):
@@ -322,10 +335,9 @@ class ReluBatchNormTdnnLayer(_BaseActivationBatchNorm):
         #          (activation): ReLU()
         #          (batchnorm): BatchNorm1d(512, eps=1e-05, momentum=0.5, affine=False, track_running_stats=True)
         self.affine = TdnnAffine(input_dim, output_dim, context, **affine_options)
-        self.layers.insert(0, self.affine)
         self.add_relu_bn(output_dim, options=options)
 
-        # Implement forword function extrally if needed when forword-graph is changed.
+        # Implement forward function extrally if needed when forward-graph is changed.
 
 
 class ReluBatchNormTdnnfLayer(_BaseActivationBatchNorm):
@@ -336,7 +348,6 @@ class ReluBatchNormTdnnfLayer(_BaseActivationBatchNorm):
         super(ReluBatchNormTdnnfLayer, self).__init__()
 
         self.affine = TdnnfBlock(input_dim, output_dim, inner_size, context_size)
-        self.layers.insert(0, self.affine)
         self.add_relu_bn(output_dim, options=options)
 
 

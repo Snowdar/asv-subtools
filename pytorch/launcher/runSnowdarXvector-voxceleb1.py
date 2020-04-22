@@ -142,7 +142,7 @@ egs_params = {
 loader_params = {
     "use_fast_loader":True, # It is a queue loader to prefetch batch and storage.
     "max_prefetch":10,
-    "batch_size":512, 
+    "batch_size":128, 
     "shuffle":True, 
     "num_workers":2,
     "pin_memory":False, 
@@ -178,7 +178,7 @@ optimizer_params = {
     "beta3":0.999,
     "weight_decay":3e-4,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
     "lookahead.k":5,
-    "lookahead.alpha":0,  # 0 means not using lookahead and if used, suggest to set it as 0.5.
+    "lookahead.alpha":0.,  # 0 means not using lookahead and if used, suggest to set it as 0.5.
     "gc":False # If true, use gradient centralization.
 }
 
@@ -250,6 +250,11 @@ if stage <= 3 <= endstage:
     # I don't want to change anything about extracting script when the model.py is changed.
     model_py = utils.create_model_from_py(model_blueprint)
     model = model_py.Xvector(info["feat_dim"], info["num_targets"], **model_params)
+
+    # If multi-GPU used, then batchnorm will be converted to synchronized batchnorm. 
+    # It will change nothing for single-GPU training.
+    # It is important to make peformance stable.
+    model = utils.convert_synchronized_batchnorm(model)
 
     if utils.is_main_training(): logger.info("Define optimizer and lr_scheduler.")
     optimizer = optim.get_optimizer(model, optimizer_params)

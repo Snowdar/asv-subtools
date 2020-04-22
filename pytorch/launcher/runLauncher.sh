@@ -46,6 +46,8 @@ done
 # Add multi-gpu case.
 if [ $num_gpu -gt 1 ];then
     sh subtools/pytorch/launcher/multi_gpu/check_horovod.sh || exit 1
+    # Ser cache for synchronize batchnorm to avoid WARNING.
+    export HOROVOD_CACHE_CAPACITY=0
     train_cmd="horovodrun -np $num_gpu --log-level INFO $horovod_params python3"
 else
     train_cmd="python3"

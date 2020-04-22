@@ -32,9 +32,12 @@ def parse_gpu_id_option(gpu_id):
     """
     @gpu_id: str, 1,2,3 or 1-2-3 or "1 2 3"
     """
-    gpu_id = gpu_id.replace("-", " ")
-    gpu_id = gpu_id.replace(",", " ")
-    gpu_id = [ int(x) for x in gpu_id.split()]
+    if not isinstance(gpu_id, int):
+        gpu_id = gpu_id.replace("-", " ")
+        gpu_id = gpu_id.replace(",", " ")
+        gpu_id = [ int(x) for x in gpu_id.split()]
+    else:
+        gpu_id = [gpu_id]
     return gpu_id
 
 
@@ -54,6 +57,7 @@ def auto_select_model_device(model, use_gpu, gpu_id="", benchmark=False):
             gm = gpu.GPUManager()
             gpu_id = [gm.auto_choice()]
         else:
+            # Get a gpu id list.
             gpu_id = parse_gpu_id_option(gpu_id)
             if is_main_training(): logger.info("The use_gpu is true and training will use GPU {0}.".format(gpu_id))
 
@@ -239,7 +243,7 @@ def format(x, str):
         return str.format(x)
 
 
-def set_all_seed(seed=None):
+def set_all_seed(seed=None, deterministic=True):
     """This is refered to https://github.com/lonePatient/lookahead_pytorch/blob/master/tools.py.
     """
     if seed is not None:
@@ -251,7 +255,7 @@ def set_all_seed(seed=None):
         torch.cuda.manual_seed_all(seed)
         # some cudnn methods can be random even after fixing the seed
         # unless you tell it to be deterministic
-        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.deterministic = deterministic
 
 
 def key_to_value(adict, key, return_none=True):
@@ -357,3 +361,10 @@ def is_main_training():
             return False
     else:
         return True
+
+def convert_synchronized_batchnorm(model):
+    if use_horovod():
+        # Synchronize batchnorm for multi-GPU training.
+        from .sync_bn import convert_sync_batchnorm
+        model = convert_sync_batchnorm(model)
+    return model

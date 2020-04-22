@@ -103,16 +103,22 @@ class _BaseTrainer():
 
         if utils.use_horovod():
             import horovod.torch as hvd
-             # For optimizer wrapper such as lookahead.
-            if getattr(self.elements["optimizer"], "optimizer", None) is not None:
-                self.elements["optimizer"].optimizer = hvd.DistributedOptimizer(self.elements["optimizer"].optimizer, 
-                                                       named_parameters=self.elements["model"].named_parameters())
-            else:
-                self.elements["optimizer"] = hvd.DistributedOptimizer(self.elements["optimizer"], 
-                                             named_parameters=self.elements["model"].named_parameters())
 
             # Broadcast parameters from rank 0 to all other processes.
             hvd.broadcast_parameters(self.elements["model"].state_dict(), root_rank=0)
+
+             # For optimizer wrapper such as lookahead.
+            if getattr(self.elements["optimizer"], "optimizer", None) is not None:
+                raise TypeError("Do not support using lookahead with horovod now.")
+                # Broadcast optimizer state.
+                # hvd.broadcast_optimizer_state(self.elements["optimizer"].optimizer, root_rank=0)
+                # self.elements["optimizer"].optimizer = hvd.DistributedOptimizer(self.elements["optimizer"].optimizer, 
+                #                                        named_parameters=self.elements["model"].named_parameters())
+            else:
+                # Broadcast optimizer state.
+                hvd.broadcast_optimizer_state(self.elements["optimizer"], root_rank=0)
+                self.elements["optimizer"] = hvd.DistributedOptimizer(self.elements["optimizer"], 
+                                             named_parameters=self.elements["model"].named_parameters())
 
         ## Select device
         self.select_device()

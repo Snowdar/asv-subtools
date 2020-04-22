@@ -241,6 +241,11 @@ if stage <= 3 <= endstage:
     model_py = utils.create_model_from_py(model_blueprint)
     model = model_py.Xvector(info["feat_dim"], info["num_targets"], **model_params)
 
+    # If multi-GPU used, then batchnorm will be converted to synchronized batchnorm. 
+    # It will change nothing for single-GPU training.
+    # It is important to make peformance stable.
+    model = utils.convert_synchronized_batchnorm(model)
+
     if utils.is_main_training(): logger.info("Define optimizer and lr_scheduler.")
     optimizer = optim.get_optimizer(model, optimizer_params)
     lr_scheduler = learn_rate_scheduler.LRSchedulerWrapper(optimizer, lr_scheduler_params)
