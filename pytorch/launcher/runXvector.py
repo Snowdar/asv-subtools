@@ -236,7 +236,7 @@ if stage <= 3 <= endstage:
     logger.info("Init a simple trainer.")
     # Package(Elements:dict, Params:dict}. It is a key parameter's package to trainer and model_dir/config/.
     package = ({"data":bunch, "model":model, "optimizer":optimizer, "lr_scheduler":lr_scheduler},
-            {"model_dir":model_dir, "model_blueprint":model_blueprint, "exist_model":"", 
+            {"model_dir":model_dir, "model_blueprint":model_blueprint, "exist_model":exist_model, 
             "start_epoch":train_stage, "epochs":epochs, "use_gpu":use_gpu, "gpu_id":gpu_id, 
             "benchmark":benchmark, "suffix":suffix, "report_times_every_epoch":report_times_every_epoch,
             "report_interval_iters":report_interval_iters, "record_file":"train.csv"})

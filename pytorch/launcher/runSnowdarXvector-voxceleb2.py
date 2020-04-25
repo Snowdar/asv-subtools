@@ -147,7 +147,7 @@ loader_params = {
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
     "extend":False, 
-    "aug_dropout":0.2, "dropout_params":{"type":"default", "dim":2, "start_p":0., "inplace":True},
+    "aug_dropout":0., "dropout_params":{"type":"default", "dim":2, "start_p":0., "inplace":True},
     "training":True, "extracted_embedding":"far", "SE":False, "se_ratio":4,
     "tdnn_layer_params":{"momentum":0.5, "nonlinearity":'relu'},
     "tdnn6":True, "tdnn7_params":{"nonlinearity":"default", "bn":True},
@@ -157,16 +157,21 @@ model_params = {
     "margin_loss":False, 
     "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 
                           "s":30, "mhe_loss":False, "mhe_w":0.01},
-    "use_step":False, "step_params":{}
+    "use_step":False, 
+    "step_params":{"T":None,
+                   "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
+                   "s":False, "s_tuple":(30, 12), "s_list":None,
+                   "t":False, "t_tuple":(0.5, 1.2), 
+                   "p":False, "p_tuple":(0.5, 0.1)}
 }
 
 optimizer_params = {
-    "name":"adam",
+    "name":"adamW",
     "learn_rate":0.001,
     "beta1":0.9,
     "beta2":0.999,
     "beta3":0.999,
-    "weight_decay":3e-4,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
+    "weight_decay":3e-1,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
     "lookahead.k":5,
     "lookahead.alpha":0, # 0 means not using lookahead and if used, suggest to set it as 0.5.
     "gc":False  # If true, use gradient centralization.
@@ -174,8 +179,8 @@ optimizer_params = {
 
 lr_scheduler_params = {
     "name":"warmR",
-    "warmR.lr_decay_step":2000, # 0 means decay after every epoch and 1 means every iter. 
-    "warmR.T_max":1,
+    "warmR.lr_decay_step":4000, # 0 means decay after every epoch and 1 means every iter. 
+    "warmR.T_max":5,
     "warmR.T_mult":2,
     "warmR.factor":1.0,  # The max_lr_decay_factor.
     "warmR.eta_min":4e-8
@@ -199,6 +204,10 @@ model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
 model_dir="exp/standard_xv_warmR_voxceleb2"
 ##--------------------------------------------------##
 ##
+#### Auto-config params
+if lr_scheduler_params["name"] == "warmR" and model_params["use_step"]:
+    model_params["step_params"]["T"]=(lr_scheduler_params["warmR.T_max"], lr_scheduler_params["warmR.T_mult"])
+
 #### Set seed
 utils.set_all_seed(1024)
 
@@ -257,7 +266,7 @@ if stage <= 3 <= endstage:
     if utils.is_main_training(): logger.info("Init a simple trainer.")
     # Package(Elements:dict, Params:dict}. It is a key parameter's package to trainer and model_dir/config/.
     package = ({"data":bunch, "model":model, "optimizer":optimizer, "lr_scheduler":lr_scheduler},
-            {"model_dir":model_dir, "model_blueprint":model_blueprint, "exist_model":"", 
+            {"model_dir":model_dir, "model_blueprint":model_blueprint, "exist_model":exist_model, 
             "start_epoch":train_stage, "epochs":epochs, "use_gpu":use_gpu, "gpu_id":gpu_id, 
             "benchmark":benchmark, "suffix":suffix, "report_times_every_epoch":report_times_every_epoch,
             "report_interval_iters":report_interval_iters, "record_file":"train.csv"})

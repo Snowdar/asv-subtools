@@ -2,6 +2,7 @@
 
 # Copyright xmuspeech (Author: Snowdar 2020-02-05)
 
+import math
 import torch
 import torch.nn.functional as F
 import libs.support.utils as utils
@@ -53,10 +54,10 @@ class Xvector(TopVirtualNnet):
         }
 
         default_step_params = {
-            "T":None, "record_T":0,
+            "T":None,
+            "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
             "s":False, "s_tuple":(30, 12), "s_list":None,
             "t":False, "t_tuple":(0.5, 1.2), 
-            "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
             "p":False, "p_tuple":(0.5, 0.1)
         }
 
@@ -249,35 +250,41 @@ class Xvector(TopVirtualNnet):
         return xvector
 
 
-    def compute_decay_value(self, start, end, current_postion, T):
-        return start - (start - end)/(T-1) * (current_postion%T)
+    def get_warmR_T(T_0, T_mult, epoch):
+        n = int(math.log(max(0.05, (epoch / T_0 * (T_mult - 1) + 1)), T_mult))
+        T_cur = epoch - T_0 * (T_mult ** n - 1) / (T_mult - 1)
+        T_i = T_0 * T_mult ** (n)
+        return T_cur, T_i
+
+
+    def compute_decay_value(self, start, end, T_cur, T_i):
+        # Linear decay in every cycle time.
+        return start - (start - end)/(T_i-1) * (T_cur%T_i)
 
 
     def step(self, epoch, this_iter, epoch_batchs):
-        # heated up for t, s, m
+        # Heated up for t and s.
+        # Decay for margin and dropout p.
         if self.use_step:
-            if self.step_params["T"] is not None:
-                if self.step_params["record_T"] < self.step_params["T"][epoch]:
-                    self.current_epoch = epoch*epoch_batchs
-                    self.T = self.step_params["T"][epoch] * epoch_batchs
-                    self.step_params["record_T"] = self.step_params["T"][epoch]
-
-                current_postion = self.current_epoch + this_iter
-
-            if self.step_params["t"]:
-                self.loss.t = self.compute_decay_value(*self.step_params["t_tuple"], current_postion, self.T)
-
-            if self.step_params["s"]:
-                self.loss.s = self.step_params["s_tuple"][self.step_params["s_list"][epoch]]
-
             if self.step_params["m"]:
+                current_postion = epoch*epoch_batchs + this_iter
                 lambda_factor = max(self.step_params["lambda_0"], 
                                  self.step_params["lambda_b"]*(1+self.step_params["gamma"]*current_postion)**(-self.step_params["alpha"]))
                 self.loss.step(lambda_factor)
 
+            if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
+                T_cur, T_i = get_warmR_T(*self.step_params["T"], epoch)
+                T_cur = T_cur*epoch_batchs + this_iter
+                T_i = T_i * epoch_batchs
+
+            if self.step_params["t"]:
+                self.loss.t = self.compute_decay_value(*self.step_params["t_tuple"], T_cur, T_i)
+
             if self.step_params["p"]:
-                self.aug_dropout.p = self.compute_decay_value(*self.step_params["p_tuple"], current_postion, self.T)
-            
+                self.aug_dropout.p = self.compute_decay_value(*self.step_params["p_tuple"], T_cur, T_i)
+
+            if self.step_params["s"]:
+                self.loss.s = self.step_params["s_tuple"][self.step_params["s_list"][epoch]]
 
 
 

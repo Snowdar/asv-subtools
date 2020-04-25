@@ -18,7 +18,7 @@ sampling_rate=16000
 frame_shift=0.01
 factor=1 # The ratio of augmented data with origin data. In this case, 4 means using all augmented data if aug-data-dir is provided.
 nj=20 # Num-jobs
-force_clear=true
+force_clear=false
 
 . subtools/parse_options.sh
 . subtools/path.sh
@@ -156,6 +156,9 @@ if [ $num -gt 1 ];then
 	echo "...combine additive aug data to $additive_aug_data..."
 	subtools/kaldi/utils/combine_data.sh $additive_aug_data $all_data
 fi
+
+bc_path=$(command -v bc)
+[ "$bc_path" == "" ] && echo -e "[exit] No bc in ($PATH)\nPlease install bc by 'yum install bc'." && exit 1
 
 num_origin_utts=$(wc -l $data/reco2dur | awk '{print $1}')
 [ $(echo "$factor - $num" | bc) -gt 0 ] && factor=$num # Get min

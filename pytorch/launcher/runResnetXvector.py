@@ -166,10 +166,11 @@ model_params = {
             "s":30, "mhe_loss":False, "mhe_w":0.01},
 
     "use_step":False,
-    "step_params":{
-            "t":False, "s":False, "m":False, 
-            "T":None, "record_T":0, "t_tuple":(0.5, 1.2), 
-            "s_tuple":(30, 12), "m_tuple":(0, 0.2)}
+    "step_params":{"T":None,
+                   "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
+                   "s":False, "s_tuple":(30, 12), "s_list":None,
+                   "t":False, "t_tuple":(0.5, 1.2), 
+                   "p":False, "p_tuple":(0.5, 0.1)}
 }
 
 optimizer_params = {
@@ -211,6 +212,10 @@ model_blueprint="subtools/pytorch/model/resnet-xvector.py"
 model_dir="exp/resnet_xv_baseline_warmR_voxceleb1"
 ##--------------------------------------------------##
 ##
+#### Auto-config params
+if lr_scheduler_params["name"] == "warmR" and model_params["use_step"]:
+    model_params["step_params"]["T"]=(lr_scheduler_params["warmR.T_max"], lr_scheduler_params["warmR.T_mult"])
+
 #### Set seed
 utils.set_all_seed(1024)
 
@@ -269,7 +274,7 @@ if stage <= 3 <= endstage:
     if utils.is_main_training(): logger.info("Init a simple trainer.")
     # Package(Elements:dict, Params:dict}. It is a key parameter's package to trainer and model_dir/config/.
     package = ({"data":bunch, "model":model, "optimizer":optimizer, "lr_scheduler":lr_scheduler},
-            {"model_dir":model_dir, "model_blueprint":model_blueprint, "exist_model":"", 
+            {"model_dir":model_dir, "model_blueprint":model_blueprint, "exist_model":exist_model, 
             "start_epoch":train_stage, "epochs":epochs, "use_gpu":use_gpu, "gpu_id":gpu_id, 
             "benchmark":benchmark, "suffix":suffix, "report_times_every_epoch":report_times_every_epoch,
             "report_interval_iters":report_interval_iters, "record_file":"train.csv"})

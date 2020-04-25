@@ -102,7 +102,8 @@ class Reporter():
             try:
                 res = self.queue.get()
                 if res is None:
-                    if self.record_file is not None:break
+                    self.bar.finish()
+                    break
 
                 snapshot, training_point, current_lr = res
                 current_epoch, current_iter, num_batchs_train = training_point
@@ -128,7 +129,6 @@ class Reporter():
         self.queue.put(None)
         # Wait process completed.
         self.process.join()
-        self.bar.finish()
 
 
 class LRFinderReporter():

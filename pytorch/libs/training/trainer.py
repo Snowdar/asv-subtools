@@ -122,6 +122,7 @@ class _BaseTrainer():
 
         ## Select device
         self.select_device()
+        #self.elements["model"]=torch.nn.parallel.DistributedDataParallel(model)
 
     def save_model(self, from_epoch=True):
         if from_epoch:
