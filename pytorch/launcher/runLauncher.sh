@@ -4,7 +4,8 @@
 
 stage=3
 endstage=4
-horovod_params="--start-timeout 30"
+multi_gpu_solution="ddp"
+omp_num_threads=1
 
 . subtools/parse_options.sh
 . subtools/path.sh
@@ -21,11 +22,6 @@ shift
 
 [ ! -f $launcher ] && echo "Expected $launcher (*.py) to exist." && exit 1
 
-stage=$(echo "$@" | awk -v stage=$stage '{for(i=1;i<=NF;i++){
-        split($i,a,"=");if(a[1]=="--stage"){change=1;print a[2];}}}END{if(!change){print stage}}')
-endstage=$(echo "$@" | awk -v endstage=$endstage '{for(i=1;i<=NF;i++){
-        split($i,a,"=");if(a[1]=="--endstage"){change=1;print a[2];}}}END{if(!change){print endstage}}')
-
 # Should note the " and space char when giving a parameter from shell to python.
 launcher_options=""
 num_gpu=1
@@ -36,7 +32,14 @@ while true;do
         gpu_id_option=$(echo "$1" | sed 's/ /,/g')
         launcher_options="$launcher_options $gpu_id_option"
         num_gpu=$(echo $gpu_id_option | sed 's/=/ /g' | awk '{print $2}' | sed 's/[,-]/\n/g' | sed '/^$/d' | wc -l)
-    elif [[ $1 != "--stage="* && $1 != "--endstage="* ]];then
+    elif [[ $1 == "--multi-gpu-solution="* ]];then
+        multi_gpu_solution=$(echo $1 | sed 's/=/ /g' | awk '{print $2}')
+        launcher_options="$launcher_options $1"
+    elif [[ $1 == "--stage="* ]];then
+        stage=$(echo $1 | sed 's/=/ /g' | awk '{print $2}')
+    elif [[ $1 == "--endstage="* ]];then
+        endstage=$(echo $1 | sed 's/=/ /g' | awk '{print $2}')
+    else
         launcher_options="$launcher_options $1"
     fi
     shift
@@ -45,14 +48,20 @@ done
 
 # Add multi-gpu case.
 if [ $num_gpu -gt 1 ];then
-    sh subtools/pytorch/launcher/multi_gpu/check_horovod.sh || exit 1
-    # Ser cache for synchronize batchnorm to avoid WARNING.
-    export HOROVOD_CACHE_CAPACITY=0
-    train_cmd="horovodrun -np $num_gpu --log-level INFO $horovod_params python3"
+    if [ "$multi_gpu_solution" == "horovod" ];then
+        sh subtools/pytorch/launcher/multi_gpu/check_horovod.sh || exit 1
+        # Ser cache for synchronize batchnorm to avoid WARNING.
+        export HOROVOD_CACHE_CAPACITY=0
+        train_cmd="horovodrun -np $num_gpu python3"
+    elif [ "$multi_gpu_solution" == "ddp" ];then
+        export OMP_NUM_THREADS=$omp_num_threads
+        train_cmd="python3 -m torch.distributed.launch --nproc_per_node=$num_gpu"
+    else
+        echo "[exit] Do not support $multi_gpu_solution solution for multi-GPU training." && exit 1
+    fi
 else
     train_cmd="python3"
 fi
-
 
 # Split this two stage to free GPU memory of model by an exit-python way 
 # and use these GPU memory to extract x-vectors.

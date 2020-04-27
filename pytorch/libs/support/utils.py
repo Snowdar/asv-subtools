@@ -7,9 +7,11 @@ import math
 import random
 import logging
 import shutil
+import copy
 import numpy as np
 import pandas as pd
 import torch
+import torch.distributed as dist
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -28,20 +30,26 @@ def to_bool(variable):
         return variable
 
 
-def parse_gpu_id_option(gpu_id):
+def parse_gpu_id_option(gpu_ids):
     """
-    @gpu_id: str, 1,2,3 or 1-2-3 or "1 2 3"
+    @gpu_ids: str: 1,2,3 or 1-2-3 or "1 2 3"
+              int: 1
+              list/tuple: [1,2,3] or ("1","2","3")
     """
-    if not isinstance(gpu_id, int):
-        gpu_id = gpu_id.replace("-", " ")
-        gpu_id = gpu_id.replace(",", " ")
-        gpu_id = [ int(x) for x in gpu_id.split()]
+    if isinstance(gpu_ids, str):
+        gpu_ids = gpu_ids.replace("-", " ")
+        gpu_ids = gpu_ids.replace(",", " ")
+        gpu_ids = [ int(x) for x in gpu_ids.split()]
+    elif isinstance(gpu_ids, int):
+        gpu_ids = [gpu_ids]
+    elif isinstance(gpu_ids, (list, tuple)):
+        gpu_ids = [ int(x) for x in gpu_ids ]
     else:
-        gpu_id = [gpu_id]
-    return gpu_id
+        raise TypeError("Expected str, int or list/tuple, bug got {}.".format(gpu_ids))
+    return gpu_ids
 
 
-def auto_select_model_device(model, use_gpu, gpu_id="", benchmark=False):
+def select_model_device(model, use_gpu, gpu_ids="", benchmark=False):
     """ Auto select device (cpu/GPU) for model
     @use_gpu: bool or 'true'/'false' string
     """
@@ -51,28 +59,40 @@ def auto_select_model_device(model, use_gpu, gpu_id="", benchmark=False):
     benchmark = to_bool(benchmark)
 
     if use_gpu :
-        if gpu_id == "":
+        torch.backends.cudnn.benchmark = benchmark
+
+        if gpu_ids == "":
             logger.info("The use_gpu is true and gpu id is not specified, so select gpu device automatically.")
             import libs.support.GPU_Manager as gpu
             gm = gpu.GPUManager()
-            gpu_id = [gm.auto_choice()]
+            gpu_ids = [gm.auto_choice()]
         else:
             # Get a gpu id list.
-            gpu_id = parse_gpu_id_option(gpu_id)
-            if is_main_training(): logger.info("The use_gpu is true and training will use GPU {0}.".format(gpu_id))
+            gpu_ids = parse_gpu_id_option(gpu_ids)
+            if is_main_training(): logger.info("The use_gpu is true and training will use GPU {0}.".format(gpu_ids))
 
-        if len(gpu_id) > 1 and use_horovod():
+        ## Multi-GPU with DDP.
+        if len(gpu_ids) > 0 and use_ddp():
+            if dist.get_world_size() != len(gpu_ids):
+                raise ValueError("To run DDP with {} nj, " \
+                                 "but {} GPU ids ({}) are given.".format(dist.get_world_size(), len(gpu_ids), gpu_ids))
+            torch.cuda.set_device(gpu_ids[dist.get_rank()])
+            model.cuda()
+            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[gpu_ids[dist.get_rank()]], output_device=dist.get_rank())
+            return model
+
+        ## Multi-GPU with Horovod.
+        if len(gpu_ids) > 1 and use_horovod():
             import horovod.torch as hvd
             # Just multi GPU case.
-            if hvd.size() > len(gpu_id):
+            if hvd.size() != len(gpu_ids):
                 raise ValueError("To run horovod with {} nj, " \
-                                 "but just {} GPU ids ({}) are given.".format(hvd.size(), len(gpu_id), gpu_id))
-            torch.cuda.set_device(gpu_id[hvd.rank()])
+                                 "but {} GPU ids ({}) are given.".format(hvd.size(), len(gpu_ids), gpu_ids))
+            torch.cuda.set_device(gpu_ids[hvd.rank()])
         else:
-            # One process in one GPU.
-            torch.cuda.set_device(gpu_id[0])
+            ## One process in one GPU.
+            torch.cuda.set_device(gpu_ids[0])
 
-        torch.backends.cudnn.benchmark = benchmark
         model.cuda()
 
     return model
@@ -270,9 +290,10 @@ def key_to_value(adict, key, return_none=True):
 
 
 def assign_params_dict(default_params:dict, params:dict, force_check=False, support_unknow=False):
-    # Should keep force_check=False to use support_unknow
+    default_params = copy.deepcopy(default_params)
     default_keys = set(default_params.keys())
 
+    # Should keep force_check=False to use support_unknow
     if force_check:
         for key in param.keys():
             if key not in default_keys:
@@ -341,15 +362,28 @@ def read_log_csv(csv_path:str):
     dataframe = pd.read_csv(csv_path).drop_duplicates(["epoch", "iter"], keep="last", inplace=True)
     return dataframe
 
-### Multi-GPU training.
-def use_horovod():
-    return os.getenv("USE_HOROVOD") == "true"
+### Multi-GPU training [Two solutions: Horovod or DDP]
+def init_multi_gpu_training(gpu_ids="", solution="ddp"):
+    num_gpu = len(parse_gpu_id_option(gpu_ids))
+    if num_gpu > 1:
+        # The ddp solution is suggested.
+        if solution == "ddp":
+            init_ddp()
+            if is_main_training(): logger.info("DDP has been initialized.")
+        elif solution == "horovod":
+            init_horovod()
+            if is_main_training(): logger.info("Horovod has been initialized.")
+        else:
+            raise TypeError("Do not support {} solution for multi-GPU training.".format(method))
 
-def init_horovod():
-    if not use_horovod():
-        os.environ["USE_HOROVOD"] = "true"
-    import horovod.torch as hvd
-    hvd.init()
+def convert_synchronized_batchnorm(model):
+    if use_horovod():
+        # Synchronize batchnorm for multi-GPU training.
+        from .sync_bn import convert_sync_batchnorm
+        model = convert_sync_batchnorm(model)
+    elif use_ddp():
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    return model
 
 def is_main_training():
     if use_horovod():
@@ -359,12 +393,34 @@ def is_main_training():
             return True
         else:
             return False
-    else:
-        return True
+    elif use_ddp():
+        if dist.get_rank() == 0:
+            return True
+        else:
+            return False
+    return True
 
-def convert_synchronized_batchnorm(model):
-    if use_horovod():
-        # Synchronize batchnorm for multi-GPU training.
-        from .sync_bn import convert_sync_batchnorm
-        model = convert_sync_batchnorm(model)
-    return model
+## Horovod
+def init_horovod():
+    os.environ["USE_HOROVOD"] = "true"
+    import horovod.torch as hvd
+    hvd.init()
+
+def use_horovod():
+    return os.getenv("USE_HOROVOD") == "true"
+
+## DDP
+def init_ddp():
+    if not torch.distributed.is_nccl_available():
+        raise RuntimeError("NCCL is not available.")
+
+    # Just plan to support NCCL for GPU-Training.
+    # The world_size and rank will be set automatically with DDP, so do not give these two params to init_process_group.
+    torch.distributed.init_process_group(backend="nccl")
+
+def use_ddp():
+    return torch.distributed.is_initialized()
+
+def cleanup_ddp():
+    print("clean")
+    torch.distributed.destroy_process_group()

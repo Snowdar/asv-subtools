@@ -3,11 +3,6 @@
 # Copyright xmuspeech (Author: Snowdar 2020-02-12)
 # Apache 2.0
 
-# For multi-GPU training, there are two methods to run:
-#    1. horovodrun -np 3 python3 runSnowdarXvector-voxceleb1.py --gpu-id=0,1,2
-#    2. subtools/pytorch/launcher/runLauncher.sh runSnowdarXvector-voxceleb1.py --gpu-id=0,1,2
-# The second method is suggested to use for its convenience.
-
 import sys, os
 import logging
 import argparse
@@ -29,20 +24,54 @@ import libs.support.utils as utils
 from  libs.support.logging_stdout import patch_logging_stream
 
 """A launcher script with python version (Snowdar's launcher to do experiments w.r.t snowdar-xvector.py).
-To support more freedom without limitation of parameters transfer from shell to python.
+Python version is given rather than Shell is to support more freedom without limitation of parameters transfer from shell to python.
+
 Note, this launcher does not contains dataset preparation, augmentation, extracting acoustic features and back-end scoring etc.
-(see subtools/newCopyData.sh, subtools/makeFeatures.sh.sh, subtools/computeVad.sh, 
- subtools/augmentDataByNoise.sh and subtools/scoreSets.sh and run these script separately before or after running this launcher).
+    1.See subtools/recipe/voxceleb/runVoxceleb.sh to get complete stages.
+    2.See subtools/newCopyData.sh, subtools/makeFeatures.sh.sh, subtools/computeVad.sh, subtools/augmentDataByNoise.sh and 
+          subtools/scoreSets.sh and run these script separately before or after running this launcher.
 
 How to modify and use this launcher:
     1.Prepare your kaldi format dataset and model.py (model blueprint);
     2.Give the path of dataset and model blueprint etc. in main parameters field;
-    3.Change the import name of model in function train() a.w.t model.py by yourself;
+    3.Change the import name of model in 'model = model_py.model_name(...)' a.w.t model.py by yourself;
     4.Modify any training parameters what you want to change (epochs, optimizer and lr_scheduler etc.);
     5.Modify extracting parameters in stage 4 a.w.t your own training config;
-    6.Run this lachuner.
+    6.Run this launcher.
 
 Conclusion: preprare -> config -> run.
+
+How to run this launcher to training model:
+    1.For CPU-based training case. The key option is --use-gpu.
+        python3 launcher.py --use-gpu=false
+    2.For single-GPU training case (Default).
+        python3 launcher.py
+    3.For DDP-based multi-GPU training case. Note --nproc_per_node is equal to number of gpu id in --gpu-id.
+        python3 -m torch.distributed.launch --nproc_per_node=2 launcher.py --gpu-id=0,1
+    4.For Horovod-based multi-GPU training case. Note --np is equal to number of gpu id in --gpu-id.
+        horovodrun -np 2 launcher.py --gpu-id=0,1
+    5.For all of above, a runLauncher.sh script has been created to launch launcher.py conveniently.
+      The key option to use single or multiple GPU is --gpu-id.
+      The subtools/runPytorchLauncher.sh is a soft symbolic which is linked to subtools/pytorch/launcher/runLauncher.sh, 
+      so just use it.
+
+        [ CPU ]
+            subtools/runPytorchLauncher.sh launcher.py --use-gpu=false
+
+        [ Single-GPU ]
+        (1) Auto-select GPU device
+            subtools/runPytorchLauncher.sh launcher.py
+        (2) Specify GPU device
+            subtools/runPytorchLauncher.sh launcher.py --gpu-id=2
+
+        [ Multi-GPU ]
+        (1) Use DDP solution (Default).
+            subtools/runPytorchLauncher.sh launcher.py --gpu-id=2,3 --multi-gpu-solution="ddp"
+        (2) Use Horovod solution.
+            subtools/runPytorchLauncher.sh launcher.py --gpu-id=2,3 --multi-gpu-solution="horovod"
+
+If you have any other requirements, you could modify the codes in anywhere. 
+For more details of multi-GPU devolopment, see subtools/README.md.
 """
 
 # Logger
@@ -93,6 +122,10 @@ parser.add_argument("--gpu-id", type=str, default="",
                     help="If NULL, then it will be auto-specified.\n"
                          "If giving multi-gpu like --gpu-id=1,2,3, then use multi-gpu training.")
 
+parser.add_argument("--multi-gpu-solution", type=str, default="ddp",
+                    choices=["ddp", "horovod"],
+                    help="if number of gpu_id > 1, this option will be valid to init a multi-gpu solution.")
+
 parser.add_argument("--benchmark", type=str, action=kaldi_common.StrToBoolAction,
                     default=True, choices=["true", "false"],
                     help="If true, save training time but require a little more gpu-memory.")
@@ -104,8 +137,14 @@ parser.add_argument("--run-lr-finder", type=str, action=kaldi_common.StrToBoolAc
 parser.add_argument("--sleep", type=int, default=0,
                     help="The waiting time to launch a launcher.")
 
-args = parser.parse_args()
+parser.add_argument("--local_rank", type=int, default=0,
+                    help="Do not delete it when using DDP-based multi-GPU training.\n"
+                         "It is important for torch.distributed.launch.")
 
+args = parser.parse_args()
+##
+######################################################### PARAMS ########################################################
+##
 ##--------------------------------------------------##
 ## Control options
 stage = max(0, args.stage)
@@ -115,7 +154,7 @@ train_stage = max(-1, args.train_stage)
 ## Preprocess options
 force_clear=args.force_clear
 preprocess_nj = 20
-cmn = True # traditional cmn process
+cmn = True # Traditional cmn process.
 
 chunk_size = 200
 limit_utts = 8
@@ -136,7 +175,7 @@ run_lr_finder = args.run_lr_finder
 
 egs_params = {
     "aug":None, # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
-    "aug_params":{"frequency":0.2, "frame":0.2, "rows":1, "cols":1, "random_rows":True,"random_rows":True}
+    "aug_params":{"frequency":0.2, "frame":0.2, "rows":4, "cols":4, "random_rows":True,"random_rows":True}
 }
 
 loader_params = {
@@ -151,16 +190,24 @@ loader_params = {
 
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
-    "extend":False, 
+    "extend":False, "SE":False, "se_ratio":4, "training":True, "extracted_embedding":"far",
+
     "aug_dropout":0., "hidden_dropout":0., 
     "dropout_params":{"type":"default", "start_p":0., "dim":2, "method":"uniform",
                       "continuous":False, "inplace":True},
-    "training":True, "extracted_embedding":"far", "SE":False, "se_ratio":4,
-    "tdnn_layer_params":{"momentum":0.5, "nonlinearity":'relu'},
-    "tdnn6":True, "tdnn7_params":{"nonlinearity":"default", "bn":True},
+
+    "tdnn_layer_params":{"nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
+                         "bn-relu":False, 
+                         "bn":True, 
+                         "bn_params":{"momentum":0.5, "affine":False, "track_running_stats":True}},
+    "tdnn6":True, 
+    "tdnn7_params":{"nonlinearity":"default", "bn":True},
+
     "attentive_pooling":False, "attentive_pooling_params":{"hidden_size":64},
     "LDE_pooling":False, "LDE_pooling_params":{"c_num":64, "nodes":128},
+
     "focal_loss":False, "focal_loss_params":{"gamma":2},
+
     "margin_loss":False, 
     "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 
                           "s":30, "mhe_loss":False, "mhe_w":0.01},
@@ -195,6 +242,7 @@ lr_scheduler_params = {
 }
 
 epochs = 21 # Total epochs to train. It is important.
+
 report_times_every_epoch = None
 report_interval_iters = 100 # About validation computation and loss reporting. If report_times_every_epoch is not None, 
                             # then compute report_interval_iters by report_times_every_epoch.
@@ -209,23 +257,28 @@ traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/standard_xv_warmR_voxceleb1"
+model_dir="exp/standard_voxceleb1"
 ##--------------------------------------------------##
+##
+######################################################### START #########################################################
 ##
 #### Auto-config params
 if lr_scheduler_params["name"] == "warmR" and model_params["use_step"]:
     model_params["step_params"]["T"]=(lr_scheduler_params["warmR.T_max"], lr_scheduler_params["warmR.T_mult"])
-
+##
 #### Set seed
 utils.set_all_seed(1024)
-
+##
+#### Set sleep time for a rest
 # Use it to run a launcher with a countdown function when there are no extra GPU memory 
 # but you really want to go to bed and know when the GPU memory will be free.
 if args.sleep > 0: time.sleep(args.sleep)
-
-#### Init environment for multi-gpu training if used (num of gpu-id > 1).
-if len(utils.parse_gpu_id_option(args.gpu_id)) > 1: utils.init_horovod()
-
+##
+#### Init environment
+# It is used for multi-gpu training if used (number of gpu-id > 1).
+# And it will do nothing for single-GPU training.
+utils.init_multi_gpu_training(args.gpu_id, args.multi_gpu_solution)
+##
 #### Preprocess
 if stage <= 2 and endstage >= 0 and utils.is_main_training():
     # Here only give limited options because it is not convenient.
@@ -257,9 +310,9 @@ if stage <= 3 <= endstage:
     model_py = utils.create_model_from_py(model_blueprint)
     model = model_py.Xvector(info["feat_dim"], info["num_targets"], **model_params)
 
-    # If multi-GPU used, then batchnorm will be converted to synchronized batchnorm. 
+    # If multi-GPU used, then batchnorm will be converted to synchronized batchnorm, which is important 
+    # to make peformance stable. 
     # It will change nothing for single-GPU training.
-    # It is important to make peformance stable.
     model = utils.convert_synchronized_batchnorm(model)
 
     if utils.is_main_training(): logger.info("Define optimizer and lr_scheduler.")
@@ -293,8 +346,8 @@ if stage <= 4 <= endstage and utils.is_main_training():
     data_root = "data" # It contains all dataset just like Kaldi recipe.
     prefix = "mfcc_23_pitch" # For to_extracted_data.
 
-    to_extracted_positions = ["far","near"] # Define this w.r.t model_blueprint.
-    to_extracted_data = ["voxceleb1_train_aug", "voxceleb1_test"] # All dataset should be in dataroot/prefix.
+    to_extracted_positions = ["far", "near"] # Define this w.r.t extracted_embedding param of model_blueprint.
+    to_extracted_data = ["voxceleb1_train_aug", "voxceleb1_test"] # All dataset should be in data_root/prefix.
     to_extracted_epochs = ["21"] # It is model's name, such as 10.params or final.params (suffix is w.r.t package).
 
     nj = 10
@@ -343,35 +396,6 @@ if stage <= 4 <= endstage and utils.is_main_training():
         if not isinstance(e, KeyboardInterrupt):
             traceback.print_exc()
         sys.exit(1)
-
-
-#### Congratulate! All done.
-##
-#### Report EER% on voxceleb1.test [ back-end = lda256 + normalization + plda ]
-##  optimizer    learn-rate    weight-decay    epoch    far  
-##  adam         0.001         3e-4 (L2)       7        3.319
-##                                             14       3.028
-##                                             21       3.017
-
-##  adamW        0.001         5e-1            7        3.303
-##                                             14       3.266
-##                                             21       3.028
-
-##  adamod       0.001         5e-1            7        3.282
-##                                             14       3.171
-##                                             21       3.049
-
-##  radam        0.001         5e-1            7        3.218
-##                                             14       3.059
-##                                             21       3.038
-
-##  ralamb       0.001         5e-1            7        3.229
-##                                             14       3.155
-##                                             21       3.028
-
-##  adamW        0.003         5e-1            7        3.181
-##  + lookahead                                14       3.054
-##  k=5,alpha=0.5                              21       3.049
 
 
 

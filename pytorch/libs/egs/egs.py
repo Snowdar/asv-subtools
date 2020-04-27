@@ -130,19 +130,27 @@ class BaseBunch():
     def __init__(self, trainset, valid=None, use_fast_loader=False, max_prefetch=10,
                  batch_size=512, shuffle=True, num_workers=0, pin_memory=False, drop_last=True):
 
+        multi_gpu = False
         if utils.use_horovod():
             # Multi-GPU training.
             import horovod.torch as hvd
             # Partition dataset among workers using DistributedSampler
             train_sampler = torch.utils.data.distributed.DistributedSampler(
                             trainset, num_replicas=hvd.size(), rank=hvd.rank(), shuffle=shuffle)
-            # If use DistributedSampler, the shuffle of DataLoader should be set False.
-            shuffle = False
-
-            if not utils.is_main_training():
-                valid = None
+            multi_gpu = True
+        elif utils.use_ddp():
+            # The num_replicas/world_size and rank will be set automatically with DDP.
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                            trainset, shuffle=shuffle)
+            multi_gpu = True
         else:
             train_sampler = None
+
+        if multi_gpu:
+            # If use DistributedSampler, the shuffle of DataLoader should be set False.
+            shuffle = False
+            if not utils.is_main_training():
+                valid = None
 
         if use_fast_loader:
             self.train_loader = DataLoaderFast(max_prefetch, trainset, batch_size = batch_size, shuffle=shuffle, 

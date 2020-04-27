@@ -37,11 +37,8 @@ class Xvector(TopVirtualNnet):
         }
 
         default_tdnn_layer_params = {
-            "momentum":0.5, "nonlinearity":'relu', "nonlinearity_params":{"inplace":True}
-        }
-
-        default_tdnn7_params = {
-            "nonlinearity":"default", "bn":True, "bias":True
+            "nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
+            "bn-relu":False, "bn":True, "bn_params":{"momentum":0.5, "affine":False, "track_running_stats":True}
         }
 
         default_margin_loss_params = {
@@ -63,7 +60,8 @@ class Xvector(TopVirtualNnet):
 
         dropout_params = utils.assign_params_dict(default_dropout_params, dropout_params)
         tdnn_layer_params = utils.assign_params_dict(default_tdnn_layer_params, tdnn_layer_params)
-        tdnn7_params = utils.assign_params_dict(default_tdnn7_params, tdnn7_params)
+        # If param is not be specified, default it a.w.t tdnn_layer_params.
+        tdnn7_params = utils.assign_params_dict(tdnn_layer_params, tdnn7_params) 
         margin_loss_params = utils.assign_params_dict(default_margin_loss_params, margin_loss_params)
         step_params = utils.assign_params_dict(default_step_params, step_params)
 
@@ -126,7 +124,7 @@ class Xvector(TopVirtualNnet):
         if tdnn7_params["nonlinearity"] == "default":
             tdnn7_params["nonlinearity"] = tdnn_layer_params["nonlinearity"]
 
-        self.tdnn7 = ReluBatchNormTdnnLayer(tdnn7_dim,512, **tdnn7_params, momentum=tdnn_layer_params["momentum"])
+        self.tdnn7 = ReluBatchNormTdnnLayer(tdnn7_dim,512, **tdnn7_params)
 
         # Loss
         # Do not need when extracting embedding.

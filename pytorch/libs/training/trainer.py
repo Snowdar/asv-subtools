@@ -67,14 +67,16 @@ class _BaseTrainer():
 
         assert self.params["model_dir"] != ""
         assert self.params["model_blueprint"] != ""
+
+        self.elements["model_forward"] = self.elements["model"]
         self.params["start_epoch"] = max(0, self.params["start_epoch"])
 
         self.stop_early = stop_early # To do.
         self.training_point = (self.params["start_epoch"], 0, self.elements["data"].num_batch_train)
 
     def select_device(self):
-        utils.auto_select_model_device(self.elements["model"], self.params["use_gpu"], 
-                                               gpu_id=self.params["gpu_id"], benchmark=self.params["benchmark"])
+        return utils.select_model_device(self.elements["model"], self.params["use_gpu"], 
+                                          gpu_ids=self.params["gpu_id"], benchmark=self.params["benchmark"])
 
     def init_training(self):
         model = self.elements["model"]
@@ -94,6 +96,7 @@ class _BaseTrainer():
             if utils.is_main_training(): logger.info("Recover training from {0} epoch.".format(start_epoch))
             model.load_state_dict(torch.load('{0}/{1}.{2}'.format(model_dir, start_epoch, suffix), 
                                              map_location="cpu"))
+            print(model)
         elif os.path.exists(exist_model):
             if utils.is_main_training(): logger.info("Use {0} as the initial model to start transform-training.".format(exist_model))
             model.load_transform_state_dict(torch.load(exist_model, map_location="cpu"))
@@ -121,8 +124,14 @@ class _BaseTrainer():
                                              named_parameters=self.elements["model"].named_parameters())
 
         ## Select device
-        self.select_device()
-        #self.elements["model"]=torch.nn.parallel.DistributedDataParallel(model)
+        model = self.select_device()
+
+        # Original model is built in libs.nnet.framework.TopVirtualNnet, and it is not available after
+        # wrapped by DistributedDataParallel. So, to call functions of TopVirtualNnet conveniently, the 
+        # self.elements["framework"] is set here.
+        if isinstance(model, torch.nn.parallel.DistributedDataParallel):
+            self.elements["model"] = model.module
+            self.elements["model_forward"] = model
 
     def save_model(self, from_epoch=True):
         if from_epoch:
@@ -158,6 +167,7 @@ class SimpleTrainer(_BaseTrainer):
         """A normal training core without fetching data from iterator.
         """
         model = self.elements["model"]
+        model_forward = self.elements["model_forward"]
         optimizer = self.elements["optimizer"]
 
         if not model.training:
@@ -166,7 +176,7 @@ class SimpleTrainer(_BaseTrainer):
         inputs, targets = batch
         optimizer.zero_grad()
 
-        loss = model.get_loss(model(inputs), targets)
+        loss = model.get_loss(model_forward(inputs), targets)
         loss.backward()
         loss.detach() # For safe.
 
@@ -184,7 +194,7 @@ class SimpleTrainer(_BaseTrainer):
             else:
                 optimizer.step()
 
-        accuracy = model.compute_accuracy(model.get_posterior(), targets) if self.params["compute_accuracy"] else None
+        accuracy = framework.compute_accuracy(framework.get_posterior(), targets) if self.params["compute_accuracy"] else None
 
         return loss.item(), accuracy
 
@@ -192,7 +202,7 @@ class SimpleTrainer(_BaseTrainer):
         """A normal evaluation core.
         """
         model = self.elements["model"]
-
+        model_forward = self.elements["model_forward"]
         train_status = model.training # Record status.
         model.eval()
 
@@ -203,7 +213,7 @@ class SimpleTrainer(_BaseTrainer):
         with torch.no_grad():
             for this_data in data_loader:
                 inputs, targets = this_data
-                loss += model.get_loss(model(inputs), targets).item() * len(targets)
+                loss += model.get_loss(model_forward(inputs), targets).item() * len(targets)
                 num_samples += len(targets)
 
                 if self.params["compute_valid_accuracy"]:
@@ -233,6 +243,7 @@ class SimpleTrainer(_BaseTrainer):
             epochs = self.params["epochs"]
             data = self.elements["data"]
             model = self.elements["model"]
+            model_forward = self.elements["model_forward"] # See init_training.
             lr_scheduler = self.elements["lr_scheduler"]
 
             if utils.is_main_training(): logger.info("Training will run for {0} epochs.".format(epochs))
@@ -268,6 +279,7 @@ class SimpleTrainer(_BaseTrainer):
                 if utils.is_main_training(): self.save_model()
             if utils.is_main_training(): self.reporter.finish()
         except BaseException as e:
+                if utils.use_ddp(): utils.cleanup_ddp()
                 if not isinstance(e, KeyboardInterrupt):
                     traceback.print_exc()
                 sys.exit(1) 

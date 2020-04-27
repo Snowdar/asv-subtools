@@ -27,7 +27,10 @@ target=$topdir/${pre}/$name
 rm -rf $target
 mkdir -p $target
 
-trials=$(find $src -name "*trials" | xargs -n 1 basename)
+trials=""
+for path in $(find $src -name "*trials");do
+trials="$trials $(basename $path)"
+done
 
 for x in wav.scp utt2spk spk2utt feats.scp vad.scp utt2num_frames utt2dur reco2dur text utt2gender spk2gender $trials;do
 [ -f $src/$x ] && cp $src/$x $target/ && echo "[ $x ] copy done"

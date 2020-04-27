@@ -257,8 +257,7 @@ class _BaseActivationBatchNorm(torch.nn.Module):
             "nonlinearity":'relu',
             "nonlinearity_params":{"inplace":True, "negative_slope":0.01},
             "bn":True,
-            "momentum":0.5,
-            "affine":False, 
+            "bn_params":{"momentum":0.5, "affine":False, "track_running_stats":True},
             "special_init":True,
             "mode":'fan_out'
         }
@@ -273,12 +272,12 @@ class _BaseActivationBatchNorm(torch.nn.Module):
             self.after_forward = self._relu_bn_forward
             self.activation = Nonlinearity(default_params["nonlinearity"], **default_params["nonlinearity_params"])
             if default_params["bn"]:
-                self.batchnorm = torch.nn.BatchNorm1d(output_dim, momentum = default_params["momentum"], affine = default_params["affine"])
+                self.batchnorm = torch.nn.BatchNorm1d(output_dim, **default_params["bn_params"])
         else:
             # BN-ReLU
             self.after_forward = self._bn_relu_forward
             if default_params["bn"]:
-                self.batchnorm = torch.nn.BatchNorm1d(output_dim, momentum = default_params["momentum"], affine = default_params["affine"])
+                self.batchnorm = torch.nn.BatchNorm1d(output_dim, **default_params["bn_params"])
             self.activation = Nonlinearity(default_params["nonlinearity"], **default_params["nonlinearity_params"])
 
         if default_params["special_init"] and self.affine is not None:

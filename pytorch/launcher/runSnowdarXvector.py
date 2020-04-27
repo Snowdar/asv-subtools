@@ -1,4 +1,3 @@
-
 # -*- coding:utf-8 -*-
 
 # Copyright xmuspeech (Author: Snowdar 2020-02-12)
@@ -24,7 +23,7 @@ import libs.support.kaldi_common as kaldi_common
 import libs.support.utils as utils
 from  libs.support.logging_stdout import patch_logging_stream
 
-"""A launcher script with python version (Snowdar's launcher to do experiments w.r.t resnet-xvector.py).
+"""A launcher script with python version (Snowdar's launcher to do experiments w.r.t snowdar-xvector.py).
 Python version is given rather than Shell is to support more freedom without limitation of parameters transfer from shell to python.
 
 Note, this launcher does not contains dataset preparation, augmentation, extracting acoustic features and back-end scoring etc.
@@ -190,38 +189,29 @@ loader_params = {
 }
 
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
-model_params = { 
-    "aug_dropout":0.2, "tail_dropout":0.,
-    "training":True, "extracted_embedding":"far",
-    "resnet_params":{
-            "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
-            "head_maxpool":True, "head_maxpool_params":{"kernel_size":3, "stride":2, "padding":1},
-            "block":"BasicBlock",
-            "layers":[3, 4, 6, 3],
-            "planes":[32, 64, 128, 256],
-            "convXd":2,
-            "norm_layer_params":{"momentum":0.5, "affine":True},
-            "full_pre_activation":True,
-            "zero_init_residual":False},
-    "fc1":True,
-    "fc1_params":{
-            "nonlinearity":"relu",
-            "bn":True,
-            "bias":True,
-            "bn_momentum":0.5},
+model_params = {
+    "extend":False, "SE":False, "se_ratio":4, "training":True, "extracted_embedding":"far",
 
-    "fc2_params":{
-            "nonlinearity":"relu",
-            "bn":True,
-            "bias":True,
-            "bn_momentum":0.5},
+    "aug_dropout":0., "hidden_dropout":0., 
+    "dropout_params":{"type":"default", "start_p":0., "dim":2, "method":"uniform",
+                      "continuous":False, "inplace":True},
 
-    "margin_loss":False,
-    "margin_loss_params":{
-            "method":"am", "m":0.2, "feature_normalize":True, 
-            "s":30, "mhe_loss":False, "mhe_w":0.01},
+    "tdnn_layer_params":{"nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
+                         "bn-relu":False, 
+                         "bn":True, 
+                         "bn_params":{"momentum":0.5, "affine":False, "track_running_stats":True}},
+    "tdnn6":True, 
+    "tdnn7_params":{"nonlinearity":"default", "bn":True},
 
-    "use_step":False,
+    "attentive_pooling":False, "attentive_pooling_params":{"hidden_size":64},
+    "LDE_pooling":False, "LDE_pooling_params":{"c_num":64, "nodes":128},
+
+    "focal_loss":False, "focal_loss_params":{"gamma":2},
+
+    "margin_loss":False, 
+    "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 
+                          "s":30, "mhe_loss":False, "mhe_w":0.01},
+    "use_step":False, 
     "step_params":{"T":None,
                    "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
                    "s":False, "s_tuple":(30, 12), "s_list":None,
@@ -266,7 +256,7 @@ exist_model=""  # Use it in transfer learning.
 traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
-model_blueprint="subtools/pytorch/model/resnet-xvector.py"
+model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
 model_dir="exp/standard_voxceleb1"
 ##--------------------------------------------------##
 ##
@@ -408,11 +398,33 @@ if stage <= 4 <= endstage and utils.is_main_training():
         sys.exit(1)
 
 
-
 #### Congratulate! All done.
 ##
 #### Report EER% on voxceleb1.test [ back-end = lda256 + normalization + plda ]
+##  optimizer    learn-rate    weight-decay    epoch    far  
+##  adam         0.001         3e-4 (L2)       7        3.319
+##                                             14       3.028
+##                                             21       3.017
 
+##  adamW        0.001         5e-1            7        3.303
+##                                             14       3.266
+##                                             21       3.028
+
+##  adamod       0.001         5e-1            7        3.282
+##                                             14       3.171
+##                                             21       3.049
+
+##  radam        0.001         5e-1            7        3.218
+##                                             14       3.059
+##                                             21       3.038
+
+##  ralamb       0.001         5e-1            7        3.229
+##                                             14       3.155
+##                                             21       3.028
+
+##  adamW        0.003         5e-1            7        3.181
+##  + lookahead                                14       3.054
+##  k=5,alpha=0.5                              21       3.049
 
 
 

@@ -4,7 +4,7 @@
 # Apache 2.0
 
 # This script just support singel-GPU training and it is a simple example of standard x-vector.
-# For more, see runSnowdarXvector-*.py and runResnetXvector.py.
+# For more, see runSnowdarXvector.py and runResnetXvector.py.
 
 import sys, os
 import logging
@@ -24,23 +24,6 @@ import libs.training.lr_scheduler as learn_rate_scheduler
 import libs.training.trainer as trainer
 import libs.support.kaldi_common as kaldi_common
 import libs.support.utils as utils
-
-"""A launcher script with python version.
-To support more freedom without limitation of parameters transfer from shell to python.
-Note, this launcher does not contains dataset preparation, augmentation, extracting acoustic features and back-end scoring etc.
-(see subtools/newCopyData.sh, subtools/makeFeatures.sh.sh, subtools/computeVad.sh, 
- subtools/augmentDataByNoise.sh and subtools/scoreSets.sh and run these script separately before or after running this launcher).
-
-How to modify and use this launcher:
-    1.Prepare your kaldi format dataset and model.py (model blueprint);
-    2.Give the path of dataset and model blueprint etc. in main parameters field;
-    3.Change the import name of model in function train() a.w.t model.py by yourself;
-    4.Modify any training parameters what you want to change (epochs, optimizer and lr_scheduler etc.);
-    5.Modify extracting parameters in stage 4 a.w.t your own training config;
-    6.Run this lachuner.
-
-Conclusion: preprare -> config -> run.
-"""
 
 # Logger
 logger = logging.getLogger('libs')
