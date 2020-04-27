@@ -63,7 +63,7 @@ try:
     model.load_state_dict(torch.load(args.model_path, map_location='cpu'), strict=False)
 
     # Select device
-    model = utils.select_model_device(model, args.use_gpu, gpu_ids=args.gpu_id)
+    model = utils.select_model_device(model, args.use_gpu, gpu_id=args.gpu_id)
 
     model.eval()
 

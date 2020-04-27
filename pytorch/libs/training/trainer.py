@@ -76,7 +76,7 @@ class _BaseTrainer():
 
     def select_device(self):
         return utils.select_model_device(self.elements["model"], self.params["use_gpu"], 
-                                          gpu_ids=self.params["gpu_id"], benchmark=self.params["benchmark"])
+                                          gpu_id=self.params["gpu_id"], benchmark=self.params["benchmark"])
 
     def init_training(self):
         model = self.elements["model"]
