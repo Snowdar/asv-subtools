@@ -128,7 +128,7 @@ class _BaseTrainer():
 
         # Original model is built in libs.nnet.framework.TopVirtualNnet, and it is not available after
         # wrapped by DistributedDataParallel. So, to call functions of TopVirtualNnet conveniently, the 
-        # self.elements["framework"] is set here.
+        # self.elements["model_forward"] is set here to name DistributedDataParallel.
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             self.elements["model"] = model.module
             self.elements["model_forward"] = model
@@ -194,7 +194,7 @@ class SimpleTrainer(_BaseTrainer):
             else:
                 optimizer.step()
 
-        accuracy = framework.compute_accuracy(framework.get_posterior(), targets) if self.params["compute_accuracy"] else None
+        accuracy = model.compute_accuracy(model.get_posterior(), targets) if self.params["compute_accuracy"] else None
 
         return loss.item(), accuracy
 
