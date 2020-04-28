@@ -15,7 +15,7 @@ class Xvector(TopVirtualNnet):
     ## Base parameters - components - loss - training strategy.
     def init(self, inputs_dim, num_targets, extend=False, skip_connection=False,
              aug_dropout=0., context_dropout=0., hidden_dropout=0., dropout_params={},
-             SE=False, se_ratio=4,
+             SE=False, ratio=4,
              tdnn_layer_params={},
              tdnn6=True, tdnn7_params={},
              attentive_pooling=False, attentive_pooling_params={"hidden_size":64},
@@ -80,28 +80,28 @@ class Xvector(TopVirtualNnet):
 
         # Frame level
         self.tdnn1 = ReluBatchNormTdnnLayer(inputs_dim,512,[-2,-1,0,1,2], **tdnn_layer_params)
-        self.se1 = SEBlock(512, se_ratio=se_ratio) if SE else None
+        self.se1 = SEBlock(512, ratio=se_ratio) if SE else None
         self.ex_tdnn1 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
-        self.ex_se1 = SEBlock(512, se_ratio=se_ratio) if SE and extend else None
+        self.ex_se1 = SEBlock(512, ratio=se_ratio) if SE and extend else None
         self.tdnn2 = ReluBatchNormTdnnLayer(512,512,[-2,0,2], **tdnn_layer_params)
-        self.se2 = SEBlock(512, se_ratio=se_ratio) if SE else None
+        self.se2 = SEBlock(512, ratio=se_ratio) if SE else None
         self.ex_tdnn2 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
-        self.ex_se2 = SEBlock(512, se_ratio=se_ratio) if SE and extend else None
+        self.ex_se2 = SEBlock(512, ratio=se_ratio) if SE and extend else None
         self.tdnn3 = ReluBatchNormTdnnLayer(512,512,[-3,0,3], **tdnn_layer_params)
-        self.se3 = SEBlock(512, se_ratio=se_ratio) if SE else None
+        self.se3 = SEBlock(512, ratio=se_ratio) if SE else None
         self.ex_tdnn3 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
-        self.ex_se3 = SEBlock(512, se_ratio=se_ratio) if SE and extend else None
+        self.ex_se3 = SEBlock(512, ratio=se_ratio) if SE and extend else None
         self.ex_tdnn4 = ReluBatchNormTdnnLayer(512,512,[-4,0,4], **tdnn_layer_params) if extend else None
-        self.ex_se4 = SEBlock(512, se_ratio=se_ratio) if SE and extend else None
+        self.ex_se4 = SEBlock(512, ratio=se_ratio) if SE and extend else None
         self.ex_tdnn5 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
-        self.ex_se5 = SEBlock(512, se_ratio=se_ratio) if SE and extend else None
+        self.ex_se5 = SEBlock(512, ratio=se_ratio) if SE and extend else None
         self.tdnn4 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params)
-        self.se4 = SEBlock(512, se_ratio=se_ratio) if SE else None
+        self.se4 = SEBlock(512, ratio=se_ratio) if SE else None
 
         nodes = LDE_pooling_params.pop("nodes") if LDE_pooling else 1500
 
         self.tdnn5 = ReluBatchNormTdnnLayer(512,nodes,**tdnn_layer_params)
-        self.se5 = SEBlock(nodes, se_ratio=se_ratio) if SE else None
+        self.se5 = SEBlock(nodes, ratio=se_ratio) if SE else None
 
         # Pooling
         if LDE_pooling:

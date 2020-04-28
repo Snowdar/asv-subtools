@@ -227,7 +227,7 @@ if stage <= 3 <= endstage:
     trainer = trainer.SimpleTrainer(package, stop_early=stop_early)
 
     if run_lr_finder:
-        trainer.run_lr_finder("lr_finder_wd1e-1.csv", init_lr=1e-8, final_lr=10., num_iters=2000, beta=0.98)
+        trainer.run_lr_finder("lr_finder.csv", init_lr=1e-8, final_lr=10., num_iters=2000, beta=0.98)
         endstage = 3 # Do not start extractor.
     else:
         trainer.run()
