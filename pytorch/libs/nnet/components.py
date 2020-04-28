@@ -257,7 +257,7 @@ class _BaseActivationBatchNorm(torch.nn.Module):
             "nonlinearity":'relu',
             "nonlinearity_params":{"inplace":True, "negative_slope":0.01},
             "bn":True,
-            "bn_params":{"momentum":0.5, "affine":False, "track_running_stats":True},
+            "bn_params":{"momentum":0.1, "affine":True, "track_running_stats":True},
             "special_init":True,
             "mode":'fan_out'
         }
@@ -412,7 +412,7 @@ class AttentionAlphaComponent(torch.nn.Module):
 
         self.input_dim = input_dim
         self.hidden_size = hidden_size
-        self.relu_affine = ReluBatchNormTdnnLayer(input_dim, hidden_size, context=context)
+        self.relu_affine = ReluBatchNormTdnnLayer(input_dim, hidden_size, context=context, bn=False)
         # Dim=2 means to apply softmax in different frames-index (batch is a 3-dim tensor in this case)
         self.softmax_affine = SoftmaxAffineLayer(hidden_size, 1, dim=2, log=False, bias=True)
     
@@ -589,9 +589,10 @@ class SEBlock(torch.nn.Module):
     features and suppress less useful ones.
     This is a pytorch implementation of SE Block based on the paper:
     Squeeze-and-Excitation Networks
-    by JFChou 2019-07-13
+    by JFChou xmuspeech 2019-07-13
+       Snowdar xmuspeech 2020-04-28 [Check and update]
     """
-    def __init__(self, input_dim, ratio=4):
+    def __init__(self, input_dim, ratio=4, inplace=True):
         '''
         @ratio: a reduction ratio which allows us to vary the capacity and computational cost of the SE blocks 
         in the network.
@@ -600,9 +601,11 @@ class SEBlock(torch.nn.Module):
 
         self.input_dim = input_dim
 
-        self.stats = StatisticsPooling(input_dim, stddev=False)
-        self.fc_1 = ReluBatchNormTdnnLayer(input_dim,input_dim//ratio)
+        self.pooling = StatisticsPooling(input_dim, stddev=False)
+        self.fc_1 = TdnnAffine(input_dim,input_dim//ratio)
+        self.relu = torch.nn.ReLU(inplace=inplace)
         self.fc_2 = TdnnAffine(input_dim//ratio, input_dim)
+        self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, inputs):
         """
@@ -611,9 +614,8 @@ class SEBlock(torch.nn.Module):
         assert len(inputs.shape) == 3
         assert inputs.shape[1] == self.input_dim
 
-        outputs = self.stats(inputs)
-        outputs = self.fc_1(outputs)
-        outputs = torch.sigmoid(self.fc_2(outputs))
-        outputs = torch.mul(inputs,outputs)
+        x = self.pooling(inputs)
+        x = self.relu(self.fc_1(x))
+        scale = self.sigmoid(self.fc_2(x))
 
-        return outputs
+        return inputs * scale

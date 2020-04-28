@@ -13,7 +13,7 @@ from libs.nnet import *
 class ExtendedXvector(TopVirtualNnet):
     """ An entended x-vector framework """
     
-    def init(self, inputs_dim, num_targets, extend=True, bn_momentum=0.5, nonlinearity="relu", 
+    def init(self, inputs_dim, num_targets, extend=True, nonlinearity="relu", 
              aug_dropout=0.2, training=True, extracted_embedding="far"):
 
         # Var
@@ -22,24 +22,24 @@ class ExtendedXvector(TopVirtualNnet):
         # Nnet
         self.aug_dropout = torch.nn.Dropout2d(p=aug_dropout) if aug_dropout > 0 else None
 
-        self.tdnn1 = ReluBatchNormTdnnLayer(inputs_dim,512,[-2,-1,0,1,2],momentum=bn_momentum,nonlinearity=nonlinearity)
-        self.ex_tdnn1 = ReluBatchNormTdnnLayer(512,512,momentum=bn_momentum,nonlinearity=nonlinearity) if extend else None
+        self.tdnn1 = ReluBatchNormTdnnLayer(inputs_dim,512,[-2,-1,0,1,2],nonlinearity=nonlinearity)
+        self.ex_tdnn1 = ReluBatchNormTdnnLayer(512,512,nonlinearity=nonlinearity) if extend else None
 
-        self.tdnn2 = ReluBatchNormTdnnLayer(512,512,[-2,0,2],momentum=bn_momentum,nonlinearity=nonlinearity)
-        self.ex_tdnn2 = ReluBatchNormTdnnLayer(512,512,momentum=bn_momentum,nonlinearity=nonlinearity) if extend else None
+        self.tdnn2 = ReluBatchNormTdnnLayer(512,512,[-2,0,2],nonlinearity=nonlinearity)
+        self.ex_tdnn2 = ReluBatchNormTdnnLayer(512,512,nonlinearity=nonlinearity) if extend else None
 
-        self.tdnn3 = ReluBatchNormTdnnLayer(512,512,[-3,0,3],momentum=bn_momentum,nonlinearity=nonlinearity)
-        self.ex_tdnn3 = ReluBatchNormTdnnLayer(512,512,momentum=bn_momentum,nonlinearity=nonlinearity) if extend else None
+        self.tdnn3 = ReluBatchNormTdnnLayer(512,512,[-3,0,3],nonlinearity=nonlinearity)
+        self.ex_tdnn3 = ReluBatchNormTdnnLayer(512,512,nonlinearity=nonlinearity) if extend else None
 
-        self.ex_tdnn4 = ReluBatchNormTdnnLayer(512,512,[-4,0,4],momentum=bn_momentum,nonlinearity=nonlinearity) if extend else None
-        self.ex_tdnn5 = ReluBatchNormTdnnLayer(512,512,momentum=bn_momentum,nonlinearity=nonlinearity) if extend else None
+        self.ex_tdnn4 = ReluBatchNormTdnnLayer(512,512,[-4,0,4],nonlinearity=nonlinearity) if extend else None
+        self.ex_tdnn5 = ReluBatchNormTdnnLayer(512,512,nonlinearity=nonlinearity) if extend else None
 
-        self.tdnn4 = ReluBatchNormTdnnLayer(512,512,momentum=bn_momentum,nonlinearity=nonlinearity)
-        self.tdnn5 = ReluBatchNormTdnnLayer(512,1500,momentum=bn_momentum,nonlinearity=nonlinearity)
+        self.tdnn4 = ReluBatchNormTdnnLayer(512,512,nonlinearity=nonlinearity)
+        self.tdnn5 = ReluBatchNormTdnnLayer(512,1500,nonlinearity=nonlinearity)
 
         self.stats = StatisticsPooling(1500, stddev=True)
-        self.tdnn6 = ReluBatchNormTdnnLayer(self.stats.get_output_dim(),512,momentum=bn_momentum,nonlinearity=nonlinearity)
-        self.tdnn7 = ReluBatchNormTdnnLayer(512,512,momentum=bn_momentum,nonlinearity=nonlinearity)
+        self.tdnn6 = ReluBatchNormTdnnLayer(self.stats.get_output_dim(),512,nonlinearity=nonlinearity)
+        self.tdnn7 = ReluBatchNormTdnnLayer(512,512,nonlinearity=nonlinearity)
 
         # Do not need when extracting embedding.
         if training :
