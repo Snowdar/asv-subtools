@@ -601,7 +601,7 @@ class SEBlock(torch.nn.Module):
         self.input_dim = input_dim
 
         self.stats = StatisticsPooling(input_dim, stddev=False)
-        self.fc_1 = ReluBactchNormTdnnLayer(input_dim,input_dim//ratio)
+        self.fc_1 = ReluBatchNormTdnnLayer(input_dim,input_dim//ratio)
         self.fc_2 = TdnnAffine(input_dim//ratio, input_dim)
 
     def forward(self, inputs):
