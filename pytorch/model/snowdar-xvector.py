@@ -15,7 +15,7 @@ class Xvector(TopVirtualNnet):
     ## Base parameters - components - loss - training strategy.
     def init(self, inputs_dim, num_targets, extend=False, skip_connection=False,
              aug_dropout=0., context_dropout=0., hidden_dropout=0., dropout_params={},
-             SE=False, ratio=4,
+             SE=False, se_ratio=4,
              tdnn_layer_params={},
              tdnn6=True, tdnn7_params={},
              attentive_pooling=False, attentive_pooling_params={"hidden_size":64},
