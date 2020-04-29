@@ -70,7 +70,7 @@ if [[ "$stage" -le 3 && "$endstage" -ge 3 ]];then
 fi
 
 if [[ "$stage" -le 4 && "$endstage" -ge 4 ]];then
-    python3 $launcher $launcher_options --stage=4 || exit 1
+    python3 $launcher --stage=4 || exit 1
 fi
 
 exit 0

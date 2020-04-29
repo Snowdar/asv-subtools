@@ -262,13 +262,6 @@ model_dir="exp/standard_voxceleb1"
 ##
 ######################################################### START #########################################################
 ##
-#### Auto-config params
-# If multi-GPU used, it will auto-scale learning rate by multiplying number of processes.
-optimizer_params["learn_rate"] = utils.auto_scale_lr(optimizer_params["learn_rate"])
-# It is used for model.step() defined in model blueprint.
-if lr_scheduler_params["name"] == "warmR" and model_params["use_step"]:
-    model_params["step_params"]["T"]=(lr_scheduler_params["warmR.T_max"], lr_scheduler_params["warmR.T_mult"])
-##
 #### Set seed
 utils.set_all_seed(1024)
 ##
@@ -281,6 +274,13 @@ if args.sleep > 0: time.sleep(args.sleep)
 # It is used for multi-gpu training if used (number of gpu-id > 1).
 # And it will do nothing for single-GPU training.
 utils.init_multi_gpu_training(args.gpu_id, args.multi_gpu_solution)
+##
+#### Auto-config params
+# If multi-GPU used, it will auto-scale learning rate by multiplying number of processes.
+optimizer_params["learn_rate"] = utils.auto_scale_lr(optimizer_params["learn_rate"])
+# It is used for model.step() defined in model blueprint.
+if lr_scheduler_params["name"] == "warmR" and model_params["use_step"]:
+    model_params["step_params"]["T"]=(lr_scheduler_params["warmR.T_max"], lr_scheduler_params["warmR.T_mult"])
 ##
 #### Preprocess
 if stage <= 2 and endstage >= 0 and utils.is_main_training():
