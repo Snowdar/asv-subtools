@@ -273,6 +273,9 @@ model_dir="exp/standard_voxceleb1"
 ######################################################### START #########################################################
 ##
 #### Auto-config params
+# If multi-GPU used, it will auto-scale learning rate by multiplying number of processes.
+optimizer_params["learn_rate"] = utils.auto_scale_lr(optimizer_params["learn_rate"])
+# It is used for model.step() defined in model blueprint.
 if lr_scheduler_params["name"] == "warmR" and model_params["use_step"]:
     model_params["step_params"]["T"]=(lr_scheduler_params["warmR.T_max"], lr_scheduler_params["warmR.T_mult"])
 ##

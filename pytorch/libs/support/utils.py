@@ -400,6 +400,15 @@ def is_main_training():
             return False
     return True
 
+def auto_scale_lr(lr):
+    if use_horovod():
+        import horovod.torch as hvd
+        return lr * hvd.size()
+    elif use_ddp():
+        return lr * dist.get_world_size()
+    else:
+        return lr
+
 ## Horovod
 def init_horovod():
     os.environ["USE_HOROVOD"] = "true"
@@ -422,5 +431,4 @@ def use_ddp():
     return torch.distributed.is_initialized()
 
 def cleanup_ddp():
-    print("clean")
     torch.distributed.destroy_process_group()

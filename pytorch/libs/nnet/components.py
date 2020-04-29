@@ -269,6 +269,8 @@ class _BaseActivationBatchNorm(torch.nn.Module):
         # rather than tdnn1.layers.affine or tdnn1.layers[0] etc..
         if not default_params["bn-relu"]:
             # ReLU-BN
+            # For speaker recognition, relu-bn seems better than bn-relu. And w/o affine (scale and shift) of bn is 
+            # also better than w/ affine.
             self.after_forward = self._relu_bn_forward
             self.activation = Nonlinearity(default_params["nonlinearity"], **default_params["nonlinearity_params"])
             if default_params["bn"]:
