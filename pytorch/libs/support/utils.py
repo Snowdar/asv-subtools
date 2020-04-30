@@ -363,12 +363,12 @@ def read_log_csv(csv_path:str):
     return dataframe
 
 ### Multi-GPU training [Two solutions: Horovod or DDP]
-def init_multi_gpu_training(gpu_id="", solution="ddp"):
+def init_multi_gpu_training(gpu_id="", solution="ddp", port=29500):
     num_gpu = len(parse_gpu_id_option(gpu_id))
     if num_gpu > 1:
         # The ddp solution is suggested.
         if solution == "ddp":
-            init_ddp()
+            init_ddp(port)
             if is_main_training(): logger.info("DDP has been initialized.")
         elif solution == "horovod":
             init_horovod()
@@ -419,12 +419,18 @@ def use_horovod():
     return os.getenv("USE_HOROVOD") == "true"
 
 ## DDP
-def init_ddp():
+def init_ddp(port=29500):
     if not torch.distributed.is_nccl_available():
         raise RuntimeError("NCCL is not available.")
 
-    # Just plan to support NCCL for GPU-Training.
-    # The world_size and rank will be set automatically with DDP, so do not give these two params to init_process_group.
+    # Just plan to support NCCL for GPU-Training with single machine, but it is easy to extend by yourself.
+    # Init_method is defaulted to 'env://' (environment) and The IP is 127.0.0.1 (localhost).
+    # Based on this init_method, world_size and rank will be set automatically with DDP, 
+    # so do not give these two params to init_process_group.
+    # The port will be always defaulted to 29500 by torch that will result in init_process_group failed
+    # when number of training task > 1. So, use subtools/pytorch/launcher/multi_gpu/get_free_port.py to get a 
+    # free port firstly, then give this port to launcher by --port. All of these have been auto-set by runLauncher.sh.
+    os.environ["MASTER_PORT"] = str(port)
     torch.distributed.init_process_group(backend="nccl")
 
 def use_ddp():
@@ -432,3 +438,12 @@ def use_ddp():
 
 def cleanup_ddp():
     torch.distributed.destroy_process_group()
+
+def get_free_port(ip="127.0.0.1"):
+    import socket
+    # Use contextlib to close socket after return the free port.
+    from contextlib import closing
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        # Set port as 0, socket will auto-select a free port. And then fetch this port.
+        s.bind((ip, 0))
+        return s.getsockname()[1]

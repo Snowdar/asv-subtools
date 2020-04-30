@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 
 # Copyright xmuspeech (Author: Snowdar 2019-10-17)

@@ -6,6 +6,7 @@ stage=3
 endstage=4
 multi_gpu_solution="ddp"
 omp_num_threads=1
+port=0
 
 . subtools/parse_options.sh
 . subtools/path.sh
@@ -55,6 +56,7 @@ if [ $num_gpu -gt 1 ];then
         train_cmd="horovodrun -np $num_gpu python3"
     elif [ "$multi_gpu_solution" == "ddp" ];then
         export OMP_NUM_THREADS=$omp_num_threads
+        [ "$port" == "0" ] && port=$(python3 subtools/pytorch/launcher/multi_gpu/get_free_port.py)
         train_cmd="python3 -m torch.distributed.launch --nproc_per_node=$num_gpu"
     else
         echo "[exit] Do not support $multi_gpu_solution solution for multi-GPU training." && exit 1
@@ -66,7 +68,7 @@ fi
 # Split this two stage to free GPU memory of model by an exit-python way 
 # and use these GPU memory to extract x-vectors.
 if [[ "$stage" -le 3 && "$endstage" -ge 3 ]];then
-    $train_cmd $launcher $launcher_options --stage=$stage --endstage=3 || exit 1 
+    $train_cmd $launcher $launcher_options --port=$port --stage=$stage --endstage=3 || exit 1 
 fi
 
 if [[ "$stage" -le 4 && "$endstage" -ge 4 ]];then
