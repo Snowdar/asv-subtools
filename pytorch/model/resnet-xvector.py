@@ -12,10 +12,10 @@ import libs.support.utils as utils
 from libs.nnet import *
 
 
-class ResnetXvector(TopVirtualNnet):
+class ResNetXvector(TopVirtualNnet):
     """ A resnet x-vector framework """
     
-    def init(self, inputs_dim, num_targets, aug_dropout=0.2, tail_dropout=0., training=True, extracted_embedding="near", 
+    def init(self, inputs_dim, num_targets, aug_dropout=0., tail_dropout=0., training=True, extracted_embedding="near", 
              resnet_params={}, fc1=False, fc1_params={}, fc2_params={}, margin_loss=False, margin_loss_params={},
              use_step=False, step_params={}, transfer_from="softmax_loss"):
 

@@ -194,7 +194,7 @@ loader_params = {
 
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = { 
-    "aug_dropout":0.2, "tail_dropout":0.,
+    "aug_dropout":0., "tail_dropout":0.,
     "training":True, "extracted_embedding":"far",
     "resnet_params":{
             "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
@@ -325,7 +325,7 @@ if stage <= 3 <= endstage:
     # Another way: import the model.py in this python directly, but it is not friendly to the shell script of extracting and
     # I don't want to change anything about extracting script when the model.py is changed.
     model_py = utils.create_model_from_py(model_blueprint)
-    model = model_py.Xvector(info["feat_dim"], info["num_targets"], **model_params)
+    model = model_py.ResNetXvector(info["feat_dim"], info["num_targets"], **model_params)
 
     # If multi-GPU used, then batchnorm will be converted to synchronized batchnorm, which is important 
     # to make peformance stable. 
