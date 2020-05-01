@@ -208,16 +208,16 @@ model_params = {
             "zero_init_residual":False},
     "fc1":True,
     "fc1_params":{
-            "nonlinearity":"relu",
-            "bn":True,
-            "bias":True,
-            "bn_momentum":0.5},
+            "nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
+            "bn-relu":False, 
+            "bn":True, 
+            "bn_params":{"momentum":0.5, "affine":True, "track_running_stats":True}},
 
     "fc2_params":{
-            "nonlinearity":"relu",
-            "bn":True,
-            "bias":True,
-            "bn_momentum":0.5},
+            "nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
+            "bn-relu":False, 
+            "bn":True, 
+            "bn_params":{"momentum":0.5, "affine":True, "track_running_stats":True}},
 
     "margin_loss":False,
     "margin_loss_params":{
@@ -225,11 +225,12 @@ model_params = {
             "s":30, "mhe_loss":False, "mhe_w":0.01},
 
     "use_step":False,
-    "step_params":{"T":None,
-                   "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
-                   "s":False, "s_tuple":(30, 12), "s_list":None,
-                   "t":False, "t_tuple":(0.5, 1.2), 
-                   "p":False, "p_tuple":(0.5, 0.1)}
+    "step_params":{
+            "T":None,
+            "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
+            "s":False, "s_tuple":(30, 12), "s_list":None,
+            "t":False, "t_tuple":(0.5, 1.2), 
+            "p":False, "p_tuple":(0.5, 0.1)}
 }
 
 optimizer_params = {

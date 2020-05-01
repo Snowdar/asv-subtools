@@ -33,10 +33,10 @@ class ResnetXvector(TopVirtualNnet):
             }
         
         default_fc_params = {
-            "nonlinearity":"relu",
-            "bn":True,
-            "bias":True,
-            "bn_momentum":0.5
+            "nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
+            "bn-relu":False, 
+            "bn":True, 
+            "bn_params":{"momentum":0.5, "affine":True, "track_running_stats":True}
             }
 
         default_margin_loss_params = {
