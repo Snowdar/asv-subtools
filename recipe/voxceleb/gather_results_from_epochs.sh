@@ -106,6 +106,12 @@ for position in $positions;do
             [ "$force" == "true" ] && rm -rf $obj_dir/voxceleb1_enroll
             [[ ! -d $obj_dir/voxceleb1_enroll ]]  && subtools/filterVectorDir.sh $obj_dir/voxceleb1_test/xvector.scp \
               data/$prefix/voxceleb1_test/enroll.list $obj_dir/voxceleb1_enroll
+        elif [[ "$test_set" == "voxceleb1-O_test" && "$enroll_set" == "voxceleb1-O_enroll" ]];then
+            subtools/recipe/voxceleb/get_voxceleb1_task.sh --force $force --prefix $prefix --tasks voxceleb1-O --vectordir $obj_dir
+        elif [[ "$test_set" == "voxceleb1-E_test" && "$enroll_set" == "voxceleb1-E_enroll" ]];then
+            subtools/recipe/voxceleb/get_voxceleb1_task.sh --force $force --prefix $prefix --tasks voxceleb1-E --vectordir $obj_dir
+        elif [[ "$test_set" == "voxceleb1-H_test" && "$enroll_set" == "voxceleb1-H_enroll" ]];then
+            subtools/recipe/voxceleb/get_voxceleb1_task.sh --force $force --prefix $prefix --tasks voxceleb1-H --vectordir $obj_dir
         fi
 
         [[ "$force" == "true" || ! -f $obj_dir/$name.eer ]] && \
