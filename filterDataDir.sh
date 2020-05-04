@@ -45,4 +45,4 @@ done
 subtools/kaldi/utils/fix_data_dir.sh $outdata
 
 rm -rf ${idlist}_aug $outdata/.backup
-echo "Filter done."
+echo "Filter $outdata done."

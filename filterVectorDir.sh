@@ -36,4 +36,4 @@ else
 run.pl $outdir/log/filter.log \
   awk -v f=$f '{print $f}' $idlist \| subtools/kaldi/utils/filter_scp.pl $exclude_string - $inscp \| copy-vector scp:- ark,scp:$outdir/$name.ark,$outdir/$name.scp
 fi
-echo "Filter done."
+echo "Filter $outdir done."

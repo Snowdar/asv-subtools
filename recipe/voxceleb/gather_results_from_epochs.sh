@@ -3,7 +3,7 @@
 # Copyright xmuspeech (Author: Snowdar 2020-02-27 2019-12-22)
 
 prefix=mfcc_23_pitch
-epochs="7 14 21"
+epochs="21"
 positions="far near"
 
 vectordir=exp/standard_xv_baseline_warmR_voxceleb1_adam
@@ -57,38 +57,6 @@ if [ "$prenorm" == "true" ];then
     plda_process="norm-"$plda_process
 fi
 
-if [[ "$test_set" == "voxceleb1_test" && "$enroll_set" == "voxceleb1_enroll" ]];then
-    [ "$force" == "true" ] && rm -rf data/$prefix/voxceleb1_test/enroll.list data/$prefix/voxceleb1_enroll
-
-    [ ! -f data/$prefix/voxceleb1_test/enroll.list ] && awk '{print $1}' $trials | sort -u > data/$prefix/voxceleb1_test/enroll.list
-    [[ ! -d data/$prefix/voxceleb1_enroll ]] && subtools/filterDataDir.sh data/$prefix/voxceleb1_test \
-              data/$prefix/voxceleb1_test/enroll.list data/$prefix/voxceleb1_enroll
-fi
-
-if [ "$score_norm" == "true" ];then
-    if [ "$cohort_set" == "" ];then
-        [[ "$force" == "true" ]] && rm -rf data/$prefix/$cohort_set
-        if [ "$cohort_method" == "sub" ];then
-            cohort_set=${cohort_set_from}_cohort_sub_${sub_num}$sub_option
-            [ ! -d data/$prefix/$cohort_set ] && subtools/kaldi/utils/subset_data_dir.sh $sub_option \
-            data/$prefix/$cohort_set_from $sub_num data/$prefix/$cohort_set
-        elif [ "$cohort_method" == "mean" ];then
-            cohort_set=${cohort_set_from}_cohort_mean
-            [ ! -d data/$prefix/$cohort_set ] && mkdir -p data/$prefix/$cohort_set && \
-            awk '{print $1,$1}' data/$prefix/$cohort_set_from/spk2utt > data/$prefix/$cohort_set/spk2utt && \
-            awk '{print $1,$1}' data/$prefix/$cohort_set_from/spk2utt > data/$prefix/$cohort_set/utt2spk
-        fi
-    fi
-
-    [ ! -f data/$prefix/$cohort_set/utt2spk ] && echo "Expected cohort_set to exist." && exit 1
-    [ "$force" == "true" ] && rm -rf data/$prefix/$cohort_set/enroll.list data/$prefix/$cohort_set/test.list \
-        data/$prefix/$cohort_set/enroll.cohort.trials data/$prefix/$cohort_set/test.cohort.trials
-
-    [ ! -f data/$prefix/$cohort_set/enroll.list ] && awk '{print $1}' $trials | sort -u > data/$prefix/$cohort_set/enroll.list
-    [ ! -f data/$prefix/$cohort_set/test.list ] && awk '{print $2}' $trials | sort -u > data/$prefix/$cohort_set/test.list
-    [ ! -f data/$prefix/$cohort_set/enroll.cohort.trials ] && sh subtools/getTrials.sh 3 data/$prefix/$cohort_set/enroll.list data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/enroll.cohort.trials
-    [ ! -f data/$prefix/$cohort_set/test.cohort.trials ] && sh subtools/getTrials.sh 3 data/$prefix/$cohort_set/test.list data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/test.cohort.trials
-fi
 
 name="$test_set/score/${score}_${enroll_set}_${test_set}${prenorm_string}${submean_string}${lda_string}_norm"
 
@@ -102,16 +70,37 @@ for position in $positions;do
     for epoch in $epochs;do
         obj_dir=$vectordir/${position}_epoch_${epoch}
 
+        # Prepare task for scoring. Here it is only needed to extract voxceleb1_test/voxceleb xvectors and then it will split subsets.
+        # voxcleb1_test -> voxceleb1_enroll
+        # voxceleb -> voxceleb1-O/E/H[-clean]_enroll/test
         if [[ "$test_set" == "voxceleb1_test" && "$enroll_set" == "voxceleb1_enroll" ]];then
-            [ "$force" == "true" ] && rm -rf $obj_dir/voxceleb1_enroll
-            [[ ! -d $obj_dir/voxceleb1_enroll ]]  && subtools/filterVectorDir.sh $obj_dir/voxceleb1_test/xvector.scp \
-              data/$prefix/voxceleb1_test/enroll.list $obj_dir/voxceleb1_enroll
-        elif [[ "$test_set" == "voxceleb1-O_test" && "$enroll_set" == "voxceleb1-O_enroll" ]];then
-            subtools/recipe/voxceleb/get_voxceleb1_task.sh --force $force --prefix $prefix --tasks voxceleb1-O --vectordir $obj_dir
-        elif [[ "$test_set" == "voxceleb1-E_test" && "$enroll_set" == "voxceleb1-E_enroll" ]];then
-            subtools/recipe/voxceleb/get_voxceleb1_task.sh --force $force --prefix $prefix --tasks voxceleb1-E --vectordir $obj_dir
-        elif [[ "$test_set" == "voxceleb1-H_test" && "$enroll_set" == "voxceleb1-H_enroll" ]];then
-            subtools/recipe/voxceleb/get_voxceleb1_task.sh --force $force --prefix $prefix --tasks voxceleb1-H --vectordir $obj_dir
+            [ "$force" == "true" ] && rm -rf data/$prefix/voxceleb1_test/enroll.list data/$prefix/voxceleb1_enroll \
+                                                    $obj_dir/voxceleb1_enroll
+            if [ ! -f $trials ];then
+                [ ! -f data/$prefix/voxceleb1_test/voxceleb1-O.trials ] && \
+                echo "[exit] Expected data/$prefix/voxceleb1_test/voxceleb1-O.trials to exist." && exit 1
+                cp data/$prefix/voxceleb1_test/voxceleb1-O.trials data/$prefix/voxceleb1_test/trials
+            fi
+            
+            [ ! -f data/$prefix/voxceleb1_test/enroll.list ] && awk '{print $1}' $trials | sort -u > \
+                                                    data/$prefix/voxceleb1_test/enroll.list
+            [[ ! -d data/$prefix/voxceleb1_enroll ]] && subtools/filterDataDir.sh data/$prefix/voxceleb1_test \
+                                                    data/$prefix/voxceleb1_test/enroll.list data/$prefix/voxceleb1_enroll
+            [[ ! -d $obj_dir/voxceleb1_enroll ]] && subtools/filterVectorDir.sh $obj_dir/voxceleb1_test/xvector.scp \
+                                                    data/$prefix/voxceleb1_test/enroll.list $obj_dir/voxceleb1_enroll
+
+        elif [[ "$test_set" == "voxceleb1_O_test" && "$enroll_set" == "voxceleb1_O_enroll" ]];then
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-O --vectordir $obj_dir
+        elif [[ "$test_set" == "voxceleb1_E_test" && "$enroll_set" == "voxceleb1_E_enroll" ]];then
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-E --vectordir $obj_dir
+        elif [[ "$test_set" == "voxceleb1_H_test" && "$enroll_set" == "voxceleb1_H_enroll" ]];then
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-H --vectordir $obj_dir
+        elif [[ "$test_set" == "voxceleb1_O_clean_test" && "$enroll_set" == "voxceleb1_O_clean_enroll" ]];then
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-O-clean --vectordir $obj_dir
+        elif [[ "$test_set" == "voxceleb1_E_clean_test" && "$enroll_set" == "voxceleb1_E_clean_enroll" ]];then
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-E-clean --vectordir $obj_dir
+        elif [[ "$test_set" == "voxceleb1_H_clean_test" && "$enroll_set" == "voxceleb1_H_clean_enroll" ]];then
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-H-clean --vectordir $obj_dir
         fi
 
         [[ "$force" == "true" || ! -f $obj_dir/$name.eer ]] && \
@@ -121,6 +110,30 @@ for position in $positions;do
             --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $train_set
 
         if [[ "$score_norm" == "true" && -f $obj_dir/$name.score ]];then
+            if [ "$cohort_set" == "" ];then
+                [[ "$force" == "true" ]] && rm -rf data/$prefix/$cohort_set
+                if [ "$cohort_method" == "sub" ];then
+                    cohort_set=${cohort_set_from}_cohort_sub_${sub_num}$sub_option
+                    [ ! -d data/$prefix/$cohort_set ] && subtools/kaldi/utils/subset_data_dir.sh $sub_option \
+                    data/$prefix/$cohort_set_from $sub_num data/$prefix/$cohort_set
+                elif [ "$cohort_method" == "mean" ];then
+                    cohort_set=${cohort_set_from}_cohort_mean
+                    [ ! -d data/$prefix/$cohort_set ] && mkdir -p data/$prefix/$cohort_set && \
+                    awk '{print $1,$1}' data/$prefix/$cohort_set_from/spk2utt > data/$prefix/$cohort_set/spk2utt && \
+                    awk '{print $1,$1}' data/$prefix/$cohort_set_from/spk2utt > data/$prefix/$cohort_set/utt2spk
+                fi
+            fi
+
+            [ ! -f data/$prefix/$cohort_set/utt2spk ] && echo "Expected cohort_set to exist." && exit 1
+            [ "$force" == "true" ] && rm -rf data/$prefix/$cohort_set/enroll.list data/$prefix/$cohort_set/test.list \
+                data/$prefix/$cohort_set/enroll.cohort.trials data/$prefix/$cohort_set/test.cohort.trials
+
+            [ ! -f data/$prefix/$cohort_set/enroll.list ] && awk '{print $1}' $trials | sort -u > data/$prefix/$cohort_set/enroll.list
+            [ ! -f data/$prefix/$cohort_set/test.list ] && awk '{print $2}' $trials | sort -u > data/$prefix/$cohort_set/test.list
+            [ ! -f data/$prefix/$cohort_set/enroll.cohort.trials ] && sh subtools/getTrials.sh 3 data/$prefix/$cohort_set/enroll.list \
+                                                        data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/enroll.cohort.trials
+            [ ! -f data/$prefix/$cohort_set/test.cohort.trials ] && sh subtools/getTrials.sh 3 data/$prefix/$cohort_set/test.list \
+                                                        data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/test.cohort.trials
 
             [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
             if [ "$cohort_method" == "sub" ];then
@@ -166,7 +179,7 @@ for position in $positions;do
                                                         $obj_dir/$enroll_cohort_name.score $obj_dir/$test_cohort_name.score \
                                                         $obj_dir/$output_name.score
 
-            #[ ! -f "$obj_dir/$output_name.eer" ] && \
+            [ ! -f "$obj_dir/$output_name.eer" ] && \
             subtools/computeEER.sh --write-file $obj_dir/$output_name.eer $obj_dir/$output_name.score 3 $trials 3
             
             eer=""

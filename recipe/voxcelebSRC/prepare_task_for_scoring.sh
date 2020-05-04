@@ -4,7 +4,7 @@
 
 
 prefix="mfcc_23_pitch"
-tasks="voxceleb1-O voxceleb1-E voxceleb1-H"
+tasks="voxceleb1-O voxceleb1-E voxceleb1-H voxceleb1-O-clean voxceleb1-E-clean voxceleb1-H-clean"
 vectordir=
 
 force=false
@@ -22,6 +22,10 @@ temp=data/$prefix/voxceleb1/temp
 for task in $tasks;do
     trials=data/$prefix/voxceleb1/$task.trials
     [ ! -f "$trials" ] && echo "Expected $trials to exist for $task task." && exit 1
+
+    # Change a name with _ replaced by _. It is important for subtools/recipe/voxceleb/gather_results_from_epochs.sh.
+    task=$(echo $task | sed 's/-/_/g')
+
     [ "$force" == "true" ] && rm -rf $temp/$task.enroll.list $temp/$task.test.list data/$prefix/${task}_enroll data/$prefix/${task}_test
 
     [ ! -f $temp/$task.enroll.list ] && awk '{print $1}' $trials | sort -u > $temp/$task.enroll.list
