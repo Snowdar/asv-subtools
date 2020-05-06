@@ -224,7 +224,7 @@ if stage <= 3 <= endstage:
             "benchmark":benchmark, "suffix":suffix, "report_times_every_epoch":report_times_every_epoch,
             "report_interval_iters":report_interval_iters, "record_file":"train.csv"})
 
-    trainer = trainer.SimpleTrainer(package, stop_early=stop_early)
+    trainer = trainer.SimpleTrainer(package)
 
     if run_lr_finder:
         trainer.run_lr_finder("lr_finder.csv", init_lr=1e-8, final_lr=10., num_iters=2000, beta=0.98)

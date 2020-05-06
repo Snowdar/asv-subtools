@@ -250,7 +250,6 @@ epochs = 21 # Total epochs to train. It is important.
 report_times_every_epoch = None
 report_interval_iters = 100 # About validation computation and loss reporting. If report_times_every_epoch is not None, 
                             # then compute report_interval_iters by report_times_every_epoch.
-stop_early = False
 suffix = "params" # Used in saved model file.
 ##--------------------------------------------------##
 ## Other options
@@ -334,11 +333,11 @@ if stage <= 3 <= endstage:
     # Package(Elements:dict, Params:dict}. It is a key parameter's package to trainer and model_dir/config/.
     package = ({"data":bunch, "model":model, "optimizer":optimizer, "lr_scheduler":lr_scheduler},
             {"model_dir":model_dir, "model_blueprint":model_blueprint, "exist_model":exist_model, 
-            "start_epoch":train_stage, "epochs":epochs, "use_gpu":use_gpu, "gpu_id":gpu_id, 
+            "start_epoch":train_stage, "epochs":epochs, "use_gpu":use_gpu, "gpu_id":gpu_id, "max_change":10.,
             "benchmark":benchmark, "suffix":suffix, "report_times_every_epoch":report_times_every_epoch,
             "report_interval_iters":report_interval_iters, "record_file":"train.csv"})
 
-    trainer = trainer.SimpleTrainer(package, stop_early=stop_early)
+    trainer = trainer.SimpleTrainer(package)
 
     if run_lr_finder and utils.is_main_training():
         trainer.run_lr_finder("lr_finder.csv", init_lr=1e-8, final_lr=10., num_iters=2000, beta=0.98)

@@ -9,6 +9,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+import torch.distributed as dist
 
 import libs.support.utils as utils
 import libs.support.kaldi_io as kaldi_io
@@ -130,6 +131,8 @@ class BaseBunch():
     def __init__(self, trainset, valid=None, use_fast_loader=False, max_prefetch=10,
                  batch_size=512, shuffle=True, num_workers=0, pin_memory=False, drop_last=True):
 
+        num_samples = len(trainset)
+        num_gpu = 1
         multi_gpu = False
         if utils.use_horovod():
             # Multi-GPU training.
@@ -138,11 +141,13 @@ class BaseBunch():
             train_sampler = torch.utils.data.distributed.DistributedSampler(
                             trainset, num_replicas=hvd.size(), rank=hvd.rank(), shuffle=shuffle)
             multi_gpu = True
+            num_gpu = hvd.size()
         elif utils.use_ddp():
             # The num_replicas/world_size and rank will be set automatically with DDP.
             train_sampler = torch.utils.data.distributed.DistributedSampler(
                             trainset, shuffle=shuffle)
             multi_gpu = True
+            num_gpu = dist.get_world_size()
         else:
             train_sampler = None
 
@@ -162,9 +167,17 @@ class BaseBunch():
 
         self.num_batch_train = len(self.train_loader)
 
+        if self.num_batch_train <= 0:
+            raise ValueError("Expected num_batch of trainset > 0. There are your egs info: num_gpu={}, num_samples/gpu={}, "
+                             "batch-size={}, drop_last={}.\nNote: If batch-size > num_samples/gpu and drop_last is true, then it "
+                             "will get 0 batch.".format(num_gpu, len(trainset)/num_gpu, batch_size, drop_last))
+
 
         if valid is not None:
             valid_batch_size = min(batch_size, len(valid)) # To save GPU memory
+
+            if len(valid) <= 0:
+                raise ValueError("Expected num_samples of valid > 0.")
 
             if use_fast_loader:
                 self.valid_loader = DataLoaderFast(max_prefetch, valid, batch_size = valid_batch_size, shuffle=False, num_workers=0, 

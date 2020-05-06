@@ -96,7 +96,6 @@ class _BaseTrainer():
             if utils.is_main_training(): logger.info("Recover training from {0} epoch.".format(start_epoch))
             model.load_state_dict(torch.load('{0}/{1}.{2}'.format(model_dir, start_epoch, suffix), 
                                              map_location="cpu"))
-            print(model)
         elif os.path.exists(exist_model):
             if utils.is_main_training(): logger.info("Use {0} as the initial model to start transform-training.".format(exist_model))
             model.load_transform_state_dict(torch.load(exist_model, map_location="cpu"))
@@ -113,10 +112,6 @@ class _BaseTrainer():
              # For optimizer wrapper such as lookahead.
             if getattr(self.elements["optimizer"], "optimizer", None) is not None:
                 raise TypeError("Do not support using lookahead with horovod now.")
-                # Broadcast optimizer state.
-                # hvd.broadcast_optimizer_state(self.elements["optimizer"].optimizer, root_rank=0)
-                # self.elements["optimizer"].optimizer = hvd.DistributedOptimizer(self.elements["optimizer"].optimizer, 
-                #                                        named_parameters=self.elements["model"].named_parameters())
             else:
                 # Broadcast optimizer state.
                 hvd.broadcast_optimizer_state(self.elements["optimizer"], root_rank=0)
@@ -180,19 +175,21 @@ class SimpleTrainer(_BaseTrainer):
         loss.backward()
         loss.detach() # For safe.
 
-        # Reference:https://github.com/horovod/horovod/blob/master/horovod/torch/__init__.py:420~423.
-        # Synchronize the grad for grad_norm when using horovod.
-        if utils.use_horovod(): optimizer.synchronize()
-        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), self.params["max_change"])
-
-        if math.isnan(grad_norm):
-            raise RuntimeError('There is nan problem in iter/epoch: {0}/{1}'.format(self.training_point[1]+1, self.training_point[0]+1))
-        else:
-            if utils.use_horovod():
-                with optimizer.skip_synchronize():
-                    optimizer.step()
+        if self.params["max_change"] > 0:
+            # Reference:https://github.com/horovod/horovod/blob/master/horovod/torch/__init__.py:420~423.
+            # Synchronize the grad for grad_norm when using horovod.
+            if utils.use_horovod(): optimizer.synchronize()
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), self.params["max_change"])
+            if math.isnan(grad_norm):
+                raise RuntimeError('There is nan problem in iter/epoch: {0}/{1}'.format(self.training_point[1]+1, self.training_point[0]+1))
             else:
-                optimizer.step()
+                if utils.use_horovod():
+                    with optimizer.skip_synchronize():
+                        optimizer.step()
+                else:
+                    optimizer.step()
+        else:
+            optimizer.step()
 
         accuracy = model.compute_accuracy(model.get_posterior(), targets) if self.params["compute_accuracy"] else None
 
