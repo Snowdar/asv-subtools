@@ -9,9 +9,9 @@ positions="far near"
 vectordir=exp/standard_xv_baseline_warmR_voxceleb1_adam
 
 score=plda
-train_set=voxceleb1_train_aug
-enroll_set=voxceleb1_enroll
-test_set=voxceleb1_test
+trainset=voxceleb1_train_aug
+enrollset=voxceleb1_enroll
+testset=voxceleb1_test
 
 score_norm=false # Use as-norm.
 top_n=300
@@ -33,14 +33,14 @@ force=false
 . subtools/parse_options.sh
 . subtools/path.sh
 
-trials=data/$prefix/$test_set/trials
+trials=data/$prefix/$testset/trials
 
 lda_process="submean-trainlda"
 plda_process="submean-lda-norm-trainplda"
 test_process="submean-lda-norm"
 
-lda_data_config="$train_set[$train_set $enroll_set $test_set]"
-submean_data_config="$train_set[$train_set $enroll_set $test_set]"
+lda_data_config="$trainset[$trainset $enrollset $testset]"
+submean_data_config="$trainset[$trainset $enrollset $testset]"
 
 if [[ "$default" == "true" && "$lda" == "true" ]];then
     [ "$score" == "cosine" ] && prenorm=false && lda_norm=false && clda=128
@@ -58,7 +58,7 @@ if [ "$prenorm" == "true" ];then
 fi
 
 
-name="$test_set/score/${score}_${enroll_set}_${test_set}${prenorm_string}${submean_string}${lda_string}_norm"
+name="$testset/score/${score}_${enroll_set}_${test_set}${prenorm_string}${submean_string}${lda_string}_norm"
 
 results="\n[ $score ] [ lda=$lda clda=$clda submean=$submean ]"
 
@@ -73,7 +73,7 @@ for position in $positions;do
         # Prepare task for scoring. Here it is only needed to extract voxceleb1_test/voxceleb xvectors and then it will split subsets.
         # voxcleb1_test -> voxceleb1_enroll
         # voxceleb -> voxceleb1-O/E/H[-clean]_enroll/test
-        if [[ "$test_set" == "voxceleb1_test" && "$enroll_set" == "voxceleb1_enroll" ]];then
+        if [[ "$testset" == "voxceleb1_test" && "$enrollset" == "voxceleb1_enroll" ]];then
             [ "$force" == "true" ] && rm -rf data/$prefix/voxceleb1_test/enroll.list data/$prefix/voxceleb1_enroll \
                                                     $obj_dir/voxceleb1_enroll
             if [ ! -f $trials ];then
@@ -89,25 +89,25 @@ for position in $positions;do
             [[ ! -d $obj_dir/voxceleb1_enroll ]] && subtools/filterVectorDir.sh $obj_dir/voxceleb1_test/xvector.scp \
                                                     data/$prefix/voxceleb1_test/enroll.list $obj_dir/voxceleb1_enroll
 
-        elif [[ "$test_set" == "voxceleb1_O_test" && "$enroll_set" == "voxceleb1_O_enroll" ]];then
+        elif [[ "$testset" == "voxceleb1_O_test" && "$enrollset" == "voxceleb1_O_enroll" ]];then
             subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-O --vectordir $obj_dir || exit 1
-        elif [[ "$test_set" == "voxceleb1_E_test" && "$enroll_set" == "voxceleb1_E_enroll" ]];then
+        elif [[ "$testset" == "voxceleb1_E_test" && "$enrollset" == "voxceleb1_E_enroll" ]];then
             subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-E --vectordir $obj_dir || exit 1
-        elif [[ "$test_set" == "voxceleb1_H_test" && "$enroll_set" == "voxceleb1_H_enroll" ]];then
+        elif [[ "$testset" == "voxceleb1_H_test" && "$enrollset" == "voxceleb1_H_enroll" ]];then
             subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-H --vectordir $obj_dir || exit 1
-        elif [[ "$test_set" == "voxceleb1_O_clean_test" && "$enroll_set" == "voxceleb1_O_clean_enroll" ]];then
+        elif [[ "$testset" == "voxceleb1_O_clean_test" && "$enrollset" == "voxceleb1_O_clean_enroll" ]];then
             subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-O-clean --vectordir $obj_dir || exit 1
-        elif [[ "$test_set" == "voxceleb1_E_clean_test" && "$enroll_set" == "voxceleb1_E_clean_enroll" ]];then
+        elif [[ "$testset" == "voxceleb1_E_clean_test" && "$enrollset" == "voxceleb1_E_clean_enroll" ]];then
             subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-E-clean --vectordir $obj_dir || exit 1
-        elif [[ "$test_set" == "voxceleb1_H_clean_test" && "$enroll_set" == "voxceleb1_H_clean_enroll" ]];then
+        elif [[ "$testset" == "voxceleb1_H_clean_test" && "$enrollset" == "voxceleb1_H_clean_enroll" ]];then
             subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-H-clean --vectordir $obj_dir || exit 1
         fi
 
         [[ "$force" == "true" || ! -f $obj_dir/$name.eer ]] && \
-        subtools/scoreSets.sh  --prefix $prefix --score $score --vectordir $obj_dir --enrollset $enroll_set --testset $test_set \
+        subtools/scoreSets.sh  --prefix $prefix --score $score --vectordir $obj_dir --enrollset $enrollset --testset $testset \
             --lda $lda --clda $clda --submean $submean --lda-process $lda_process --trials $trials \
             --enroll-process $test_process --test-process $test_process --plda-process $plda_process \
-            --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $train_set
+            --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $trainset
 
         if [[ "$score_norm" == "true" && -f $obj_dir/$name.score ]];then
             if [ "$cohort_set" == "" ];then
@@ -138,12 +138,12 @@ for position in $positions;do
 
             if [ "$cohort_method" == "sub" ];then
                 [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
-                [[ ! -d $obj_dir/$cohort_set ]] && subtools/filterVectorDir.sh $obj_dir/$train_set/xvector.scp \
+                [[ ! -d $obj_dir/$cohort_set ]] && subtools/filterVectorDir.sh $obj_dir/$trainset/xvector.scp \
                 data/$prefix/$cohort_set/utt2spk $obj_dir/$cohort_set
             elif [ "$cohort_method" == "mean" ];then
                 [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
                 [[ ! -d $obj_dir/$cohort_set ]] && mkdir -p $obj_dir/$cohort_set && ivector-mean ark:data/$prefix/$cohort_set_from/spk2utt \
-                scp:$obj_dir/$train_set/xvector.scp ark,scp:$obj_dir/$cohort_set/xvector.ark,$obj_dir/$cohort_set/xvector.scp
+                scp:$obj_dir/$trainset/xvector.scp ark,scp:$obj_dir/$cohort_set/xvector.ark,$obj_dir/$cohort_set/xvector.scp
             fi
 
             enroll_cohort_name="$cohort_set/score/${score}_${enroll_set}_${cohort_set}${prenorm_string}${submean_string}${lda_string}_norm"
@@ -153,26 +153,26 @@ for position in $positions;do
             [[ "$force" == "true" ]] && rm -rf $obj_dir/$enroll_cohort_name.score $obj_dir/$test_cohort_name.score \
                                                $obj_dir/$output_name.score $obj_dir/$output_name.eer
 
-            lda_data_config="$train_set[$train_set $enroll_set $cohort_set]"
-            submean_data_config="$train_set[$train_set $enroll_set $cohort_set]"
+            lda_data_config="$trainset[$trainset $enrollset $cohort_set]"
+            submean_data_config="$trainset[$trainset $enrollset $cohort_set]"
 
             [ ! -f "$obj_dir/$enroll_cohort_name.score" ] && \
             subtools/scoreSets.sh  --prefix $prefix --eval true --score $score --vectordir $obj_dir \
                 --lda $lda --clda $clda --submean $submean --lda-process $lda_process \
                 --enroll-process $test_process --test-process $test_process --plda-process $plda_process \
-                --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $train_set \
-                --enrollset $enroll_set --testset $cohort_set \
+                --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $trainset \
+                --enrollset $enrollset --testset $cohort_set \
                 --trials data/$prefix/$cohort_set/enroll.cohort.trials $string
 
-            lda_data_config="$train_set[$train_set $test_set $cohort_set]"
-            submean_data_config="$train_set[$train_set $test_set $cohort_set]"
+            lda_data_config="$trainset[$trainset $testset $cohort_set]"
+            submean_data_config="$trainset[$trainset $testset $cohort_set]"
 
             [ ! -f "$obj_dir/$test_cohort_name.score" ] && \
             subtools/scoreSets.sh  --prefix $prefix --eval true --score $score --vectordir $obj_dir \
                 --lda $lda --clda $clda --submean $submean --lda-process $lda_process \
                 --enroll-process $test_process --test-process $test_process --plda-process $plda_process \
-                --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $train_set \
-                --enrollset $test_set --testset $cohort_set \
+                --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $trainset \
+                --enrollset $testset --testset $cohort_set \
                 --trials data/$prefix/$cohort_set/test.cohort.trials $string
 
             [ ! -f "$obj_dir/$output_name.score" ] && \

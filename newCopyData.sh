@@ -9,7 +9,7 @@ force=false # for overwrite
 
 if [[ $# != 2 ]];then
 echo "[exit] Num of parameters is not equal to 2"
-echo "usage:$0 <prefixes> <src-dirs>"
+echo "usage:$0 --force [false|true] <prefixes> <src-dirs>"
 exit 1
 fi
 
@@ -26,6 +26,12 @@ target=$topdir/${pre}/$name
 
 rm -rf $target
 mkdir -p $target
+
+echo "Copy $src to $target..."
+
+for x in wav.scp utt2spk spk2utt;then
+[ ! -f $src/$x ] echo "[exit] Expected $src/$x to exist at least." && exit 1
+fi
 
 trials=""
 for path in $(find $src -name "*trials");do

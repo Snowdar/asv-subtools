@@ -18,7 +18,7 @@ sampling_rate=16000
 frame_shift=0.01
 factor=1 # The ratio of augmented data with origin data. In this case, 4 means using all augmented data if aug-data-dir is provided.
 nj=20 # Num-jobs
-force_clear=false
+force=false
 
 . subtools/parse_options.sh
 . subtools/path.sh
@@ -66,7 +66,7 @@ if $reverb;then
 
 	echo "...add reverb..."
 	
-	if [[ ! -d ${sdata}_reverb || $force_clear == "true" ]];then
+	if [[ ! -d ${sdata}_reverb || $force == "true" ]];then
 		rvb_opts=()
 		rvb_opts+=(--rir-set-parameters "0.5, $rirs_noises/simulated_rirs/smallroom/rir_list")
 		rvb_opts+=(--rir-set-parameters "0.5, $rirs_noises/simulated_rirs/mediumroom/rir_list")
@@ -105,7 +105,7 @@ if $noise;then
 	
 	echo "...add noise..."
 	
-	if [[ ! -d ${sdata}_noise || $force_clear == "true" ]];then
+	if [[ ! -d ${sdata}_noise || $force == "true" ]];then
 		python3 subtools/kaldi/steps/data/augment_data_dir.py --utt-suffix "noise" --fg-interval 1 --fg-snrs "15:10:5:0" --fg-noise-dir "$musan_dir/musan_noise" ${data} ${sdata}_noise || exit 1
 	[ -f $data/vad.scp ] && awk '{print $1"-noise",$2}' $data/vad.scp > ${sdata}_noise/vad.scp
         fi
@@ -123,7 +123,7 @@ if $music;then
 	fi
 	
 	echo "...add music..."
-	if [[ ! -d ${sdata}_music || $force_clear == "true" ]];then
+	if [[ ! -d ${sdata}_music || $force == "true" ]];then
 		python3 subtools/kaldi/steps/data/augment_data_dir.py --utt-suffix "music" --bg-snrs "15:10:8:5" --num-bg-noises "1" --bg-noise-dir "$musan_dir/musan_music" ${data} ${sdata}_music || exit 1
         [ -f $data/vad.scp ] && awk '{print $1"-music",$2}' $data/vad.scp > ${sdata}_music/vad.scp
 	fi
@@ -142,7 +142,7 @@ if $babble;then
 	
 	echo "...add babble/speech..."
 
-	if [[ ! -d ${sdata}_babble || $force_clear == "true" ]];then
+	if [[ ! -d ${sdata}_babble || $force == "true" ]];then
 		python3 subtools/kaldi/steps/data/augment_data_dir.py --utt-suffix "babble" --bg-snrs "20:17:15:13" --num-bg-noises "3:4:5:6:7" --bg-noise-dir "$musan_dir/musan_speech" ${data} ${sdata}_babble || exit 1
         [ -f $data/vad.scp ] && awk '{print $1"-babble",$2}' $data/vad.scp > ${sdata}_babble/vad.scp
 	fi
