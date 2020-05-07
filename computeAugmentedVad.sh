@@ -6,19 +6,24 @@ aug_suffixes="reverb noise music babble"
 
 . subtools/parse_options.sh
 
-if [[ $# != 3 ]];then
-echo "[exit] Num of parameters is not equal to 3"
-echo "usage:$0 <aug-data-dir> <clean-list|clean-vad> <vad_conf>"
+if [[ $# != 2 && $# != 3 ]];then
+echo "[exit] Num of parameters is not equal to 2 or 3"
+echo "usage:$0 <aug-data-dir> <clean-list> <vad_conf>"
+echo "usage:$0 <aug-data-dir> <clean-vad-scp>"
 exit 1
 fi
 
 datadir=$1
 clean_list=$2
-vad_conf=$3
 
-name=$(basename $clean_list)
-if [ "$name" != "vad.scp" ];then
-    echo "$clean_list is not vad.scp, so compute vad for clean data firstly."
+vad_conf=""
+
+if  [[ $# == 3 ]];then
+    vad_conf=$3
+fi
+
+if [ "$vad_conf" != "" ];then
+    echo "Compute vad for clean data firstly."
 
     [ ! -f "$vad_conf" ] && echo "Expected vad conf to exist." && exit 1
     [ ! -f "$datadir/feats.scp" ] && echo "Expected $datadir/feats.scp to exist." && exit 1
