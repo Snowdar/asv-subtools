@@ -60,7 +60,7 @@ fi
 
 name="$testset/score/${score}_${enrollset}_${testset}${prenorm_string}${submean_string}${lda_string}_norm"
 
-results="\n[ $score ] [ lda=$lda clda=$clda submean=$submean ]"
+results="\n[ $score ] [ lda=$lda clda=$clda submean=$submean trainset=$trainset]"
 
 for position in $positions;do
 
@@ -126,15 +126,15 @@ for position in $positions;do
             fi
 
             [ ! -f data/$prefix/$cohort_set/utt2spk ] && echo "Expected cohort_set to exist." && exit 1
-            [ "$force" == "true" ] && rm -rf data/$prefix/$cohort_set/enroll.list data/$prefix/$cohort_set/test.list \
-                data/$prefix/$cohort_set/enroll.cohort.trials data/$prefix/$cohort_set/test.cohort.trials
+            [ "$force" == "true" ] && rm -rf data/$prefix/$cohort_set/$enrollset.list data/$prefix/$cohort_set/$testset.list \
+                data/$prefix/$cohort_set/$enrollset.cohort.trials data/$prefix/$cohort_set/$testset.cohort.trials
 
-            [ ! -f data/$prefix/$cohort_set/enroll.list ] && awk '{print $1}' $trials | sort -u > data/$prefix/$cohort_set/enroll.list
-            [ ! -f data/$prefix/$cohort_set/test.list ] && awk '{print $2}' $trials | sort -u > data/$prefix/$cohort_set/test.list
-            [ ! -f data/$prefix/$cohort_set/enroll.cohort.trials ] && sh subtools/getTrials.sh 3 data/$prefix/$cohort_set/enroll.list \
-                                                        data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/enroll.cohort.trials
-            [ ! -f data/$prefix/$cohort_set/test.cohort.trials ] && sh subtools/getTrials.sh 3 data/$prefix/$cohort_set/test.list \
-                                                        data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/test.cohort.trials
+            [ ! -f data/$prefix/$cohort_set/$enrollset.list ] && awk '{print $1}' $trials | sort -u > data/$prefix/$cohort_set/$enrollset.list
+            [ ! -f data/$prefix/$cohort_set/$testset.list ] && awk '{print $2}' $trials | sort -u > data/$prefix/$cohort_set/$testset.list
+            [ ! -f data/$prefix/$cohort_set/$enrollset.cohort.trials ] && sh subtools/getTrials.sh 3 data/$prefix/$cohort_set/$enrollset.list \
+                                                        data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/$enrollset.cohort.trials
+            [ ! -f data/$prefix/$cohort_set/$testset.cohort.trials ] && sh subtools/getTrials.sh 3 data/$prefix/$cohort_set/$testset.list \
+                                                        data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/$testset.cohort.trials
 
             if [ "$cohort_method" == "sub" ];then
                 [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
@@ -162,7 +162,7 @@ for position in $positions;do
                 --enroll-process $test_process --test-process $test_process --plda-process $plda_process \
                 --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $trainset \
                 --enrollset $enrollset --testset $cohort_set \
-                --trials data/$prefix/$cohort_set/enroll.cohort.trials $string
+                --trials data/$prefix/$cohort_set/$enrollset.cohort.trials $string
 
             lda_data_config="$trainset[$trainset $testset $cohort_set]"
             submean_data_config="$trainset[$trainset $testset $cohort_set]"
@@ -173,7 +173,7 @@ for position in $positions;do
                 --enroll-process $test_process --test-process $test_process --plda-process $plda_process \
                 --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $trainset \
                 --enrollset $testset --testset $cohort_set \
-                --trials data/$prefix/$cohort_set/test.cohort.trials $string
+                --trials data/$prefix/$cohort_set/$testset.cohort.trials $string
 
             [ ! -f "$obj_dir/$output_name.score" ] && \
             python3 subtools/score/ScoreNormalization.py --top-n=$top_n --method="asnorm" $obj_dir/$name.score \
@@ -194,6 +194,6 @@ for position in $positions;do
     done
 done
 
-echo -e $results > $vectordir/${score}${lda_string}${submean_string}.results
+echo -e $results > $vectordir/${score}${testset}${lda_string}${submean_string}.results
 
 echo -e $results

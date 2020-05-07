@@ -152,7 +152,7 @@ check "$metric" "eer Cavg" metric
 
 [ -f $vectordir/$enrollset/xvector.scp ] && vectortype=xvector && echo -e "[Auto find] Your vectortype is xvector\n"
 [ -f $vectordir/$enrollset/ivector.scp ] && vectortype=ivector && echo -e "[Auto find] Your vectortype is ivector\n"
-[ "$vectortype" == "" ] && echo "Don't find xvector or ivector type and please specify your own vectortype" && exit 1
+[ "$vectortype" == "" ] && echo "Don't find xvector or ivector type in $vectordir/$enrollset and please specify your own vectortype" && exit 1
 
 [ "$trainset" == "" ] && trainset=$enrollset
 
