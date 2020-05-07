@@ -90,17 +90,17 @@ for position in $positions;do
                                                     data/$prefix/voxceleb1_test/enroll.list $obj_dir/voxceleb1_enroll
 
         elif [[ "$test_set" == "voxceleb1_O_test" && "$enroll_set" == "voxceleb1_O_enroll" ]];then
-            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-O --vectordir $obj_dir
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-O --vectordir $obj_dir || exit 1
         elif [[ "$test_set" == "voxceleb1_E_test" && "$enroll_set" == "voxceleb1_E_enroll" ]];then
-            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-E --vectordir $obj_dir
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-E --vectordir $obj_dir || exit 1
         elif [[ "$test_set" == "voxceleb1_H_test" && "$enroll_set" == "voxceleb1_H_enroll" ]];then
-            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-H --vectordir $obj_dir
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-H --vectordir $obj_dir || exit 1
         elif [[ "$test_set" == "voxceleb1_O_clean_test" && "$enroll_set" == "voxceleb1_O_clean_enroll" ]];then
-            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-O-clean --vectordir $obj_dir
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-O-clean --vectordir $obj_dir || exit 1
         elif [[ "$test_set" == "voxceleb1_E_clean_test" && "$enroll_set" == "voxceleb1_E_clean_enroll" ]];then
-            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-E-clean --vectordir $obj_dir
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-E-clean --vectordir $obj_dir || exit 1
         elif [[ "$test_set" == "voxceleb1_H_clean_test" && "$enroll_set" == "voxceleb1_H_clean_enroll" ]];then
-            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-H-clean --vectordir $obj_dir
+            subtools/recipe/voxcelebSRC/prepare_task_for_scoring.sh --force $force --prefix $prefix --tasks voxceleb1-H-clean --vectordir $obj_dir || exit 1
         fi
 
         [[ "$force" == "true" || ! -f $obj_dir/$name.eer ]] && \
@@ -111,13 +111,14 @@ for position in $positions;do
 
         if [[ "$score_norm" == "true" && -f $obj_dir/$name.score ]];then
             if [ "$cohort_set" == "" ];then
-                [[ "$force" == "true" ]] && rm -rf data/$prefix/$cohort_set
                 if [ "$cohort_method" == "sub" ];then
                     cohort_set=${cohort_set_from}_cohort_sub_${sub_num}$sub_option
+                    [[ "$force" == "true" ]] && rm -rf data/$prefix/$cohort_set
                     [ ! -d data/$prefix/$cohort_set ] && subtools/kaldi/utils/subset_data_dir.sh $sub_option \
                     data/$prefix/$cohort_set_from $sub_num data/$prefix/$cohort_set
                 elif [ "$cohort_method" == "mean" ];then
                     cohort_set=${cohort_set_from}_cohort_mean
+                    [[ "$force" == "true" ]] && rm -rf data/$prefix/$cohort_set
                     [ ! -d data/$prefix/$cohort_set ] && mkdir -p data/$prefix/$cohort_set && \
                     awk '{print $1,$1}' data/$prefix/$cohort_set_from/spk2utt > data/$prefix/$cohort_set/spk2utt && \
                     awk '{print $1,$1}' data/$prefix/$cohort_set_from/spk2utt > data/$prefix/$cohort_set/utt2spk
@@ -135,12 +136,12 @@ for position in $positions;do
             [ ! -f data/$prefix/$cohort_set/test.cohort.trials ] && sh subtools/getTrials.sh 3 data/$prefix/$cohort_set/test.list \
                                                         data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/test.cohort.trials
 
-            [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
             if [ "$cohort_method" == "sub" ];then
                 [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
                 [[ ! -d $obj_dir/$cohort_set ]] && subtools/filterVectorDir.sh $obj_dir/$train_set/xvector.scp \
                 data/$prefix/$cohort_set/utt2spk $obj_dir/$cohort_set
             elif [ "$cohort_method" == "mean" ];then
+                [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
                 [[ ! -d $obj_dir/$cohort_set ]] && mkdir -p $obj_dir/$cohort_set && ivector-mean ark:data/$prefix/$cohort_set_from/spk2utt \
                 scp:$obj_dir/$train_set/xvector.scp ark,scp:$obj_dir/$cohort_set/xvector.ark,$obj_dir/$cohort_set/xvector.scp
             fi

@@ -82,26 +82,20 @@ class Xvector(TopVirtualNnet):
         self.tdnn1 = ReluBatchNormTdnnLayer(inputs_dim,512,[-2,-1,0,1,2], **tdnn_layer_params)
         self.se1 = SEBlock(512, ratio=se_ratio) if SE else None
         self.ex_tdnn1 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
-        self.ex_se1 = SEBlock(512, ratio=se_ratio) if SE and extend else None
         self.tdnn2 = ReluBatchNormTdnnLayer(512,512,[-2,0,2], **tdnn_layer_params)
         self.se2 = SEBlock(512, ratio=se_ratio) if SE else None
         self.ex_tdnn2 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
-        self.ex_se2 = SEBlock(512, ratio=se_ratio) if SE and extend else None
         self.tdnn3 = ReluBatchNormTdnnLayer(512,512,[-3,0,3], **tdnn_layer_params)
         self.se3 = SEBlock(512, ratio=se_ratio) if SE else None
         self.ex_tdnn3 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
-        self.ex_se3 = SEBlock(512, ratio=se_ratio) if SE and extend else None
         self.ex_tdnn4 = ReluBatchNormTdnnLayer(512,512,[-4,0,4], **tdnn_layer_params) if extend else None
-        self.ex_se4 = SEBlock(512, ratio=se_ratio) if SE and extend else None
+        self.se4 = SEBlock(512, ratio=se_ratio) if SE and extend else None
         self.ex_tdnn5 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
-        self.ex_se5 = SEBlock(512, ratio=se_ratio) if SE and extend else None
         self.tdnn4 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params)
-        self.se4 = SEBlock(512, ratio=se_ratio) if SE else None
 
         nodes = LDE_pooling_params.pop("nodes") if LDE_pooling else 1500
 
-        self.tdnn5 = ReluBatchNormTdnnLayer(512,nodes,**tdnn_layer_params)
-        self.se5 = SEBlock(nodes, ratio=se_ratio) if SE else None
+        self.tdnn5 = ReluBatchNormTdnnLayer(512, nodes, **tdnn_layer_params)
 
         # Pooling
         if LDE_pooling:
@@ -138,9 +132,8 @@ class Xvector(TopVirtualNnet):
 
             # An example to using transform-learning without initializing loss.affine parameters
             self.transform_keys = ["tdnn1","tdnn2","tdnn3","tdnn4","tdnn5","stats","tdnn6","tdnn7",
-                                   "ex_tdnn1","ex_tdnn2","ex_tdnn3","ex_tdnn4","ex_tdnn5","scale1",
-                                   "se1","se2","se3","se4","se5","ex_se1","ex_se2","ex_se3","ex_se4","ex_se5",
-                                   "loss"]
+                                   "ex_tdnn1","ex_tdnn2","ex_tdnn3","ex_tdnn4","ex_tdnn5",
+                                   "se1","se2","se3","se4","loss"]
 
             if margin_loss and transfer_from == "softmax_loss":
                 # For softmax_loss to am_softmax_loss
@@ -162,25 +155,19 @@ class Xvector(TopVirtualNnet):
             identity = x
         x = self.auto(self.se1, x)
         x = self.auto(self.ex_tdnn1, x)
-        x = self.auto(self.ex_se1, x)
         x = self.tdnn2(x)
         x = self.auto(self.se2, x)
         x = self.auto(self.ex_tdnn2, x)
-        x = self.auto(self.ex_se2, x)
         x = self.tdnn3(x)
         x = self.auto(self.se3, x)
         x = self.auto(self.ex_tdnn3, x)
-        x = self.auto(self.ex_se3, x)
         x = self.auto(self.ex_tdnn4, x)
-        x = self.auto(self.ex_se4, x)
-        x = self.auto(self.ex_tdnn5, x)
-        x = self.auto(self.ex_se5, x)
-        x = self.tdnn4(x)
         x = self.auto(self.se4, x)
+        x = self.auto(self.ex_tdnn5, x)
+        x = self.tdnn4(x)
         if self.skip_connection:
             x += identity
         x = self.tdnn5(x)
-        x = self.auto(self.se5, x)
         x = self.stats(x)
         x = self.auto(self.tdnn6, x)
         x = self.tdnn7(x)
@@ -217,25 +204,19 @@ class Xvector(TopVirtualNnet):
             identity = x
         x = self.auto(self.se1, x)
         x = self.auto(self.ex_tdnn1, x)
-        x = self.auto(self.ex_se1, x)
         x = self.tdnn2(x)
         x = self.auto(self.se2, x)
         x = self.auto(self.ex_tdnn2, x)
-        x = self.auto(self.ex_se2, x)
         x = self.tdnn3(x)
         x = self.auto(self.se3, x)
         x = self.auto(self.ex_tdnn3, x)
-        x = self.auto(self.ex_se3, x)
         x = self.auto(self.ex_tdnn4, x)
-        x = self.auto(self.ex_se4, x)
-        x = self.auto(self.ex_tdnn5, x)
-        x = self.auto(self.ex_se5, x)
-        x = self.tdnn4(x)
         x = self.auto(self.se4, x)
+        x = self.auto(self.ex_tdnn5, x)
+        x = self.tdnn4(x)
         if self.skip_connection:
             x += identity
         x = self.tdnn5(x)
-        x = self.auto(self.se5, x)
         x = self.stats(x)
 
         if self.extracted_embedding == "far" :
