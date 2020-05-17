@@ -194,6 +194,6 @@ for position in $positions;do
     done
 done
 
-echo -e $results > $vectordir/${score}${testset}${lda_string}${submean_string}.results
+echo -e $results > $vectordir/${score}_${testset}${lda_string}${submean_string}.results
 
 echo -e $results

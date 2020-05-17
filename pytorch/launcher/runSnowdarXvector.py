@@ -268,15 +268,17 @@ model_dir="exp/standard_voxceleb1"
 #### Set seed
 utils.set_all_seed(1024)
 ##
-#### Set sleep time for a rest
-# Use it to run a launcher with a countdown function when there are no extra GPU memory 
-# but you really want to go to bed and know when the GPU memory will be free.
-if args.sleep > 0: time.sleep(args.sleep)
-##
 #### Init environment
 # It is used for multi-gpu training if used (number of gpu-id > 1).
 # And it will do nothing for single-GPU training.
 utils.init_multi_gpu_training(args.gpu_id, args.multi_gpu_solution, args.port)
+##
+#### Set sleep time for a rest
+# Use it to run a launcher with a countdown function when there are no extra GPU memory 
+# but you really want to go to bed and know when the GPU memory will be free.
+if args.sleep > 0 and utils.is_main_training(): 
+    logger.info("This launcher will sleep {}s before starting...".format(args.sleep))
+    time.sleep(args.sleep)
 ##
 #### Auto-config params
 # If multi-GPU used, it will auto-scale learning rate by multiplying number of processes.
