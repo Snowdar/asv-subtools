@@ -30,7 +30,7 @@ mkdir -p $target
 echo "Copy $src to $target..."
 
 for x in wav.scp utt2spk spk2utt;do
-[ ! -f $src/$x ] echo "[exit] Expected $src/$x to exist at least." && exit 1
+[ ! -f $src/$x ] && echo "[exit] Expected $src/$x to exist at least." && exit 1
 done
 
 trials=""
