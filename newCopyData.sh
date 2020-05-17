@@ -31,7 +31,7 @@ echo "Copy $src to $target..."
 
 for x in wav.scp utt2spk spk2utt;do
 [ ! -f $src/$x ] echo "[exit] Expected $src/$x to exist at least." && exit 1
-fi
+done
 
 trials=""
 for path in $(find $src -name "*trials");do
