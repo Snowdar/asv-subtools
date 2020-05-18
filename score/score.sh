@@ -48,6 +48,8 @@ function get_params_for_score(){
 	inputname=${input%.*}
 	final_file=$(readconf "final" $test_conf)
 	suffix=$(echo ${final_file%.*} | sed 's/^'"$inputname"'//g')
+
+	[ "$extra_name" != "" ] && extra_name="_$extra_name"
 	
 	case $mark in
 		cosine)
