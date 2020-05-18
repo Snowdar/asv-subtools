@@ -57,10 +57,10 @@ if [ "$prenorm" == "true" ];then
     plda_process="norm-"$plda_process
 fi
 
-extra_name="_$trainset"
+extra_name="$trainset"
 [[ "$score" == "cosine" && "$lda" == "false" && "$submean" == "false" ]] && extra_name=""
 
-name="$testset/score/${score}_${enrollset}_${testset}${prenorm_string}${submean_string}${lda_string}_norm${extra_name}"
+name="$testset/score/${score}_${enrollset}_${testset}${prenorm_string}${submean_string}${lda_string}_norm${extra_name:+_$extra_name}"
 
 results="\n[ $score ] [ lda=$lda clda=$clda submean=$submean trainset=$trainset]"
 
