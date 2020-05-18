@@ -16,12 +16,8 @@ import libs.support.kaldi_common as kaldi_common
 parser = argparse.ArgumentParser(
         description="Print model information.")
 
-parser.add_argument("--compute-size", type=str, action=kaldi_common.StrToBoolAction,
-                    default=False, choices=["true", "false"],
-                    help="")
-
 parser.add_argument("--input-size", type=str, default="", 
-                    help="")
+                    help="Give a size of input tensor, such as 1-23-100 to get num params of model.")
 
 parser.add_argument("nnet_config", metavar="nnet-config", type=str,
                     help="The model used to extract embeddings")
@@ -35,9 +31,8 @@ model = utils.create_model_from_py(model_blueprint, model_creation)
 
 print(model)
 
-if args.compute_size:
+if args.input_size != "":
     from thop import profile, clever_format
-    assert args.input_size != ""
     input_shape = [ int(x) for x in args.input_size.split('-') ]
     input_tensor = torch.randn(*input_shape)
     macs, params = profile(model, inputs=(input_tensor, ))
