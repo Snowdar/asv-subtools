@@ -41,6 +41,6 @@ done
 for x in wav.scp utt2spk spk2utt feats.scp vad.scp utt2num_frames utt2dur reco2dur text utt2gender spk2gender $trials;do
 [ -f $src/$x ] && cp $src/$x $target/ && echo "[ $x ] copy done"
 done
-echo "[note] Your new datadir is $target"
+echo "Note, your new datadir is $target\n"
 done
 echo "Copy done."

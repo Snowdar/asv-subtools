@@ -28,6 +28,7 @@ function get_params_for_score(){
 	mark=$1
 	enroll_conf=$2
 	test_conf=$3
+	extra_name=$4
 	
 	trials=$(readconf "trials" $test_conf)
 	enroll_final=$(readconf "dir" $enroll_conf)/$(readconf "final" $enroll_conf)
@@ -50,24 +51,24 @@ function get_params_for_score(){
 	
 	case $mark in
 		cosine)
-			out_score=$outdir/${mark}_${enrollname}_${testname}${suffix}
+			out_score=$outdir/${mark}_${enrollname}_${testname}${suffix}${extra_name}
 			string="$trials $enroll_final $test_final $out_score.score";;
 		plda)
-			out_score=$outdir/${mark}_${enrollname}_${testname}${suffix}
+			out_score=$outdir/${mark}_${enrollname}_${testname}${suffix}${extra_name}
 			plda=$(get_resource plda $enroll_conf)
 			string="$trials $enroll_dir/num_utts.ark $plda $enroll_final $test_final $out_score.score";;
 		aplda)
 			aplda=$(get_resource aplda $enroll_conf)
-			out_score=$outdir/${mark}_${enrollname}_${testname}${suffix}
+			out_score=$outdir/${mark}_${enrollname}_${testname}${suffix}${extra_name}
 			string="$trials $enroll_dir/num_utts.ark $aplda $enroll_final $test_final $out_score.score";;
 		svm)
-			out_score=$outdir/${mark}_${curve}_${enrollname}_${testname}${suffix}
+			out_score=$outdir/${mark}_${curve}_${enrollname}_${testname}${suffix}${extra_name}
 			string="$trials $enroll_data $test_data $enroll_final $test_final $out_score.score";;
 		gmm)
-			out_score=$outdir/${mark}_${cnum}_${enrollname}_${testname}${suffix}
+			out_score=$outdir/${mark}_${cnum}_${enrollname}_${testname}${suffix}${extra_name}
 			string="$trials $enroll_data/utt2spk $enroll_final $test_final $out_score.score";;
 		lr)
-			out_score=$outdir/${mark}_${enrollname}_${testname}${suffix}
+			out_score=$outdir/${mark}_${enrollname}_${testname}${suffix}${extra_name}
 			string="$trials $enroll_data $enroll_final $test_final $out_score.score";;
 		*)echo "[exit] Do not support $mark classfier now." && exit 1;;
 	esac
