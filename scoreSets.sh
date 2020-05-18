@@ -20,6 +20,8 @@ eval=false # if true, will just generate the score rather than compute metric
 
 prefix=plp_20_5.0 # if NULL, datadir will be data/$someset rather than data/$prefix/$someset.
 
+extra_name= # it could be used to mark a trainset in score name
+
 trainset= # for convenience with using default config. if NULL, will be set by enrollset
 
 enrollset=train # should be one set only
@@ -295,7 +297,7 @@ for the_classfier in $(echo $score | sed 's/-/ /g');do
     test_file=$(process $test_conf $test_process)
     writeconf final $test_file $test_conf
 
-    tmp=$(get_params_for_score $the_classfier $enroll_conf $test_conf)
+    tmp=$(get_params_for_score $the_classfier $enroll_conf $test_conf $extra_name)
     outname=$(echo "$tmp" | awk '{print $1}')
     params=$(echo "$tmp" | awk '{$1="";print $0}')
     
