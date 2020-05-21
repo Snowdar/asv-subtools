@@ -136,6 +136,18 @@ class TdnnAffine(torch.nn.Module):
         return '{input_dim}, {output_dim}, context={context}, bias={bool_bias}, stride={stride}, ' \
                'pad={pad}, norm_w={norm_w}, norm_f={norm_f}'.format(**self.__dict__)
 
+    @classmethod
+    def thop_count(self, m, x, y):
+        x = x[0]
+
+        kernel_ops = torch.zeros(m.weight.size()[2:]).numel()  # Kw x Kh
+        bias_ops = 1 if m.bias is not None else 0
+
+        # N x Cout x H x W x  (Cin x Kw x Kh + bias)
+        total_ops = y.nelement() * (m.input_dim * kernel_ops + bias_ops)
+
+        m.total_ops += torch.DoubleTensor([int(total_ops)])
+
 
 class TdnnfBlock(torch.nn.Module):
     """ Factorized TDNN block w.r.t http://danielpovey.com/files/2018_interspeech_tdnnf.pdf.
@@ -402,6 +414,19 @@ class StatisticsPooling(torch.nn.Module):
     
     def extra_repr(self):
         return '{input_dim}, {output_dim}, stddev={stddev}, unbiased={unbiased}, eps={eps}'.format(**self.__dict__)
+
+    @classmethod
+    def thop_count(self, m, x, y):
+        pass
+        # x = x[0]
+
+        # kernel_ops = torch.zeros(m.weight.size()[2:]).numel()  # Kw x Kh
+        # bias_ops = 1 if m.bias is not None else 0
+
+        # # N x Cout x H x W x  (Cin x Kw x Kh + bias)
+        # total_ops = y.nelement() * (m.input_dim * kernel_ops + bias_ops)
+
+        # m.total_ops += torch.DoubleTensor([int(total_ops)])
 
 
 class AttentionAlphaComponent(torch.nn.Module):
