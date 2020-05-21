@@ -148,8 +148,8 @@ for position in $positions;do
                 scp:$obj_dir/$trainset/xvector.scp ark,scp:$obj_dir/$cohort_set/xvector.ark,$obj_dir/$cohort_set/xvector.scp
             fi
 
-            enroll_cohort_name="$cohort_set/score/${score}_${enrollset}_${cohort_set}${prenorm_string}${submean_string}${lda_string}_norm"
-            test_cohort_name="$cohort_set/score/${score}_${testset}_${cohort_set}${prenorm_string}${submean_string}${lda_string}_norm"
+            enroll_cohort_name="$cohort_set/score/${score}_${enrollset}_${cohort_set}${prenorm_string}${submean_string}${lda_string}_norm${extra_name:+_$extra_name}"
+            test_cohort_name="$cohort_set/score/${score}_${testset}_${cohort_set}${prenorm_string}${submean_string}${lda_string}_norm${extra_name:+_$extra_name}"
             output_name="${name}_asnorm${top_n}_$cohort_set"
 
             [[ "$force" == "true" ]] && rm -rf $obj_dir/$enroll_cohort_name.score $obj_dir/$test_cohort_name.score \
