@@ -206,16 +206,14 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         if not self.feature_normalize :
             self.s = inputs.norm(2, dim=1) # [batch-size, l2-norm]
 
-        self.posterior = (self.s * cosine_theta).detach().unsqueeze(2) # accuracy must be reported before margin penalty added
+        self.posterior = (self.s.detach() * cosine_theta.detach()).unsqueeze(2) # The accuracy must be reported before margin penalty added
 
         if not self.training:
             # For valid set.
             outputs = self.s * cosine_theta
             return self.loss_function(outputs, targets)
 
-
         ## Margin
-
         # cosine_theta [batch_size, num_class]
         # targets.unsqueeze(1) [batch_size, 1]
         cosine_theta_target = cosine_theta.gather(1, targets.unsqueeze(1))
@@ -237,9 +235,6 @@ class MarginSoftmaxLoss(TopVirtualLoss):
                 double_cosine_theta = torch.cos(torch.acos(cosine_theta).add(-self.m))
         elif self.method == "sm1":
             # penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target) * self.m
-            #beta = torch.softmax(self.alpha, dim=0)
-            #gamma = F.pad(beta.unsqueeze(2),(0,cosine_theta.shape[0]-1),"replicate").squeeze().t().gather(1, targets.unsqueeze(1))
-            #penalty_cosine_theta = (1 + self.m * gamma) * cosine_theta_target - self.m
             penalty_cosine_theta = (1 + self.m) * cosine_theta_target - self.m
         elif self.method == "sm2":
             penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target**2) * self.m

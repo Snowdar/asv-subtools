@@ -214,16 +214,17 @@ class SimpleTrainer(_BaseTrainer):
                 num_samples += len(targets)
 
                 if self.params["compute_valid_accuracy"]:
+                    # This will occupy extra GPU memory.
                     accuracy += model.compute_accuracy(model.get_posterior(), targets) * len(targets)
 
                 if self.params["compute_one_batch_valid"]:
                     break
 
+            avg_loss = loss/num_samples
+            avg_accuracy = accuracy/num_samples if self.params["compute_valid_accuracy"] else None
+
         if train_status:
             model.train()
-
-        avg_loss = loss/num_samples
-        avg_accuracy = accuracy/num_samples if self.params["compute_valid_accuracy"] else None
 
         return avg_loss, avg_accuracy
 

@@ -126,6 +126,8 @@ def get_tensors(tensor_sets):
         # Only tensor
         if isinstance(this_object, torch.Tensor):
             tensors.append(this_object)
+        if isinstance(this_object, np.ndarray):
+            tensors.append(torch.from_numpy(this_object))
         elif isinstance(this_object, list) or isinstance(this_object, tuple):
             tensors.extend(get_tensors(this_object))
 

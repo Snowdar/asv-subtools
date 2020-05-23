@@ -179,12 +179,10 @@ class BaseBunch():
             if len(valid) <= 0:
                 raise ValueError("Expected num_samples of valid > 0.")
 
-            if use_fast_loader:
-                self.valid_loader = DataLoaderFast(max_prefetch, valid, batch_size = valid_batch_size, shuffle=False, num_workers=0, 
-                                               pin_memory=pin_memory, drop_last=False)
-            else:
-                self.valid_loader = DataLoader(valid, batch_size = valid_batch_size, shuffle=False, num_workers=0, 
-                                               pin_memory=pin_memory, drop_last=False)
+            # Do not use DataLoaderFast for valid for it increases the memory all the time when compute_valid_accuracy is True.
+            # But I have not find the real reason.
+            self.valid_loader = DataLoader(valid, batch_size = valid_batch_size, shuffle=False, num_workers=num_workers, 
+                                           pin_memory=pin_memory, drop_last=False)
 
             self.num_batch_valid = len(self.valid_loader)
         else:
