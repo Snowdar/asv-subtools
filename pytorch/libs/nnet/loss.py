@@ -196,17 +196,16 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         assert len(inputs.shape) == 3
         assert inputs.shape[2] == 1
 
-        batch_size = inputs.shape[0]
-
-
         normalized_x = F.normalize(inputs.squeeze(dim=2), dim=1)
         normalized_weight = F.normalize(self.weight.squeeze(dim=2), dim=1)
         cosine_theta = F.linear(normalized_x, normalized_weight) # Y = W*X
 
         if not self.feature_normalize :
             self.s = inputs.norm(2, dim=1) # [batch-size, l2-norm]
-
-        self.posterior = (self.s.detach() * cosine_theta.detach()).unsqueeze(2) # The accuracy must be reported before margin penalty added
+            # The accuracy must be reported before margin penalty added
+            self.posterior = (self.s.detach() * cosine_theta.detach()).unsqueeze(2) 
+        else:
+            self.posterior = (self.s * cosine_theta.detach()).unsqueeze(2)
 
         if not self.training:
             # For valid set.
