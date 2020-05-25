@@ -90,8 +90,8 @@ def snorm(args):
 
     for _, row in input_score.iterrows():
         enroll_key, test_key, score = row
-        normed_score = 0.5 * (score - enroll_mean[enroll_key]) / enroll_std[enroll_key] + \
-                       (score - test_mean[test_key]) / test_std[test_key]
+        normed_score = 0.5 * ((score - enroll_mean[enroll_key]) / enroll_std[enroll_key] + \
+                       (score - test_mean[test_key]) / test_std[test_key])
         output_score.append([enroll_key, test_key, normed_score])
 
     logger.info("Normalize scores done.")
@@ -134,8 +134,8 @@ def asnorm(args):
 
     for _, row in input_score.iterrows():
         enroll_key, test_key, score = row
-        normed_score = 0.5 * (score - enroll_mean[enroll_key]) / enroll_std[enroll_key] + \
-                             (score - test_mean[test_key]) / test_std[test_key]
+        normed_score = 0.5 * ((score - enroll_mean[enroll_key]) / enroll_std[enroll_key] + \
+                             (score - test_mean[test_key]) / test_std[test_key])
         output_score.append([enroll_key, test_key, normed_score])
 
     logger.info("Normalize scores done.")

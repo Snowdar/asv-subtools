@@ -404,37 +404,3 @@ if stage <= 4 <= endstage and utils.is_main_training():
         if not isinstance(e, KeyboardInterrupt):
             traceback.print_exc()
         sys.exit(1)
-
-
-#### Congratulate! All done.
-##
-#### Report EER% on voxceleb1.test [ back-end = lda256 + normalization + plda ]
-##  optimizer    learn-rate    weight-decay    epoch    far  
-##  adam         0.001         3e-4 (L2)       7        3.319
-##                                             14       3.028
-##                                             21       3.017
-
-##  adamW        0.001         5e-1            7        3.303
-##                                             14       3.266
-##                                             21       3.028
-
-##  adamod       0.001         5e-1            7        3.282
-##                                             14       3.171
-##                                             21       3.049
-
-##  radam        0.001         5e-1            7        3.218
-##                                             14       3.059
-##                                             21       3.038
-
-##  ralamb       0.001         5e-1            7        3.229
-##                                             14       3.155
-##                                             21       3.028
-
-##  adamW        0.003         5e-1            7        3.181
-##  + lookahead                                14       3.054
-##  k=5,alpha=0.5                              21       3.049
-
-
-
-
-

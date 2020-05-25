@@ -294,13 +294,3 @@ if stage <= 4 <= endstage:
         if not isinstance(e, KeyboardInterrupt):
             traceback.print_exc()
         sys.exit(1) 
-
-
-#### Congratulate! All done.
-##
-#### Report EER% on voxceleb1.test [ back-end = lda256/128 + normalization + plda/cosine ]
-
-
-
-
-
