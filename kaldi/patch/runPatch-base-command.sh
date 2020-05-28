@@ -4,7 +4,8 @@
 
 # Make sure your kaldi has been compiled.
 
-kaldidir=/work/kaldi  # your kaldi install-dir => kaldi root dir
+current_dir=$(subtools/linux/decode_symbolic_link.sh $PWD)
+kaldi_root_dir=$(dirname $(dirname $(dirname $current_dir)))
 
 # There is an another good way now [2019-07-27]
 
@@ -17,51 +18,54 @@ src/gmmbin/gmm-global-est-gaussians-ebw.cc
 src/gmmbin/gmm-global-est-map.cc
 src/gmmbin/gmm-global-est-weights-ebw.cc
 "
-. ../utils/parse_options.sh
+. subtools/kaldi/utils/parse_options.sh
+
+cd subtools/kaldi/patch
 
 for x in $cfile;do
-name=`basename ${x%.*}`
-dir=`dirname $x`
+	name=`basename ${x%.*}`
+	dir=`dirname $x`
 
-[ ! -f "$kaldidir/$dir/Makefile" ] && echo "$kaldidir/$dir/Makefile is not exist." && exit 1;
+	[ ! -f "$kaldi_root_dir/$dir/Makefile" ] && echo "$kaldi_root_dir/$dir/Makefile is not exist." && exit 1;
 
-sed -e ':a' -e 'N' -e '$!ba' -e 's/\( *\)\\\n \+/ /g;s/\\\n//g' "$kaldidir/$dir/Makefile" | \
-    awk -v name=$name '{if($1=="BINFILES"){$0="BINFILES = "name;} print $0}' > $kaldidir/$dir/Makefile.tmp
+	sed -e ':a' -e 'N' -e '$!ba' -e 's/\( *\)\\\n \+/ /g;s/\\\n//g' "$kaldi_root_dir/$dir/Makefile" | \
+		awk -v name=$name '{if($1=="BINFILES"){$0="BINFILES = "name;} print $0}' > $kaldi_root_dir/$dir/Makefile.tmp
 
-# Copy *.cc
-[ -f $kaldidir/$x ] && mv $kaldidir/$x $kaldidir/$x.bk
-rm -f $kaldidir/$dir/$name.o $kaldidir/$dir/$name
-cp -f $x $kaldidir/$dir
+	# Copy *.cc
+	[ -f $kaldi_root_dir/$x ] && mv $kaldi_root_dir/$x $kaldi_root_dir/$x.bk
+	rm -f $kaldi_root_dir/$dir/$name.o $kaldi_root_dir/$dir/$name
+	cp -f $x $kaldi_root_dir/$dir
 
-# Make
-echo "[Enter $kaldidir/$dir...]"
-cd  $kaldidir/$dir
-make -f $kaldidir/$dir/Makefile.tmp
-rm -f $kaldidir/$dir/Makefile.tmp
-echo "[Leave $kaldidir/$dir...]"
-cd - >/dev/null
+	# Make
+	echo "[Enter $kaldi_root_dir/$dir...]"
+	cd  $kaldi_root_dir/$dir
+	make -f $kaldi_root_dir/$dir/Makefile.tmp
+	rm -f $kaldi_root_dir/$dir/Makefile.tmp
+	echo "[Leave $kaldi_root_dir/$dir...]"
+	cd - >/dev/null
 done
 
+cd -
 echo "Compile done."
 
 ##########################################################################
 ## Deprecated ##  Reasons: it is dependent to atlas or mkl version and not enough free
 # if paths of *.so are not right, you could fix them by yourself.
-# atlasInclude=$(grep  "ATLASINC.*=" $kaldidir/src/kaldi.mk | cut -d "=" -f 2 )
-# atlasSo=$(grep  "ATLASLIBS.*=" $kaldidir/src/kaldi.mk | cut -d "=" -f 2 )
-# openfstInclude=$(grep  "OPENFSTINC.*=" $kaldidir/src/kaldi.mk | cut -d "=" -f 2 )
-# openfstSo=$(grep  "OPENFSTLIBS.*=" $kaldidir/src/kaldi.mk | cut -d "=" -f 2 )
-# openfstLib=$(grep  "OPENFSTLDFLAGS.*=" $kaldidir/src/kaldi.mk | cut -d " " -f 3)
-# cuda=$(grep  "CUDATKDIR.*=" $kaldidir/src/kaldi.mk | cut -d "=" -f 2 | sed 's/^ \+//g')
+# atlasInclude=$(grep  "ATLASINC.*=" $kaldi_root_dir/src/kaldi.mk | cut -d "=" -f 2 )
+# atlasSo=$(grep  "ATLASLIBS.*=" $kaldi_root_dir/src/kaldi.mk | cut -d "=" -f 2 )
+# openfstInclude=$(grep  "OPENFSTINC.*=" $kaldi_root_dir/src/kaldi.mk | cut -d "=" -f 2 )
+# openfstSo=$(grep  "OPENFSTLIBS.*=" $kaldi_root_dir/src/kaldi.mk | cut -d "=" -f 2 )
+# openfstLib=$(grep  "OPENFSTLDFLAGS.*=" $kaldi_root_dir/src/kaldi.mk | cut -d " " -f 3)
+# cuda=$(grep  "CUDATKDIR.*=" $kaldi_root_dir/src/kaldi.mk | cut -d "=" -f 2 | sed 's/^ \+//g')
 
 # for x in $cfile;do
 # name=`basename ${x%.*}`
 # dir=`dirname $x`
 # type=`basename $dir`
-# [ -f $kaldidir/$dir/$x ] && mv $kaldidir/$dir/$x.bk
-# cp -f $x $kaldidir/$dir
-# cd  $kaldidir/$dir
-# echo "compile $kaldidir/$x"
+# [ -f $kaldi_root_dir/$dir/$x ] && mv $kaldi_root_dir/$dir/$x.bk
+# cp -f $x $kaldi_root_dir/$dir
+# cd  $kaldi_root_dir/$dir
+# echo "compile $kaldi_root_dir/$x"
 # case $type in
 	# ivectorbin)
 	# g++ -std=c++11 -I.. -I$openfstInclude -Wno-sign-compare -Wall -Wno-sign-compare -Wno-unused-local-typedefs -Wno-deprecated-declarations -Winit-self -DKALDI_DOUBLEPRECISION=0 -DHAVE_EXECINFO_H=1 -DHAVE_CXXABI_H -DHAVE_ATLAS -I$atlasInclude -msse -msse2 -pthread -g  -DHAVE_CUDA -I$cuda/include -c -o $name.o $name.cc
@@ -86,6 +90,6 @@ echo "Compile done."
 
 # echo "Compile $name done."
 # echo "Start to test this command and if you can see usages of this command later,then it means compiling successfully."
-# $kaldidir/$dir/$name
+# $kaldi_root_dir/$dir/$name
 # done
 # echo "All done."

@@ -32,6 +32,8 @@ else
 	esac
 fi
 
+cd subtools/kaldi/patch
+
 if $utils;then
 	echo "do utils..."
 	cp -rf extra/utils/* ../utils
@@ -76,4 +78,5 @@ if $sid;then
 	fi
 fi
 
+cd -
 echo "All done."
