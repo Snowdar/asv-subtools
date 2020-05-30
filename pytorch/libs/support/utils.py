@@ -368,7 +368,7 @@ def read_log_csv(csv_path:str):
 def init_multi_gpu_training(gpu_id="", solution="ddp", port=29500):
     num_gpu = len(parse_gpu_id_option(gpu_id))
     if num_gpu > 1:
-        # The ddp solution is suggested.
+        # The DistributedDataParallel (DDP) solution is suggested.
         if solution == "ddp":
             init_ddp(port)
             if is_main_training(): logger.info("DDP has been initialized.")

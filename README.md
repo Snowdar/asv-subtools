@@ -1,108 +1,199 @@
-# ASV-Subtools
-    Copyright xmuspeech (Author: Snowdar 2020-02-27)
+# ASV-Subtools: An Open Source Tools for Speaker Recognition
+> Copyright: [XMU Speech Lab](https://speech.xmu.edu.cn/) (Xiamen University, China)
+> Apache 2.0
+>
+> Author   : Miao Zhao (**Snowdar**), Jianfeng Zhou, Zheng Li, Hao Lu
+> Co-author: Lin Li, Qingyang Hong
 
-    Subtools is a set of tools which is based on Pytorch + Kaldi for speaker recognition etc..
+[TOC]
 
-## 声明
-本项目工程在开源之前不可外传，仅供内部使用
+## Introduction  
+ASV-Subtools is developed based on Pytorch and Kaldi for speaker recognition and language identification etc.. 
+The basic training framework is provided here and the relation between every part is very clear. So you could change anything you want to obtain a custom ASV-Subtools.
 
-## 用途
-ASV-Subtools包含一整套声纹识别流程，每个模块均有大量优化脚本和算法，且上层有良好的封装，可快速构建实验工程，开展实验  
-另外，神经网络训练使用pytorch框架，网络结构相关idea的实现清晰易做，可促进论文发表工作  
-ASV-Subtools争取跟进state-of-the-art的算法框架，可用于比赛和项目的实验
+### Support List
+- Multi-GPU Training Solution
+  + [x] [DistributedDataParallel (DDP)](https://pytorch.org/docs/stable/nn.html#distributeddataparallel) [Built-in function of Pytorch]
+  + [x] [Horovod](https://github.com/horovod/horovod)
 
-## 声纹识别 Recipe
-一个基于voxceleb的标准pipeline，以供参考学习，详见脚本：
 
-    subtools/recipe/voxceleb/runVoxceleb.sh
+- Front-end
+  + [x] [Convenient Augmentation of Reverb, Noise, Music and Babble](https://github.com/Snowdar/asv-subtools/augmentDataByNoise.sh)
+  + [x] Inverted [Specaugment](https://arxiv.org/pdf/1904.08779.pdf)
 
-## 克隆
-在工程目录下，如kaldi/egs/xmuspeech/sre, 克隆subtools：
+- Model
+  + [x] [Standard X-vector](http://www.danielpovey.com/files/2017_interspeech_embeddings.pdf)
+  + [x] [Extended X-vector](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8683760)
+  + [x] Resnet1d
+  + [x] [Resnet2d](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
+  + [ ] [F-TDNN X-vector](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
 
-    git clone https://github.com/Snowdar/subtools/.git
+- Components
+  + [x] [Attentive Statistics Pooling](https://arxiv.org/pdf/1803.10963v1.pdf)
+  + [x] [ Learnable Dictionary Encoding (LDE) Pooling](https://arxiv.org/pdf/1804.00385.pdf)
+  + [x] [Sequeze and Excitation (SE)](https://arxiv.org/pdf/1709.01507.pdf) [An [example](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1704.pdf) of speaker recognition based on Resnet1d by Jianfeng Zhou]
+  + [ ] Multi-head Attention Pooling
 
-## 更新
-第一次克隆之后，之后更新进入到subtools目录并使用更新命令:
+- Loss Functions
+  + [x] Softmax Loss (Affine + Softmax + Cross-Entropy)
+  + [x] AM-Softmax Loss
+  + [x] AAM-Softmax Loss
+  + [x] Double AM-Softmax Loss
+  + [x] Ring Loss
 
-    cd subtools
-    git pull
+- Optimizer [Out of Pytorch built-in functions]
+  + [x] Lookahead [A wrapper optimizer]
+  + [x] RAdam
+  + [x] Ralamb
+  + [x] Novograd
+  + [x] Gradient Centralization [Extra bound to optimizer]
 
-## 依赖库安装
+- Training Stratagies
+  + [x] [AdamW](https://arxiv.org/pdf/1711.05101v1.pdf) + [WarmRestarts](https://arxiv.org/pdf/1608.03983v4.pdf)
+  + [ ] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau)
+  + [x] Training with Magin Decay Stratagy
+  + [x] Heated Up Stratagy
+  + [x] [Multi-task Training with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was provided by [Yi Liu](http://yiliu.org.cn/). Thanks.]
+  + [ ] Multi-task Training with Phonetic Information (Pytorch)
+  + [ ] GAN
 
-yum安装出问题残留清理
+- Back-End
+  + [x] LDA, Submean, Whiten (ZCA), Vector Length Normalization
+  + [x] Cosine Similarity
+  + [x] Classifiers: SVM, GMM, Logistic Regression (LR), PLDA, APLDA, CORAL, CORAL+, LIP, CIP
+  + [x] Score Normalization: S-Norm, AS-Norm
+  + [ ] Calibration
+  + [x] Metric: EER, Cavg, minDCF
 
-    yum -y install yum-utils
-    yum clean all
-    yum-complete-transaction --cleanup-only
-    package-cleanup --cleandupes
+- Others
+  + [x] [Learning Rate Finder](https://sgugger.github.io/how-do-you-find-a-good-learning-rate.html)
+  + [ ] Use **matplotlib** to Plot DET Curve a.w.t the Format of DETware (Matlab Version) of [NIST's Tools](https://www.nist.gov/itl/iad/mig/tools)
 
-[1] 基本依赖包
+### Project Structure  
+![Project-Structure.png](https://github.com/Snowdar/asv-subtools/tree/master/doc/ASV-Subtools-project-structure.png)
+### Training Framework  
+![!img](https://github.com/Snowdar/asv-subtools/tree/master/doc/pytorch-training-framework.png)
 
-    pip3 install torch numpy pandas progressbar2
+### Data Pipeline  
+![Project-Structure.png](https://github.com/Snowdar/asv-subtools/tree/master/doc/pytorch-data-pipeline.png)
 
-[2] 多GPU训练依赖包 <方案 = Horovod：https://github.com/horovod/horovod#id10>
-    
-    + NCCL安装 <方案 = 从yum网络库安装：https://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html>
+## Ready to Start  
+### 1\. Install Kaldi  
+The Pytorch-training has less relation to Kaldi, but we have not provided other interfaces to concatenate acoustic features and training now. So if you don't want to use Kaldi, it is easy to change the **libs.egs.egs.ChunkEgs** class for the features are given to Pytorch only by [torch.utils.data.Dataset](https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset). Of course, you should also change the interface of extracting x-vector after training done. And most of scripts which requires Kaldi could be not available, such as subtools/makeFeatures.sh and subtools/augmentDataByNoise.sh etc..
 
-      # Navidia yum库下载（Centos7，cuda10.2：https://developer.nvidia.com/nccl/nccl-download）
-      wget https://developer.download.nvidia.com/compute/machine-learning/repos/rhel7/x86_64/nvidia-machine-learning-repo-rhel7-1.0.0-1.x86_64.rpm
+**If you prefer to use Kaldi, then install Kaldi firstly w.r.t http://www.kaldi-asr.org/doc/install.html.**
 
-      # Navidia yum库安装(NOKEY警告可忽略)
-      sudo rpm -i nvidia-machine-learning-repo-rhel7-1.0.0-1.x86_64.rpm
+```
+# Download Kaldi
+git clone https://github.com/kaldi-asr/kaldi.git kaldi --origin upstream
+cd kaldi
 
-      # 安装NCCL(nccl2.6.4+cuda10.2)
-      sudo yum install libnccl-2.6.4-1+cuda10.2 libnccl-devel-2.6.4-1+cuda10.2 libnccl-static-2.6.4-1+cuda10.2
-    
-    + Openmpi安装（高性能通信包） <方案 = 下载编译安装：https://www.open-mpi.org/faq/?category=building#easy-build>
+# You could check the INSTALL file of current directory to install for more details
+cat INSTALL
 
-      # 源代码下载（3.1.2版本正常，高版本可能异常）
-      wget https://download.open-mpi.org/release/open-mpi/v3.1/openmpi-3.1.2.tar.gz
+# Compile tools firstly
+cd tools
+sh extras/check_dependencies.sh
+make -j 4
 
-      # 解压
-      tar zxf openmpi-3.1.2.tar.gz
+# Config src before compiling
+cd ../src
+./configure --shared
 
-      # 配置检查与编译安装
-      cd openmpi-3.1.2
+# Check depend and compile
+make depend -j 4
+make -j 4
+cd ..
+```
 
-      ./configure --prefix=/usr/local
+### 2\. Create Project  
+Create your project with **4-level name** relative to Kaldi root directory (1-level), such as **kaldi/egs/xmuspeech/sre**. It is important to environment. For more details, see [subtools/path.sh](https://github.com/Snowdar/asv-subtools/path.sh).
 
-      make -j 4
+```
+# Suppose current directory is kaldi root directory
+mkdir -p kaldi/egs/xmuspeech/sre
+```
 
-      make install
+### 3\. Clone ASV-Subtools  
+ASV-Subtools could be saw as a set of tools like utils/steps of Kaldi, so there are only two extra stages to complete the installation:
++ Clone ASV-Subtools to your project.
++ Install the requirements of python (**Python3 is recommended**).
 
-    + Horovod安装
+```
+# Clone asv-subtools from github
+cd kaldi/egs/xmuspeech/sre
+git clone https://github.com/Snowdar/asv-subtools/.git
+```
 
-      # GCC版本问题 < 方案 = 临时使用高版本GCC-6.3：https://www.vpser.net/manage/centos-6-upgrade-gcc.html>
-          # 更新yum源并安装GCC-6.3
-          yum -y install centos-release-scl
-          yum -y install devtoolset-6-gcc devtoolset-6-gcc-c++ devtoolset-6-binutils
-          
-          # 临时启用GCC-6.3（仅当前终端生效）
-          scl enable devtoolset-6 bash 或 source /opt/rh/devtoolset-6/enable
+### 4\. Install Python Requirements  
++ Pytorch>=1.2: ```pip3 install torch```
++ Other requirements: numpy, thop, pandas, progressbar2, matplotlib, scipy (option), sklearn (option)
+  ```pip3 install -r subtools/requirements.txt```
 
-     # 若上述方法安装后 import horovod.torch时，出现 "/lib64/libstdc++.so.6: version `GLIBCXX_3.4.20' not found" 问题 < 方案 = 编译安装: https://blog.csdn.net/Yanci_/article/details/80016097>
-          # 下载源码包
-          wget http://mirrors.concertpass.com/gcc/releases/gcc-6.3.0/gcc-6.3.0.tar.gz
-          tar xzf gcc-6.3.0.tar.gz
-          cd gcc-6.3.0
-          ./contrib/download_prerequisites
-          mkdir gcc-build-6.3.0
-          cd gcc-build-6.3.0
-          ../configure --enable-checking=release --enable-languages=c,c++ --disable-multilib
-          make -j 4
-          make install
+### 5\. Support Multi-GPU Training  
+ASV-Subtools provides both **DDP (recommended)** and Horovod solutions to support multi-GPU training.
 
-          在 /root/.bashrc 中添加环境变量 export LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
+**Some answers about how to use multi-GPU taining, see [subtools/pytorch/launcher/runSnowdarXvector.py](https://github.com/Snowdar/asv-subtools/tree/master/pytorch/launcher/runSnowdarXvector.py). It is very convenient and easy now.**
 
-      # 安装GPU支持版本（基于NCCL依赖）
-      HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL pip3 install horovod
+Requirements List:  
++ DDP: Pytorch, NCCL  
++ Horovod: Pytorch, NCCL, Openmpi, Horovod  
 
-      # 环境变量
-      在 /etc/profile 或 /root/.bashrc 中添加
+#### An Example of Install NCCL Based on Linux-Centos-7 and CUDA-10.2  
+Reference: https://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html.  
+```
+# For a simple way, there are only three stages.
+# [1] Download rpm package of nvidia
+wget https://developer.download.nvidia.com/compute/machine-learning/repos/rhel7/x86_64/nvidia-machine-learning-repo-rhel7-1.0.0-1.x86_64.rpm
 
-        export PATH=$PATH:/usr/local/python3/bin/
+# [2] Add nvidia repo to yum (NOKEY could be ignored)
+sudo rpm -i nvidia-machine-learning-repo-rhel7-1.0.0-1.x86_64.rpm
 
-## 问题反馈
-本项目定位为开源项目，若有相关问题请联系作者Snowdar [snowdar@stu.xmu.edu.cn]  
-欢迎报告存在的缺陷和bug，并协助进行相关的修复工作  
-欢迎提供新的idea并贡献代码
+# [3] Install NCCL by yum
+sudo yum install libnccl-2.6.4-1+cuda10.2 libnccl-devel-2.6.4-1+cuda10.2 libnccl-static-2.6.4-1+cuda10.2
+```
+
+These yum-clean commands could be very useful when you get some troubles when using yum.
+
+```
+# Install yum-utils firstly
+yum -y install yum-utils
+
+#
+yum clean all
+
+#
+yum-complete-transaction --cleanup-only
+
+#
+package-cleanup --cleandupes
+```
+
+If you want to install Openmpi and Horovod, see https://github.com/horovod/horovod for more details.
+
+### 6\. Extra Installation (Option)
+
+## Recipe
+### Voxceleb Recipe [Speaker Recognition]
+There are two recipes of Voxceleb:
+
+(1) see subtools/recipe/voxceleb/runVoxceleb.sh.
+
+(2) see subtools/recipe/voxcelebSRC/runVoxceleb.sh
+
+
+### AP-OLR 2020 Baseline Recipe [Language Identification]
+see http://cslt.riit.tsinghua.edu.cn/mediawiki/index.php/ASR-events-AP16-details.
+
+Kaldi baseline:
+
+Pytorch baseline:
+
+## Feedback
++ If you find bugs or have some questions, please create an issue in issues of github to let everyone know it so that a good solution could be provided.
++ If you have any questions to ask me, you could also send e-mail to snowdar@stu.xmu.edu.cn and I will reply this in my free time.
+
+## Acknowledgement
++ Thanks to Kaldi, Pytorch, kaldi_io
++ Thanks to everyone that contribute their time and ideas to ASV-Subtools.
++ Thanks to myself also (\^_^).

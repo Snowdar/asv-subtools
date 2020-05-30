@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright xmuspeech (Author:2018-09-14)
+# Copyright xmuspeech (Author:Snowdar 2018-09-14)
 
 # To avoid adding some spkear-id with sp prefix in lre or sre task,you can use this script to correct your datadir
 extra_files= # you can add some you want to fix but needs utt-id in 1th field
