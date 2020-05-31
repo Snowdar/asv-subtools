@@ -23,8 +23,8 @@
       - [Accelerate X-vector Extractor of Kaldi](#accelerate-x-vector-extractor-of-kaldi)
       - [Add A MMI-GMM Classifier for The Back-End](#add-a-mmi-gmm-classifier-in-the-back-end)
   * [Recipe](#recipe)
-    + [Voxceleb Recipe [Speaker Recognition]](#voxceleb-recipe-speaker-recognition)
-    + [AP-OLR 2020 Baseline Recipe [Language Identification]](#ap-olr-2020-baseline-recipe-language-identification)
+    + [[1] Voxceleb Recipe [Speaker Recognition]](#1-voxceleb-recipe-speaker-recognition)
+    + [[2] AP-OLR 2020 Baseline Recipe [Language Identification]](#2-ap-olr-2020-baseline-recipe-language-identification)
   * [Feedback](#feedback)
   * [Acknowledgement](#acknowledgement)
 
@@ -123,15 +123,15 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] LDA, Submean, Whiten (ZCA), Vector Length Normalization
   + [x] Cosine Similarity
   + [x] Basic Classifiers: SVM, GMM, Logistic Regression (LR)
-  + [x] PLDA Classifiers: [PLDA](https://ravisoji.com/assets/papers/ioffe2006probabilistic.pdf), APLDA, [CORAL](https://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/download/12443/11842), [CORAL+](https://arxiv.org/pdf/1812.10260), [LIP](http://150.162.46.34:8080/icassp2014/papers/p4075-garcia-romero.pdf), [CIP](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9054113) [[Python versions](./score/pyplda) was contributed by Jianfeng Zhou. For more details, see the [note](./score/pyplda/Domain-Adaptation-of-PLDA-in-Speaker-Recognition.pdf).]
+  + [x] PLDA Classifiers: [PLDA](https://ravisoji.com/assets/papers/ioffe2006probabilistic.pdf), APLDA, [CORAL](https://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/download/12443/11842), [CORAL+](https://arxiv.org/pdf/1812.10260), [LIP](http://150.162.46.34:8080/icassp2014/papers/p4075-garcia-romero.pdf), [CIP](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9054113) [[Python versions](./score/pyplda) was contributed by Jianfeng Zhou. For more details, see the <a href="./score/pyplda/Domain-Adaptation-of-PLDA-in-Speaker-Recognition.pdf" target="_blank">note</a>.]
   + [x] Score Normalization: [S-Norm](http://www.crim.ca/perso/patrick.kenny/kenny_Odyssey2010_presentation.pdf), [AS-Norm](https://www.researchgate.net/profile/Daniele_Colibro/publication/221480280_Comparison_of_Speaker_Recognition_Approaches_for_Real_Applications/links/545e4f6e0cf295b561602c42/Comparison-of-Speaker-Recognition-Approaches-for-Real-Applications.pdf)
   + [ ] Calibration
   + [x] Metric: EER, Cavg, minDCF
 
 - Others
   + [x] [Learning Rate Finder](https://sgugger.github.io/how-do-you-find-a-good-learning-rate.html)
-  + [ ] Plot DET Curve by ```matplotlib``` w.r.t the Format of DETware (Matlab Version) of [NIST's Tools](https://www.nist.gov/itl/iad/mig/tools)
-  + [ ] Accumulate Total MACs and Flops of Model by ```thop```
+  + [ ] Plot DET Curve withs ```matplotlib``` w.r.t the Format of DETware (Matlab Version) of [NIST's Tools](https://www.nist.gov/itl/iad/mig/tools)
+  + [ ] Accumulate Total MACs and Flops of Model Based on ```thop```
 
 ## Ready to Start  
 ### 1. Install Kaldi  
@@ -276,12 +276,12 @@ sh subtools/kaldi/patch/runPatch-base-command.sh
 ```
 
 ## Recipe
-### Voxceleb Recipe [Speaker Recognition]
+### [1] Voxceleb Recipe [Speaker Recognition]
 [Voxceleb](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/index.html#about) is a popular dataset in speaker recognition field. It has two part now, [Voxceleb1](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html) and [Voxceleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html).
 
 There are **two recipes for Voxceleb**:
 
-**[1] Test Voxceleb1-O only**
+**i. Test Voxceleb1-O only**
 
 It means trainset could come from Voxceleb1.dev and Voxceleb2 with a fixed training condition. The training script is available in [subtools/recipe/voxceleb/runVoxceleb.sh](./recipe/voxceleb/runVoxceleb.sh).
 
@@ -300,13 +300,13 @@ Index|Features|Model|InSpecAug|AM-Softmax (m=0.2)|Back-End|EER%
 
 ***... information updating ...***
 
-**[2] Test Voxceleb1-O/E/H**
+**ii. Test Voxceleb1-O/E/H**
 
 It means trainset could come from Voxceleb2 only with a fixed training condition. The training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh).
 
 ***... information updating ...***
 
-### AP-OLR 2020 Baseline Recipe [Language Identification]
+### [2] AP-OLR 2020 Baseline Recipe [Language Identification]
 
 ***... information updating ...***
 
