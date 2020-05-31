@@ -80,7 +80,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 
 - Front-end
-  + [x] [Convenient Augmentation of Reverb, Noise, Music and Babble](https://github.com/Snowdar/asv-subtools/augmentDataByNoise.sh)
+  + [x] [Convenient Augmentation of Reverb, Noise, Music and Babble](./augmentDataByNoise.sh)
   + [x] Inverted [Specaugment](https://arxiv.org/pdf/1904.08779.pdf)
 
 - Model
@@ -123,7 +123,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] LDA, Submean, Whiten (ZCA), Vector Length Normalization
   + [x] Cosine Similarity
   + [x] Basic Classifiers: SVM, GMM, Logistic Regression (LR)
-  + [x] PLDA Classifiers: [PLDA](https://ravisoji.com/assets/papers/ioffe2006probabilistic.pdf), APLDA, [CORAL](https://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/download/12443/11842), [CORAL+](https://arxiv.org/pdf/1812.10260), [LIP](http://150.162.46.34:8080/icassp2014/papers/p4075-garcia-romero.pdf), [CIP](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9054113) [[Python versions](./score/pyplda) was contributed by Jianfeng Zhou. For more details, see the <a href="./score/pyplda/Domain-Adaptation-of-PLDA-in-Speaker-Recognition.pdf" target="_blank">note</a>.]
+  + [x] PLDA Classifiers: [PLDA](https://ravisoji.com/assets/papers/ioffe2006probabilistic.pdf), APLDA, [CORAL](https://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/download/12443/11842), [CORAL+](https://arxiv.org/pdf/1812.10260), [LIP](http://150.162.46.34:8080/icassp2014/papers/p4075-garcia-romero.pdf), [CIP](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9054113) [[Python versions](./score/pyplda) was contributed by Jianfeng Zhou. For more details, see the [note](./score/pyplda/Domain-Adaptation-of-PLDA-in-Speaker-Recognition.pdf).]
   + [x] Score Normalization: [S-Norm](http://www.crim.ca/perso/patrick.kenny/kenny_Odyssey2010_presentation.pdf), [AS-Norm](https://www.researchgate.net/profile/Daniele_Colibro/publication/221480280_Comparison_of_Speaker_Recognition_Approaches_for_Real_Applications/links/545e4f6e0cf295b561602c42/Comparison-of-Speaker-Recognition-Approaches-for-Real-Applications.pdf)
   + [ ] Calibration
   + [x] Metric: EER, Cavg, minDCF
