@@ -5,6 +5,7 @@
 > Author   : Miao Zhao (Snowdar), Jianfeng Zhou, Zheng Li, Hao Lu  
 > Co-author: Lin Li, Qingyang Hong
 
+---
 - **Content**
   * [Introduction](#introduction)
     + [Project Structure](#project-structure)
@@ -28,6 +29,7 @@
   * [Acknowledgement](#acknowledgement)
 
 <!--Table of contents generated with markdown-toc, see http://ecotrust-canada.github.io/markdown-toc-->
+---
 
 ## Introduction  
 ASV-Subtools is developed based on [Pytorch](https://pytorch.org/) and [Kaldi](http://www.kaldi-asr.org/) for speaker recognition and language identification etc..  
@@ -280,6 +282,7 @@ sh subtools/kaldi/patch/runPatch-base-command.sh
 There are **two recipes for Voxceleb**:
 
 **[1] Test Voxceleb1-O only**
+
 It means trainset could come from Voxceleb1.dev and Voxceleb2 with a fixed training condition. The training script is available in [subtools/recipe/voxceleb/runVoxceleb.sh](./recipe/voxceleb/runVoxceleb.sh).
 
 **Results of Voxceleb1-O with Voxceleb1.dev Training only**
@@ -298,6 +301,7 @@ Index|Features|Model|InSpecAug|AM-Softmax (m=0.2)|Back-End|EER%
 ***... information updating ...***
 
 **[2] Test Voxceleb1-O/E/H**
+
 It means trainset could come from Voxceleb2 only with a fixed training condition. The training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh).
 
 ***... information updating ...***
