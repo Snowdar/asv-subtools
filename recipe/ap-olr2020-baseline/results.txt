@@ -1,0 +1,31 @@
+Obtained by Snowdar, Zheng Li at XMUSPEECH in May 2020.
+
+AP20-OLR challenge sets three tasks that will be evaluated and ranked separately.
+
+Task 1: Cross-channel LID is a close-set identification task, which means the language of each utterance is among the known traditional 6 target languages, but
+utterances were recorded with different channels.
+
+Task 2: Dialect identification is a open-set identification task, in which three nontarget languages are added to the test set with the three target dialects.
+
+Task 3: Noisy LID, where noisy test data with the 5 target languages will be provided
+
+
+Baseline results on AP20-OLR-ref-dev (to help estimate the system performance when participants repeat the baseline systems)
+------------------------------------------------------------------------------------------------------------------
+Task[Cavg/EER%]           [Kaldi]x-vector    [Pytorch]x-vector    [Kaldi]x-vector 
+------------------------------------------------------------------------------------------------------------------
+Cross-channel LID         0.3583/36.37        0.2696/26.94          0.2965/19.40
+Dialect identification    0.0267/2.53         0.0302/3.13           0.0142/1.33
+------------------------------------------------------------------------------------------------------------------
+
+Baseline results on AP20-OLR-test (standard test set for the challenge)
+------------------------------------------------------------------------------------------------------------------
+Task[Cavg/EER%]           [Kaldi]x-vector    [Pytorch]x-vector    [Kaldi]x-vector 
+------------------------------------------------------------------------------------------------------------------
+Cross-channel LID         0.2098/22.49        0.1321/14.58          0.1542/19.40
+Dialect identification    0.2370/22.25        0.1938/19.74          0.2439/23.94
+Noisy LID                 0.1079/11.12        0.0715/7.14           0.0967/9.77
+------------------------------------------------------------------------------------------------------------------
+
+
+Please refer to https://speech.xmu.edu.cn/ or http://olr.cslt.org for more info about the OLR Challenge 2020 and on how to request the challenge data used in this recipe.

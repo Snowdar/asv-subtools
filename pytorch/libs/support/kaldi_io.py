@@ -71,6 +71,42 @@ def open_or_fd(file, mode='rb'):
     if offset != None: fd.seek(int(offset))
     return fd
 
+def open_with_prefix(file, mode='rb'):
+    """ fd = open_or_fd(file)
+     Open file, gzipped file, pipe, or forward the file-descriptor.
+     Eventually seeks in the 'file' argument contains ':offset' suffix.
+    """
+    offset = None
+    prefix = None
+    try:
+        # strip 'ark:' prefix from r{x,w}filename (optional),
+        if re.search('^(ark|scp)(,scp|,b|,t|,n?f|,n?p|,b?o|,n?s|,n?cs)*:', file):
+            (prefix,file) = file.split(':',1)
+            if prefix != "scp" and prefix != "ark":
+                raise TypeError("Specifier of {} is not scp or ark.".format(file))
+        if prefix is None:
+            raise TypeError("Specifier of {} is None, please specify this with scp or ark.".format(file))
+        # separate offset from filename (optional),
+        if re.search(':[0-9]+$', file):
+            (file,offset) = file.rsplit(':',1)
+        # input pipe?
+        if file[-1] == '|':
+            fd = popen(file[:-1], 'rb') # custom,
+        # output pipe?
+        elif file[0] == '|':
+            fd = popen(file[1:], 'wb') # custom,
+        # is it gzipped?
+        elif file.split('.')[-1] == 'gz':
+            fd = gzip.open(file, mode)
+        # a normal file...
+        else:
+            fd = open(file, mode)
+    except TypeError:
+        raise TypeError("{} is not a file.".format(file))        
+    # Eventually seek to offset,
+    if offset != None: fd.seek(int(offset))
+    return prefix, fd
+
 # based on '/usr/local/lib/python3.6/os.py'
 def popen(cmd, mode="rb"):
     if not isinstance(cmd, str):
@@ -213,6 +249,22 @@ def write_vec_int(file_or_fd, v, key=''):
 
 #################################################
 # Float vectors (confidences, ivectors, ...),
+
+def read_vec_flt_auto(file):
+    # Snowdar 2020-05-31
+    # file: scp:foo.scp or ark:foo.ark
+    prefix, fd = open_with_prefix(file)
+    try:
+        if prefix == "scp":
+            for key, vec in read_vec_flt_scp(fd):
+                yield key, vec
+        elif prefix == "ark":
+            for key, vec in read_vec_flt_ark(fd):
+                yield key, vec
+        else:
+            raise TypeError("prefix of {} is not scp or ark.".format(file))
+    finally:
+        if fd is not file : fd.close()
 
 # Reading,
 def read_vec_flt_scp(file_or_fd):

@@ -15,6 +15,8 @@ gm=GPUManager()
 torch.cuda.set_device(gm.auto_choice())
 '''
 
+# Github: https://github.com/QuantumLiu/tf_gpu_manager
+
 import os
 import logging
 

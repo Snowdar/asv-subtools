@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Reference: https://github.com/justheuristic/prefetch_generator.
+# Github: https://github.com/justheuristic/prefetch_generator.
 
 """
 #based on http://stackoverflow.com/questions/7323664/python-generator-pre-fetch
