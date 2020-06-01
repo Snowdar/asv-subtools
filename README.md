@@ -19,12 +19,13 @@
     + [4. Install Python Requirements](#4-install-python-requirements)
     + [5. Support Multi-GPU Training](#5-support-multi-gpu-training)
     + [6. Extra Installation (Option)](#6-extra-installation-option)
-      - [Train A Multi-Task Learning Model with Kaldi](#train-a-multi-task-learning-model-with-kaldi)
+      - [Train A Multi-Task Learning Model Based on Kaldi](#train-a-multi-task-learning-model-based-on-kaldi)
       - [Accelerate X-vector Extractor of Kaldi](#accelerate-x-vector-extractor-of-kaldi)
       - [Add A MMI-GMM Classifier for The Back-End](#add-a-mmi-gmm-classifier-in-the-back-end)
+  * [Training Model](#training-model)
   * [Recipe](#recipe)
     + [[1] Voxceleb Recipe [Speaker Recognition]](#1-voxceleb-recipe-speaker-recognition)
-    + [[2] AP-OLR 2020 Baseline Recipe [Language Identification]](#2-ap-olr-2020-baseline-recipe-language-identification)
+    + [[2] AP-OLR Challenge 2020 Baseline Recipe [Language Identification]](#2-ap-olr-challenge-2020-baseline-recipe-language-identification)
   * [Feedback](#feedback)
   * [Acknowledgement](#acknowledgement)
 
@@ -130,7 +131,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 - Others
   + [x] [Learning Rate Finder](https://sgugger.github.io/how-do-you-find-a-good-learning-rate.html)
-  + [ ] Plot DET Curve withs ```matplotlib``` w.r.t the Format of DETware (Matlab Version) of [NIST's Tools](https://www.nist.gov/itl/iad/mig/tools)
+  + [ ] Plot DET Curve with ```matplotlib``` w.r.t the Format of DETware (Matlab Version) of [NIST's Tools](https://www.nist.gov/itl/iad/mig/tools)
   + [ ] Accumulate Total MACs and Flops of Model Based on ```thop```
 
 ## Ready to Start  
@@ -233,7 +234,8 @@ If you want to install Openmpi and Horovod, see https://github.com/horovod/horov
 ### 6. Extra Installation (Option)
 There are some extra installations for some special applications.
 
-#### Train A Multi-Task Learning Model with Kaldi
+#### Train A Multi-Task Learning Model Based on Kaldi
+Use [subtools/kaldi/runMultiTaskXvector.sh](./kaldi/runMultiTaskXvector.sh) to train a model with multi-task learning,  but it requires some extra codes.
 ```shell
 # Enter your project, such as kaldi/egs/xmuspeech/sre and make sure ASV-Subtools is cloned here
 # Just run this patch to compile some extra C++ commands with Kaldi's format
@@ -242,7 +244,7 @@ sh subtools/kaldi/patch/runPatch-multitask.sh
 ```
 
 #### Accelerate X-vector Extractor of Kaldi
-It spends so much time to compile model for different chunk utterances when extracting x-vectors . ASV-Subtools provides a **offine** modification (MOD) in [subtools/kaldi/sid/nnet3/xvector/extract_xvectors.sh](./kaldi/sid/nnet3/xvector/extract_xvectors.sh) to accelerate extracting. This MOD requires two extra commands, **nnet3-compile-xvector-net** and **nnet3-offline-xvector-compute**. When extracting x-vectors, all model with different input chunk-size will be compiled firstly. Then the utterances which have the same frames could share a compiled nnet3 network. It saves much time by avoiding a lot of duplicate dynamic compilations.
+It spends so much time to compile models for different chunk utterances when extracting x-vectors based on Kaldi nnet3. ASV-Subtools provides a **offine** modification (MOD) in [subtools/kaldi/sid/nnet3/xvector/extract_xvectors.sh](./kaldi/sid/nnet3/xvector/extract_xvectors.sh) to accelerate extracting. This MOD requires two extra commands, **nnet3-compile-xvector-net** and **nnet3-offline-xvector-compute**. When extracting x-vectors, all model with different input chunk-size will be compiled firstly. Then the utterances which have the same frames could share a compiled nnet3 network. It saves much time by avoiding a lot of duplicate dynamic compilations.
 
 Besides, the ```scp``` spliting type w.r.t length of utterances ([subtools/splitDataByLength.sh](./splitDataByLength.sh)) is adopted to balance the frames of different ```nj``` when multi-processes is used.
 
@@ -273,6 +275,25 @@ If you have run [subtools/kaldi/patch/runPatch-base-command.sh](./kaldi/patch/ru
 
 cd kaldi/egs/xmuspeech/sre
 sh subtools/kaldi/patch/runPatch-base-command.sh
+```
+## Training Model
+If you have completed the [Ready to Start](#ready-to-start) stage, then you could try to train a model with ASV-Subtools.
+
+For kaldi trainig, some launcher scripts named ```run*.sh``` could be found in [subtoos/Kaldi/](./kaldi).
+
+For pytorch training, some launcher scripts named ```run*.py``` could be found in [subtools/pytorch/launcher/](./pytorch/launcher/). And some models named ```*.py``` could be found in [subtools/pytorch/model/](./pytorch/model).  Note that, model will be called in ```launcher.py```.
+
+Here is a pytorch training example, but you should follow a [recipe](#recipe) to prepare your data and features before training. The part of data preprocessing is not complex and it is same with Kaldi. 
+```shell
+# Suppose you have followed the recipe and prepare your data and faetures, then the training could be run by follows.
+# Enter your project, such as kaldi/egs/xmuspeech/sre and make sure ASV-Subtools is cloned here
+
+# Firsty, copy a launcher to your project
+cp subtools/pytorch/launcher/runSnowdarXvector.py ./
+
+# Modify this launcher and run
+# In most of time, there are only two files, model.py and launcher.py, will be changed.
+subtools/runLauncher.sh runSnowdarXvector.py --gpu-id=0,1,2,3 --stage=0
 ```
 
 ## Recipe
@@ -306,17 +327,28 @@ It means trainset could come from Voxceleb2 only with a fixed training condition
 
 ***... information updating ...***
 
-### [2] AP-OLR 2020 Baseline Recipe [Language Identification]
+### [2] AP-OLR Challenge 2020 Baseline Recipe [Language Identification]
 
 ***... information updating ...***
 
-see http://olr.cslt.org for more details.
+**Information**  
+AP-OLR Challenge is opened now, welcome to register. 
 
-The training script is available in [subtools/recipe/ap-olr2020-baseline/run.sh](./recipe/ap-olr2020-baseline/run.sh)
+Home Page: http://cslt.riit.tsinghua.edu.cn/mediawiki/index.php/OLR_Challenge_2020
+
+Plan:
+Important Dates:
+
+For previous challenges (2016-2019), see http://olr.cslt.org.
+
+**Baseline**  
+The baseline training script is available in [subtools/recipe/ap-olr2020-baseline/run.sh](./recipe/ap-olr2020-baseline/run.sh).
+
+
 
 ## Feedback
 + If you find bugs or have some questions, please create a  github issue in this project to let everyone know it so that a good solution could be contributed.
-+ If you want to question me, you could also send e-mail to snowdar@stu.xmu.edu.cn and I will reply this in my free time.
++ If you want to question me, you can also send an e-mail to snowdar@stu.xmu.edu.cn and I will reply this in my free time.
 
 ## Acknowledgement
 + Thanks to everyone who contribute their time, ideas and codes to ASV-Subtools.
