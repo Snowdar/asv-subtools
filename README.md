@@ -21,7 +21,7 @@
     + [6. Extra Installation (Option)](#6-extra-installation-option)
       - [Train A Multi-Task Learning Model Based on Kaldi](#train-a-multi-task-learning-model-based-on-kaldi)
       - [Accelerate X-vector Extractor of Kaldi](#accelerate-x-vector-extractor-of-kaldi)
-      - [Add A MMI-GMM Classifier for The Back-End](#add-a-mmi-gmm-classifier-in-the-back-end)
+      - [Add A MMI-GMM Classifier for The Back-End](#add-a-mmi-gmm-classifier-for-the-back-end)
   * [Training Model](#training-model)
   * [Recipe](#recipe)
     + [[1] Voxceleb Recipe [Speaker Recognition]](#1-voxceleb-recipe-speaker-recognition)
@@ -348,7 +348,7 @@ It means the trainset could only be sampled from Voxceleb2 with a fixed training
 **Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug1:4 Training (EER%)**
 
 Index|Features|Model|InSpecAug|AM-Softmax (m=0.2)|Back-End|voxceleb1-O*|voxceleb1-O|voxceleb1-E|voxceleb1-H
-:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 1|mfcc23&pitch|extended x-vector|no|no|PLDA|1.622|2.089|2.221|3.842
 2|fbank40&pitch|resnet34-2d|no|no|PLDA|1.909|3.065|2.392|3.912
 ||||||Cosine->+AS-Norm|2.158->-|2.423->2.344|2.215->2.01|4.873->3.734
