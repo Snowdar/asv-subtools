@@ -193,7 +193,7 @@ loader_params = {
 
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
-    "extend":False, "SE":False, "se_ratio":4, "training":True, "extracted_embedding":"far",
+    "extend":True, "SE":False, "se_ratio":4, "training":True, "extracted_embedding":"far",
 
     "aug_dropout":0., "hidden_dropout":0., 
     "dropout_params":{"type":"default", "start_p":0., "dim":2, "method":"uniform",
@@ -228,7 +228,7 @@ optimizer_params = {
     "beta1":0.9,
     "beta2":0.999,
     "beta3":0.999,
-    "weight_decay":3e-1,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
+    "weight_decay":1e-1,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
     "lookahead.k":5,
     "lookahead.alpha":0.,  # 0 means not using lookahead and if used, suggest to set it as 0.5.
     "gc":False # If true, use gradient centralization.
@@ -237,14 +237,14 @@ optimizer_params = {
 lr_scheduler_params = {
     "name":"warmR",
     "warmR.lr_decay_step":0, # 0 means decay after every epoch and 1 means every iter. 
-    "warmR.T_max":3,
+    "warmR.T_max":5,
     "warmR.T_mult":2,
     "warmR.factor":1.0,  # The max_lr_decay_factor.
     "warmR.eta_min":4e-8,
     "warmR.log_decay":False
 }
 
-epochs = 21 # Total epochs to train. It is important.
+epochs = 15 # Total epochs to train. It is important.
 
 report_times_every_epoch = None
 report_interval_iters = 100 # About validation computation and loss reporting. If report_times_every_epoch is not None, 
@@ -256,11 +256,11 @@ suffix = "params" # Used in saved model file.
 exist_model=""  # Use it in transfer learning.
 ##--------------------------------------------------##
 ## Main params
-traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
-egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
+traindata="data/mfcc_23_pitch/voxceleb2_train_augx5"
+egs_dir="exp/egs/mfcc_23_pitch_voxceleb2_train_augx5" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/standard_voxceleb1"
+model_dir="exp/extended_voxceleb2x5_mfcc"
 ##--------------------------------------------------##
 ##
 ######################################################### START #########################################################
@@ -353,8 +353,8 @@ if stage <= 4 <= endstage and utils.is_main_training():
     prefix = "mfcc_23_pitch" # For to_extracted_data.
 
     to_extracted_positions = ["far", "near"] # Define this w.r.t extracted_embedding param of model_blueprint.
-    to_extracted_data = ["voxceleb1_train_aug", "voxceleb1_test"] # All dataset should be in data_root/prefix.
-    to_extracted_epochs = ["21"] # It is model's name, such as 10.params or final.params (suffix is w.r.t package).
+    to_extracted_data = ["voxceleb1", "voxceleb1_train", "voxceleb2_train"] # All dataset should be in data_root/prefix.
+    to_extracted_epochs = ["15"] # It is model's name, such as 10.params or final.params (suffix is w.r.t package).
 
     nj = 10
     force = False
@@ -402,33 +402,6 @@ if stage <= 4 <= endstage and utils.is_main_training():
         if not isinstance(e, KeyboardInterrupt):
             traceback.print_exc()
         sys.exit(1)
-
-
-#### Report EER% on voxceleb1.test [ back-end = lda256 + normalization + plda ]
-##  optimizer    learn-rate    weight-decay    epoch    far  
-##  adam         0.001         3e-4 (L2)       7        3.319
-##                                             14       3.028
-##                                             21       3.017
-
-##  adamW        0.001         5e-1            7        3.303
-##                                             14       3.266
-##                                             21       3.028
-
-##  adamod       0.001         5e-1            7        3.282
-##                                             14       3.171
-##                                             21       3.049
-
-##  radam        0.001         5e-1            7        3.218
-##                                             14       3.059
-##                                             21       3.038
-
-##  ralamb       0.001         5e-1            7        3.229
-##                                             14       3.155
-##                                             21       3.028
-
-##  adamW        0.003         5e-1            7        3.181
-##  + lookahead                                14       3.054
-##  k=5,alpha=0.5                              21       3.049
 
 
 

@@ -3,6 +3,8 @@
 # Copyright xmuspeech (Author: Snowdar 2020-02-12)
 # Apache 2.0
 
+# Just set model_params.extend=True for extended x-vector
+
 import sys, os
 import logging
 import argparse
@@ -193,7 +195,7 @@ loader_params = {
 
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
-    "extend":False, "SE":False, "se_ratio":4, "training":True, "extracted_embedding":"far",
+    "extend":True, "SE":False, "se_ratio":4, "training":True, "extracted_embedding":"far",
 
     "aug_dropout":0., "hidden_dropout":0., 
     "dropout_params":{"type":"default", "start_p":0., "dim":2, "method":"uniform",
@@ -228,7 +230,7 @@ optimizer_params = {
     "beta1":0.9,
     "beta2":0.999,
     "beta3":0.999,
-    "weight_decay":3e-1,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
+    "weight_decay":1e-1,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
     "lookahead.k":5,
     "lookahead.alpha":0.,  # 0 means not using lookahead and if used, suggest to set it as 0.5.
     "gc":False # If true, use gradient centralization.
@@ -260,7 +262,7 @@ traindata="data/mfcc_23_pitch/voxceleb1o2_train_aug"
 egs_dir="exp/egs/mfcc_23_pitch_voxceleb1o2_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/standard_voxceleb1o2"
+model_dir="exp/extended_voxceleb1o2"
 ##--------------------------------------------------##
 ##
 ######################################################### START #########################################################

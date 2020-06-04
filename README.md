@@ -33,15 +33,15 @@
 ---
 
 ## Introduction  
-ASV-Subtools is developed based on [Pytorch](https://pytorch.org/) and [Kaldi](http://www.kaldi-asr.org/) for speaker recognition and language identification etc..  
+ASV-Subtools is developed based on [Pytorch](https://pytorch.org/) and [Kaldi](http://www.kaldi-asr.org/) for the task of speaker recognition, language identification, etc.. The 'sub' of 'subtools' means that there are many modular tools and the parts constitute the whole. 
 
-On the one hand, [Kaldi](http://www.kaldi-asr.org/) is used to extract acoustic features and scoring in the back-end. On the other hand, [Pytorch](https://pytorch.org/) is used to build a model freely and train it with a custom style.
+In ASV-Subtools, [Kaldi](http://www.kaldi-asr.org/) is used to extract acoustic features and scoring in the back-end. And [Pytorch](https://pytorch.org/) is used to build a model freely and train it with a custom style.
 
 
 ### Project Structure  
 ASV-Subtools contains **three main branches**:
 + Basic Shell Scripts: data processing, back-end scoring (most are based on Kaldi)
-+ Kaldi: training of basic model (i-vector, TDNN, F-TDNN and multi-task x-vector)
++ Kaldi: training of basic model (i-vector, TDNN, F-TDNN and multi-task learning x-vector)
 + Pytorch: training of custom model (less limitation)
 
 </br>
@@ -52,12 +52,12 @@ For pytorch branch, there are **two important concepts**:
 + **Model Blueprint**: the path of ```your_model.py```
 + **Model Creation** : the code to init a model class, such as ```resnet(40, 1211, loss="AM")```
 
-In ASV-Subtools, the model is individual. This means that we should know the the path of ```model.py``` and how to init this model class at least when using this model in training or testing module. This structure is designed to avoid modifying codes of other module frequently. For example, if the embedding extractor is wrote down as a called program and we use a fixed method ```from my_model_py import my_model``` to import this model, then it will be in trouble for ```model_2.py``` and ```model_3.py``` etc..
+In ASV-Subtools, the model is individual. This means that we should know the the path of ```model.py``` and how to init this model class at least when using this model in training or testing module. This structure is designed to avoid modifying codes of static modules frequently. For example, if the embedding extractor is wrote down as a called program and we use a inline method ```from my_model_py import my_model``` to import a fixed model from a fixed ```model.py``` , then it will be not free for ```model_2.py```, ```model_3.py``` and so on.
 
-**Note that**, all model ([torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module)) shoud inherit [libs.nnet.framework.TopVirtualNnet](./pytorch/libs/nnet/framework.py) class to get some default functions, such as **auto-saving model creation and blueprint**, extracting emdedding of whole utterance, step-training and computing accuracy etc.. By inheriting, it is very convenient to transform your pytorch model to ASV-Subtools model.
+**Note that**, all model ([torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module)) shoud inherit [libs.nnet.framework.TopVirtualNnet](./pytorch/libs/nnet/framework.py) class to get some default functions, such as **auto-saving model creation and blueprint**, extracting emdedding of whole utterance, step-training, computing accuracy, etc.. It is easy to transform the original model of Pytorch to ASV-Subtools model by inheriting. Just modify your ```model.py``` w.r.t this [x-vector example](./pytorch/model/xvector.py).
 
 ### Training Framework  
-The basic training framework is provided here and the relation between every module is very clear. So it will be not complex if you want to change anything you want to have a custom ASV-Subtools.  
+The basic training framework is provided here and the relations between every module are very clear. So it will be not complex if you want to change anything you want to have a custom ASV-Subtools.  
 
 **Note that**, [libs/support/utils.py](./pytorch/libs/support/utils.py) has many common functions, so it is imported in most of ```*.py```.
 
@@ -136,7 +136,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 ## Ready to Start  
 ### 1. Install Kaldi  
-The Pytorch-training has less relation to Kaldi, but we have not provided other interfaces to concatenate acoustic features and training now. So if you don't want to use Kaldi, it is easy to change the [libs.egs.egs.ChunkEgs](./pytorch/libs/egs/egs.py) class where the features are given to Pytorch only by [torch.utils.data.Dataset](https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset). Of course, you should also change the interface of extracting x-vector after training done. And most of scripts which requires Kaldi could be not available, such as subtools/makeFeatures.sh and subtools/augmentDataByNoise.sh etc..
+The Pytorch-training has less relation to Kaldi, but we have not provided other interfaces to concatenate acoustic features and training now. So if you don't want to use Kaldi, you could change the [libs.egs.egs.ChunkEgs](./pytorch/libs/egs/egs.py) class where the features are given to Pytorch only by [torch.utils.data.Dataset](https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset). Besides, you should also change the interface of extracting x-vector after training done. Note that, most of scripts which require Kaldi could be not available in this case, such as subtools/makeFeatures.sh and subtools/augmentDataByNoise.sh.
 
 **If you prefer to use Kaldi, then install Kaldi firstly w.r.t http://www.kaldi-asr.org/doc/install.html.**
 
@@ -147,7 +147,7 @@ Here are conclusive stages:
 git clone https://github.com/kaldi-asr/kaldi.git kaldi --origin upstream
 cd kaldi
 
-# You could check the INSTALL file of current directory to install for more details
+# You could check the INSTALL file of current directory for more details of installation
 cat INSTALL
 
 # Compile tools firstly
@@ -166,7 +166,7 @@ cd ..
 ```
 
 ### 2. Create Project  
-Create your project with **4-level name** relative to Kaldi root directory (1-level), such as **kaldi/egs/xmuspeech/sre**. It is important to environment. For more details, see [subtools/path.sh](./path.sh).
+Create your project with **4-level name** relative to Kaldi root directory (1-level), such as **kaldi/egs/xmuspeech/sre**. It is important for the project environment. For more details, see [subtools/path.sh](./path.sh).
 
 ```shell
 # Suppose current directory is kaldi root directory
@@ -174,9 +174,11 @@ mkdir -p kaldi/egs/xmuspeech/sre
 ```
 
 ### 3. Clone ASV-Subtools  
-ASV-Subtools could be saw as a set of tools like utils/steps of Kaldi, so there are only two extra stages to complete the installation:
+ASV-Subtools could be seen as a set of tools like 'utils' or 'steps' of Kaldi, so there are only two extra stages to complete the final installation:
 + Clone ASV-Subtools to your project.
 + Install the requirements of python (**Python3 is recommended**).
+
+Here is the method cloning ASV-Subtools from Github:
 
 ```shell
 # Clone asv-subtools from github
@@ -190,7 +192,7 @@ git clone https://github.com/Snowdar/asv-subtools/.git
   ```pip3 install -r requirements.txt```
 
 ### 5. Support Multi-GPU Training  
-ASV-Subtools provides both **DDP (recommended)** and Horovod solutions to support multi-GPU training.
+ASV-Subtools provide both **DDP (recommended)** and Horovod solutions to support multi-GPU training.
 
 **Some answers about how to use multi-GPU taining, see [subtools/pytorch/launcher/runSnowdarXvector.py](./pytorch/launcher/runSnowdarXvector.py). It is very convenient and easy now.**
 
@@ -244,7 +246,7 @@ sh subtools/kaldi/patch/runPatch-multitask.sh
 ```
 
 #### Accelerate X-vector Extractor of Kaldi
-It spends so much time to compile models for different chunk utterances when extracting x-vectors based on Kaldi nnet3. ASV-Subtools provides a **offine** modification (MOD) in [subtools/kaldi/sid/nnet3/xvector/extract_xvectors.sh](./kaldi/sid/nnet3/xvector/extract_xvectors.sh) to accelerate extracting. This MOD requires two extra commands, **nnet3-compile-xvector-net** and **nnet3-offline-xvector-compute**. When extracting x-vectors, all model with different input chunk-size will be compiled firstly. Then the utterances which have the same frames could share a compiled nnet3 network. It saves much time by avoiding a lot of duplicate dynamic compilations.
+It spends so much time to compile models for the utterances with different frames when extracting x-vectors based on Kaldi nnet3. ASV-Subtools provide an **offine** modification (MOD) in [subtools/kaldi/sid/nnet3/xvector/extract_xvectors.sh](./kaldi/sid/nnet3/xvector/extract_xvectors.sh) to accelerate extracting. This MOD requires two extra commands, **nnet3-compile-xvector-net** and **nnet3-offline-xvector-compute**. When extracting x-vectors, all model with different input chunk-size will be compiled firstly. Then the utterances which have the same frames could share a compiled nnet3 network. It saves much time by avoiding a lot of duplicate dynamic compilations.
 
 Besides, the ```scp``` spliting type w.r.t length of utterances ([subtools/splitDataByLength.sh](./splitDataByLength.sh)) is adopted to balance the frames of different ```nj``` when multi-processes is used.
 
@@ -298,15 +300,15 @@ subtools/runLauncher.sh runSnowdarXvector.py --gpu-id=0,1,2,3 --stage=0
 
 ## Recipe
 ### [1] Voxceleb Recipe [Speaker Recognition]
-[Voxceleb](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/index.html#about) is a popular dataset in speaker recognition field. It has two part now, [Voxceleb1](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html) and [Voxceleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html).
+[Voxceleb](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/index.html#about) is a popular dataset for the task of speaker recognition. It has two part now, [Voxceleb1](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html) and [Voxceleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html).
 
 There are **two recipes for Voxceleb**:
 
 **i. Test Voxceleb1-O only**
 
-It means trainset could come from Voxceleb1.dev and Voxceleb2 with a fixed training condition. The training script is available in [subtools/recipe/voxceleb/runVoxceleb.sh](./recipe/voxceleb/runVoxceleb.sh).
+It means the trainset could be sampled from both Voxceleb1.dev and Voxceleb2 with a fixed training condition. The training script is available in [subtools/recipe/voxceleb/runVoxceleb.sh](./recipe/voxceleb/runVoxceleb.sh).
 
-**Results of Voxceleb1-O with Voxceleb1.dev Training only**
+**Results of Voxceleb1-O with Voxceleb1.dev.aug1:1 Training only**
 
 Index|Features|Model|InSpecAug|AM-Softmax (m=0.2)|Back-End|EER%
 :-:|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -319,38 +321,80 @@ Index|Features|Model|InSpecAug|AM-Softmax (m=0.2)|Back-End|EER%
 7|mfcc23&pitch|extended x-vector|no|yes|PLDA|3.293
 8|mfcc23&pitch|extended x-vector|yes|yes|PLDA|2.444
 
+**Results of Voxceleb1-O with Voxceleb1&2.dev.aug1:1 Training**
+Index|Features|Model|InSpecAug|AM-Softmax (m=0.2)|Back-End|EER%
+:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+9|mfcc23&pitch|x-vector|no|no|PLDA|2.020
+10|mfcc23&pitch|x-vector|yes|no|PLDA|1.967
+11|mfcc23&pitch|x-vector|no|yes|PLDA|2.375
+12|mfcc23&pitch|x-vector|yes|yes|PLDA|2.349
+13|mfcc23&pitch|extended x-vector|no|no|PLDA|1.972
+14|mfcc23&pitch|extended x-vector|yes|no|PLDA|2.169
+15|mfcc23&pitch|extended x-vector|no|yes|PLDA|1.771
+||||||Cosine->+AS-Norm|2.163->2.025
+16|mfcc23&pitch|extended x-vector|yes|yes|PLDA|1.888
+||||||Cosine->+AS-Norm|1.967->1.729
+
+Note, 2000 utterances were selected from no-aug-trainset as the cohort set of AS-Norm, the same below.
+
 ***... information updating ...***
+
+---
 
 **ii. Test Voxceleb1-O/E/H**
 
-It means trainset could come from Voxceleb2 only with a fixed training condition. The training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh).
+It means the trainset could only be sampled from Voxceleb2 with a fixed training condition. The training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh).
+
+**Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug1:4 Training (EER%)**
+Index|Features|Model|InSpecAug|AM-Softmax (m=0.2)|Back-End|voxceleb1-O*|voxceleb1-O|voxceleb1-E|voxceleb1-H
+:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+1|mfcc23&pitch|extended x-vector|no|no|PLDA|1.622|2.089|2.221|3.842
+2|fbank40&pitch|resnet34-2d|no|no|PLDA|1.909|3.065|2.392|3.912
+||||||Cosine->+AS-Norm|2.158->-|2.423->2.344|2.215->2.01|4.873->3.734
+3|fbank40&pitch|resnet34-2d|no|yes|PLDA|1.622|1.893|1.962|3.546
+||||||Cosine->+AS-Norm|1.612->1.543|1.713->1.591|1.817->1.747|3.269->3.119
+4|fbank40&pitch|resnet34-2d|yes|yes|PLDA|1.495|1.813|1.920|3.465
+||||||Cosine->+AS-Norm|1.601->1.559|1.676->1.601|1.817->1.742|3.233->3.097
+5|fbank80|resnet34-2d|no|yes|PLDA|1.511|1.808|1.847|3.251
+||||||Cosine->+AS-Norm|1.538->-|1.628->1.538|1.767->1.705|3.111->2.985
+
+Note, Voxceleb1.dev was used as a trainset in the back-end for Voxceleb1-O* and Voxceleb2.dev for others. 
+
+
+ > **These basic models performs good but the results are not the state-of-the-art yet**. I found that training strategies could have an important influence to the final performance, such as the number of epoch, the value of weight decay, the selection of optimizer, and so on. Unfortunately, I have not enough time and GPU to fine-tune so many models, especially training model with big dataset like Voxceleb2 whose duration is more than 2300h (In this case, it will spend 1~2 days if to train one fbank80-based Resnet2d model for 6 epochs with 4 V100 GPUs).
+ >
+ > ------Snowdar---2020-06-02------
 
 ***... information updating ...***
+
+---
 
 ### [2] AP-OLR Challenge 2020 Baseline Recipe [Language Identification]
 
 ***... information updating ...***
 
-**Information**  
+**Information**
+
 AP-OLR Challenge is opened now, welcome to register. 
 
-Home Page: http://cslt.riit.tsinghua.edu.cn/mediawiki/index.php/OLR_Challenge_2020
+Home Page: http://cslt.riit.tsinghua.edu.cn/mediawiki/index.php/OLR_Challenge_2020.
 
 Plan:
 Important Dates:
 
 For previous challenges (2016-2019), see http://olr.cslt.org.
 
-**Baseline**  
+**Baseline**
+
 The baseline training script is available in [subtools/recipe/ap-olr2020-baseline/run.sh](./recipe/ap-olr2020-baseline/run.sh).
 
-
+---
 
 ## Feedback
-+ If you find bugs or have some questions, please create a  github issue in this project to let everyone know it so that a good solution could be contributed.
-+ If you want to question me, you can also send an e-mail to snowdar@stu.xmu.edu.cn and I will reply this in my free time.
++ If you find bugs or have some questions, please create a github issue in this project to let everyone know it, so that a good solution could be contributed.
++ If you have questions to me, you can also send e-mail to snowdar@stu.xmu.edu.cn and I will reply in my free time.
 
 ## Acknowledgement
 + Thanks to everyone who contribute their time, ideas and codes to ASV-Subtools.
 + Thanks to [XMU Speech Lab](https://speech.xmu.edu.cn/) providing machine and GPU.
-+ Thanks to the excelent projects: [Kaldi](http://www.kaldi-asr.org/), [Pytorch](https://pytorch.org/), [Kaldi I/O](https://github.com/vesis84/kaldi-io-for-python), [Numpy](https://numpy.org/), [Pandas](https://pandas.pydata.org/), [Horovod](https://github.com/horovod/horovod), [Progressbar2](https://github.com/WoLpH/python-progressbar), [Matplotlib](https://matplotlib.org/index.html), [Prefetch Generator](https://github.com/justheuristic/prefetch_generator), [Thop](https://github.com/Lyken17/pytorch-OpCounter), [GPU Manager](https://github.com/QuantumLiu/tf_gpu_manager) etc..
++ Thanks to the excelent projects: [Kaldi](http://www.kaldi-asr.org/), [Pytorch](https://pytorch.org/), [Kaldi I/O](https://github.com/vesis84/kaldi-io-for-python), [Numpy](https://numpy.org/), [Pandas](https://pandas.pydata.org/), [Horovod](https://github.com/horovod/horovod), [Progressbar2](https://github.com/WoLpH/python-progressbar), [Matplotlib](https://matplotlib.org/index.html), [Prefetch Generator](https://github.com/justheuristic/prefetch_generator), [Thop](https://github.com/Lyken17/pytorch-OpCounter), [GPU Manager](https://github.com/QuantumLiu/tf_gpu_manager), etc.

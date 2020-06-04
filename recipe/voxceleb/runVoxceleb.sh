@@ -84,14 +84,20 @@ subtools/computeVad.sh data/mfcc_23_pitch/voxceleb1_test/ subtools/conf/vad-5.5.
 
 ### Training (preprocess -> get_egs -> training -> extract_xvectors)
 # The launcher is a python script which is the main pipeline for it is independent with the data preparing and the scoring.
-# Both two launchers just train a standard x-vector baseline system and other methods like multi-gpu training, extended xvector, 
-# AM-softmax loss etc. could be set by yourself. 
-subtools/runPytorchLauncher.sh subtools/recipe/voxceleb/runSnowdarXvector-voxceleb1.py --stage=0
-subtools/runPytorchLauncher.sh subtools/recipe/voxceleb/runSnowdarXvector-voxceleb1o2.py --stage=0
+
+subtools/runPytorchLauncher.sh runStandardXvector-voxceleb1.py --stage=0
+#subtools/runPytorchLauncher.sh runStandardXvector-voxceleb1-InSpecAug-AM.py --stage=3
+#subtools/runPytorchLauncher.sh runExtendedXvector-voxceleb1.py --stage=3
+#subtools/runPytorchLauncher.sh runExtendedXvector-voxceleb1-InSpecAug-AM.py --stage=3
+
+subtools/runPytorchLauncher.sh runStandardXvector-voxceleb1o2.py --stage=0
+#subtools/runPytorchLauncher.sh runStandardXvector-voxceleb1o2-InSpecAug-AM.py --stage=3
+#subtools/runPytorchLauncher.sh runExtendedXvector-voxceleb1o2.py --stage=3
+#subtools/runPytorchLauncher.sh runExtendedXvector-voxceleb1o2-InSpecAug-AM.py --stage=3
 
 
 ### Back-end scoring
-# Scoring with only voxceleb1_train_aug trainig.
+# Scoring the baseline with only voxceleb1_train_aug trainig.
 # standard_voxceleb1 is the model dir which is set in runSnowdarXvector-voxceleb1.py.
 # Cosine: lda128 -> norm -> cosine -> AS-norm (Near emdedding is better)
 # If use AM-softmax, replace lda with submean (--lda false --submean true) could have better performace based on cosine scoring.
@@ -101,12 +107,12 @@ subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_
 subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_voxceleb1  \
                                                        --epochs "21" --score plda --score-norm false
 
-# Scoreing with voxceleb1o2_train_aug training.
+# Scoreing the baseline with voxceleb1o2_train_aug training.
 subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_voxceleb1o2 \
                                                        --epochs "15" --score cosine --score-norm true
 subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_voxceleb1o2 \
                                                        --epochs "15" --score plda --score-norm false
 
+# Scoring for other models could be done like above.
+
 ### All Done ###
-##
-#### Report####

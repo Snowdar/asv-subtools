@@ -2,7 +2,7 @@
 
 # Copyright xmuspeech (Author: Snowdar 2020-05-03)
 
-### A record of Snowdar's experiments about voxceleb origianl task. Suggest to execute every script one by one.
+### A record of Snowdar's experiments about voxceleb1-O/E/H tasks. Suggest to execute every script one by one.
 
 ### Reference
 ##  Paper: Chung, Joon Son, Arsha Nagrani, and Andrew Zisserman. 2018. “Voxceleb2: Deep Speaker Recognition.” 
@@ -86,17 +86,17 @@ subtools/computeVad.sh data/mfcc_23_pitch/voxceleb1/ subtools/conf/vad-5.5.conf
 
 ### Training (preprocess -> get_egs -> training -> extract_xvectors)
 # The launcher is a python script which is the main pipeline for it is independent with the data preparing and the scoring.
-# Both two launchers just train a standard x-vector baseline system and other methods like multi-gpu training, extended xvector, 
+# The launcher just train an extended x-vector baseline system and other methods like multi-gpu training,
 # AM-softmax loss etc. could be set by yourself. 
-subtools/runPytorchLauncher.sh subtools/recipe/voxcelebSRC/runSnowdarXvector-voxceleb2.py --stage=0
+subtools/runPytorchLauncher.sh runExtendedXvector-voxceleb2-mfcc.py --stage=0
 
 ### Back-end scoring
 # Scoring with only voxceleb1_train_aug trainig.
 # standard_voxceleb1 is the model dir which is set in runSnowdarXvector-voxceleb1.py.
 # Cosine: lda128 -> norm -> cosine -> AS-norm (Near emdedding is better)
 # If use AM-softmax, replace lda with submean (--lda false --submean true) could have better performace based on cosine scoring.
-subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_voxceleb2  \
+subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_voxceleb2x5_mfcc  \
                                                        --epochs "15" --score cosine --score-norm true
 # PLDA: lda256 -> norm -> PLDA (Far emdedding is better and PLDA is better than Cosine here (w/o AM-softmax and just a small model))
-subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_voxceleb2  \
+subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_voxceleb2x5_mfcc  \
                                                        --epochs "15" --score plda --score-norm false

@@ -107,7 +107,7 @@ for position in $positions;do
 
         [[ "$force" == "true" || ! -f $obj_dir/$name.eer ]] && \
         subtools/scoreSets.sh  --prefix $prefix --score $score --vectordir $obj_dir --enrollset $enrollset --testset $testset \
-            --lda $lda --clda $clda --submean $submean --lda-process $lda_process --trials $trials --extra-name $extra_name \
+            --lda $lda --clda $clda --submean $submean --lda-process $lda_process --trials $trials --extra-name "$extra_name" \
             --enroll-process $test_process --test-process $test_process --plda-process $plda_process \
             --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $trainset
 
@@ -160,7 +160,7 @@ for position in $positions;do
 
             [ ! -f "$obj_dir/$enroll_cohort_name.score" ] && \
             subtools/scoreSets.sh  --prefix $prefix --eval true --score $score --vectordir $obj_dir \
-                --lda $lda --clda $clda --submean $submean --lda-process $lda_process --extra-name $extra_name \
+                --lda $lda --clda $clda --submean $submean --lda-process $lda_process --extra-name "$extra_name" \
                 --enroll-process $test_process --test-process $test_process --plda-process $plda_process \
                 --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $trainset \
                 --enrollset $enrollset --testset $cohort_set \
@@ -171,7 +171,7 @@ for position in $positions;do
 
             [ ! -f "$obj_dir/$test_cohort_name.score" ] && \
             subtools/scoreSets.sh  --prefix $prefix --eval true --score $score --vectordir $obj_dir \
-                --lda $lda --clda $clda --submean $submean --lda-process $lda_process --extra-name $extra_name \
+                --lda $lda --clda $clda --submean $submean --lda-process $lda_process --extra-name "$extra_name" \
                 --enroll-process $test_process --test-process $test_process --plda-process $plda_process \
                 --lda-data-config "$lda_data_config" --submean-data-config "$submean_data_config" --plda-trainset $trainset \
                 --enrollset $testset --testset $cohort_set \
