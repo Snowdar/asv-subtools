@@ -14,7 +14,7 @@ signal=9
 . subtools/parse_options.sh
 
 if [[ $# -lt 1 ]];then
-echo "[exit] Num of parameters is not equal to 1"
+echo "[exit] Num of parameters is not more than 1"
 echo "usage:$0 <pid-1> <pid-2> ..."
 exit 1
 fi
