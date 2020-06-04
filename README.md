@@ -346,6 +346,7 @@ Note, 2000 utterances were selected from no-aug-trainset as the cohort set of AS
 It means the trainset could only be sampled from Voxceleb2 with a fixed training condition. The training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh).
 
 **Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug1:4 Training (EER%)**
+
 Index|Features|Model|InSpecAug|AM-Softmax (m=0.2)|Back-End|voxceleb1-O*|voxceleb1-O|voxceleb1-E|voxceleb1-H
 :-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 1|mfcc23&pitch|extended x-vector|no|no|PLDA|1.622|2.089|2.221|3.842
