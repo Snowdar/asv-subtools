@@ -513,13 +513,13 @@ It means the trainset could only be sampled from Voxceleb2 with a fixed training
 
 **Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug1:4 Training (EER%)**
 
-<table>
+<table style="font-size:14px;">
 <tr style="white-space: nowrap;text-align:left;">
 <th>Index</th>
 <th>Features</th>
 <th>Model</th>
 <th>InSpecAug</th>
-<th>AM-Softmax (m=0.2)</th>
+<th>AM-Softmax</br>(m=0.2)</th>
 <th>Back-End</th>
 <th>voxceleb1-O*</th>
 <th>voxceleb1-O</th>
@@ -529,7 +529,7 @@ It means the trainset could only be sampled from Voxceleb2 with a fixed training
 <tr style="white-space: nowrap;text-align:left;">
 <td>1</td>
 <td>mfcc23&pitch</td>
-<td>extended x-vector</td>
+<td>extended</br>x-vector</td>
 <td>no</td>
 <td>no</td>
 <td>PLDA</td>

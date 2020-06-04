@@ -92,11 +92,17 @@ subtools/runPytorchLauncher.sh runExtendedXvector-voxceleb2-mfcc.py --stage=0
 
 ### Back-end scoring
 # Scoring with only voxceleb1_train_aug trainig.
-# standard_voxceleb1 is the model dir which is set in runSnowdarXvector-voxceleb1.py.
-# Cosine: lda128 -> norm -> cosine -> AS-norm (Near emdedding is better)
-# If use AM-softmax, replace lda with submean (--lda false --submean true) could have better performace based on cosine scoring.
-subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_voxceleb2x5_mfcc  \
-                                                       --epochs "15" --score cosine --score-norm true
-# PLDA: lda256 -> norm -> PLDA (Far emdedding is better and PLDA is better than Cosine here (w/o AM-softmax and just a small model))
-subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_voxceleb2x5_mfcc  \
-                                                       --epochs "15" --score plda --score-norm false
+# extended_voxceleb2x5_mfcc is the model dir which is set in runExtendedXvector-voxceleb2-mfcc.py.
+
+for task in voxceleb1_O voxceleb1_E voxceleb1_H voxceleb1_O_clean voxceleb1_E_clean voxceleb1_H_clean;do
+    # Cosine: lda128 -> norm -> cosine -> AS-norm (Near emdedding is better)
+    # If use AM-softmax, replace lda with submean (--lda false --submean true) could have better performace based on cosine scoring.
+    subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_voxceleb2x5_mfcc  \
+                                                        --epochs "15" --score cosine --enrollset ${task}_enroll --testset ${task}_test \
+                                                        --trainset voxceleb2_train --score-norm true
+
+    # PLDA: lda256 -> norm -> PLDA
+    subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_voxceleb2x5_mfcc  \
+                                                        --epochs "15" --score plda --enrollset ${task}_enroll --testset ${task}_test \
+                                                        --trainset voxceleb2_train --score-norm false
+done

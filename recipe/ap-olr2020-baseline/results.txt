@@ -12,19 +12,19 @@ Task 3: Noisy LID, where noisy test data with the 5 target languages will be pro
 
 Baseline results on AP20-OLR-ref-dev (to help estimate the system performance when participants repeat the baseline systems)
 ------------------------------------------------------------------------------------------------------------------
-Task[Cavg/EER%]           [Kaldi]x-vector    [Pytorch]x-vector    [Kaldi]x-vector 
+Task[Cavg/EER%]           [Kaldi]i-vector    [Kaldi]x-vector    [Pytorch]x-vector 
 ------------------------------------------------------------------------------------------------------------------
-Cross-channel LID         0.3583/36.37        0.2696/26.94          0.2965/19.40
-Dialect identification    0.0267/2.53         0.0302/3.13           0.0142/1.33
+Cross-channel LID         0.2965/19.40        0.3583/36.37        0.2696/26.94
+Dialect identification    0.0142/1.33         0.0267/2.53         0.0302/3.13
 ------------------------------------------------------------------------------------------------------------------
 
 Baseline results on AP20-OLR-test (standard test set for the challenge)
 ------------------------------------------------------------------------------------------------------------------
-Task[Cavg/EER%]           [Kaldi]x-vector    [Pytorch]x-vector    [Kaldi]x-vector 
+Task[Cavg/EER%]           [Kaldi]i-vector    [Kaldi]x-vector    [Pytorch]x-vector 
 ------------------------------------------------------------------------------------------------------------------
-Cross-channel LID         0.2098/22.49        0.1321/14.58          0.1542/19.40
-Dialect identification    0.2370/22.25        0.1938/19.74          0.2439/23.94
-Noisy LID                 0.1079/11.12        0.0715/7.14           0.0967/9.77
+Cross-channel LID         0.1542/19.40        0.2098/22.49        0.1321/14.58
+Dialect identification    0.2439/23.94        0.2370/22.25        0.1938/19.74
+Noisy LID                 0.0967/9.77         0.1079/11.12        0.0715/7.14
 ------------------------------------------------------------------------------------------------------------------
 
 
