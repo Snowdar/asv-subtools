@@ -4,11 +4,11 @@
 #               xmuspeech (Author:Snowdar 2018-10-01)
 
 
-# This script is to train a multitask xvector network which contains two task,speaker/language recognition 
-# and phonetic distinction.And it is not same to the script "runPhoneticXvector.sh" that it replaces training 
+# This script is used to train a multitask xvector network which contains two tasks, speaker/language recognition 
+# and phonetic distinction. And it is not same to the script "runPhoneticXvector.sh" that it replaces training 
 # xvector model after phonetic model and just considering output of a cetain hidden layer of phonetic model 
-# as a splice-vector of a certain hidden layer of xvector model ,this script train a joint network directly 
-# with some shared hidden layers between xvector network and phonetic network,which means that the network 
+# as a splice-vector of a certain hidden layer of xvector model, this script trains a joint network directly 
+# with some shared hidden layers between xvector network and phonetic network, which means that the network 
 # params will be updated in turn by randomly training in phonetic egs or speaker/language egs.
 #
 # [Reference]
@@ -154,12 +154,12 @@ fi
 #
 # the reason why don't combine the two type egs before training is that the author provide a c++ paragram 
 # "nnet3-copy-cvector-egs" which can combine multitask egs temporarily when training,but it is not must
-# because "nnet3-copy-egs" (kaldi provide) can also achive this purpose by option --outputs,which could be
-# tedious than "nnet3-copy-cvector-egs".Ok,the training c++ paragrams like nnet3-train,nnet3-compute-prob
+# because "nnet3-copy-egs" (kaldi provide) can also achive this purpose by option --outputs, which could be
+# tedious than "nnet3-copy-cvector-egs". Ok, the training c++ paragrams like nnet3-train,nnet3-compute-prob
 # are how to recognize multi-egs to update params of different branch of a shared network is very interesting,
-# which is refered to the format of egs,a string like "<NnetIo> output <I1V>",which means this egs will be 
+# which is refered to the format of egs, a string like "<NnetIo> output <I1V>", which means this egs will be 
 # used for a output-node (see parsed config ) whose name is "output" and ignore other branch.Yeh，the output-node 
-# named "output" is a main branch and others,such as "phonetic_output", will be as a secondary branch,which 
+# named "output" is a main branch and others, such as "phonetic_output", will be as a secondary branch,which 
 # refering to "nnet3-compute",but by "nnet3-[am-]copy",you can still change the master-slave relationship always 
 # when you just have a final.raw/final.mdl.
 

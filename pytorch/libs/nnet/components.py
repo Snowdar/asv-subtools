@@ -32,8 +32,7 @@ class TdnnAffine(torch.nn.Module):
         # Check to make sure the context sorted and has no duplicated values
         for index in range(0, len(context) - 1):
             if(context[index] >= context[index + 1]):
-                print("Context tuple is invalid")
-                exit()
+                raise ValueError("Context tuple {} is invalid, such as the order.".format(context))
 
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -66,7 +65,6 @@ class TdnnAffine(torch.nn.Module):
         else:
             self.register_parameter('bias', None)
 
-        
         # init weight and bias. It is important
         self.init_weight()
 
