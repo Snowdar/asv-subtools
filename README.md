@@ -82,6 +82,10 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 ### Support List
 
+- **Multi-GPU Training Solution**
+  + [x] [DistributedDataParallel (DDP)](https://pytorch.org/docs/stable/nn.html#distributeddataparallel) [Built-in function of Pytorch]
+  + [x] [Horovod](https://github.com/horovod/horovod)
+
 - **Front-end**
   + [x] [Convenient Augmentation of Reverb, Noise, Music and Babble](./augmentDataByNoise.sh)
   + [x] Inverted [Specaugment](https://arxiv.org/pdf/1904.08779.pdf)
@@ -93,27 +97,18 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [Resnet2d](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
   + [ ] [F-TDNN X-vector](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
 
-- **Components**
+- **Component**
   + [x] [Attentive Statistics Pooling](https://arxiv.org/pdf/1803.10963v1.pdf)
   + [x] [ Learnable Dictionary Encoding (LDE) Pooling](https://arxiv.org/pdf/1804.00385.pdf)
   + [x] [Sequeze and Excitation (SE)](https://arxiv.org/pdf/1709.01507.pdf) [An [example](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1704.pdf) of speaker recognition based on Resnet1d by Jianfeng Zhou.]
   + [ ] Multi-head Attention Pooling
 
-- **Loss Functions**
+- **Loss Function**
   + [x] Softmax Loss (Affine + Softmax + Cross-Entropy)
   + [x] [AM-Softmax Loss](https://arxiv.org/pdf/1801.05599.pdf)
   + [x] [AAM-Softmax Loss](https://arxiv.org/pdf/1801.07698v1.pdf)
   + [x] [Double AM-Softmax Loss](https://www.mdpi.com/2076-3417/10/1/60)
   + [x] [Ring Loss](https://arxiv.org/pdf/1803.00130.pdf)
-
-- **Training Stratagies**
-  + [x] [AdamW](https://arxiv.org/pdf/1711.05101v1.pdf) + [WarmRestarts](https://arxiv.org/pdf/1608.03983v4.pdf)
-  + [ ] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau)
-  + [x] [Training with Magin Decay Stratagy](https://arxiv.org/pdf/1904.03479.pdf)
-  + [x] [Heated Up Stratagy](https://arxiv.org/pdf/1809.04157.pdf)
-  + [x] [Multi-task Learning with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was contributed by [Yi Liu](http://yiliu.org.cn/). Thanks.]
-  + [ ] Multi-task Learning with Phonetic Information (Pytorch)
-  + [ ] Generative Adversarial Networks (GAN)
 
 - **Optimizer** [Out of Pytorch built-in functions]
   + [x] [Lookahead](https://arxiv.org/pdf/1907.08610.pdf) [A wrapper optimizer]
@@ -121,6 +116,15 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] Ralamb [RAdam + [Layer-wise Adaptive Rate Scaling](https://openreview.net/pdf?id=rJ4uaX2aW) (LARS)]
   + [x] [Novograd](https://arxiv.org/pdf/1905.11286.pdf)
   + [x] [Gradient Centralization](https://arxiv.org/pdf/2004.01461.pdf) [Extra bound to optimizer]
+
+- **Training Stratagy**
+  + [x] [AdamW](https://arxiv.org/pdf/1711.05101v1.pdf) + [WarmRestarts](https://arxiv.org/pdf/1608.03983v4.pdf)
+  + [ ] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau)
+  + [x] [Training with Magin Decay Stratagy](https://arxiv.org/pdf/1904.03479.pdf)
+  + [x] [Heated Up Stratagy](https://arxiv.org/pdf/1809.04157.pdf)
+  + [x] [Multi-task Learning with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was contributed by [Yi Liu](http://yiliu.org.cn/). Thanks.]
+  + [ ] Multi-task Learning with Phonetic Information (Pytorch)
+  + [ ] Generative Adversarial Networks (GAN)
 
 - **Back-End**
   + [x] LDA, Submean, Whiten (ZCA), Vector Length Normalization
@@ -130,10 +134,6 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] Score Normalization: [S-Norm](http://www.crim.ca/perso/patrick.kenny/kenny_Odyssey2010_presentation.pdf), [AS-Norm](https://www.researchgate.net/profile/Daniele_Colibro/publication/221480280_Comparison_of_Speaker_Recognition_Approaches_for_Real_Applications/links/545e4f6e0cf295b561602c42/Comparison-of-Speaker-Recognition-Approaches-for-Real-Applications.pdf)
   + [ ] Calibration
   + [x] Metric: EER, Cavg, minDCF
-
-- **Multi-GPU Training Solution**
-  + [x] [DistributedDataParallel (DDP)](https://pytorch.org/docs/stable/nn.html#distributeddataparallel) [Built-in function of Pytorch]
-  + [x] [Horovod](https://github.com/horovod/horovod)
 
 - **Others**
   + [x] [Learning Rate Finder](https://sgugger.github.io/how-do-you-find-a-good-learning-rate.html)
@@ -252,7 +252,7 @@ sh subtools/kaldi/patch/runPatch-multitask.sh
 ```
 
 #### Accelerate X-vector Extractor of Kaldi
-It spends so much time to compile models for the utterances with different frames when extracting x-vectors based on Kaldi nnet3. ASV-Subtools provide an **offine** modification (MOD) in [subtools/kaldi/sid/nnet3/xvector/extract_xvectors.sh](./kaldi/sid/nnet3/xvector/extract_xvectors.sh) to accelerate extracting. This MOD requires two extra commands, **nnet3-compile-xvector-net** and **nnet3-offline-xvector-compute**. When extracting x-vectors, all model with different input chunk-size will be compiled firstly. Then the utterances which have the same frames could share a compiled nnet3 network. It saves much time by avoiding a lot of duplicate dynamic compilations.
+It will spend so much time to compile nnet3 models for the utterances with different frames when extracting x-vectors based on Kaldi. To optimize this problem, ASV-Subtools provides an **offine** modification (MOD) in [subtools/kaldi/sid/nnet3/xvector/extract_xvectors.sh](./kaldi/sid/nnet3/xvector/extract_xvectors.sh) to accelerate extracting. This MOD requires two extra commands, **nnet3-compile-xvector-net** and **nnet3-offline-xvector-compute**. When extracting x-vectors, all model with different input chunk-size will be compiled firstly. Then the utterances which have the same frames could share a compiled nnet3 network. It saves much time by avoiding a lot of duplicate dynamic compilations.
 
 Besides, the ```scp``` spliting type w.r.t length of utterances ([subtools/splitDataByLength.sh](./splitDataByLength.sh)) is adopted to balance the frames of different ```nj``` when multi-processes is used.
 
@@ -292,6 +292,7 @@ For kaldi trainig, some launcher scripts named ```run*.sh``` could be found in [
 For pytorch training, some launcher scripts named ```run*.py``` could be found in [subtools/pytorch/launcher/](./pytorch/launcher/). And some models named ```*.py``` could be found in [subtools/pytorch/model/](./pytorch/model).  Note that, model will be called in ```launcher.py```.
 
 Here is a pytorch training example, but you should follow a [pipeline](./recipe/voxceleb/runVoxceleb.sh) of [recipe](#recipe) to prepare your data and features before training. The part of data preprocessing is not complex and it is same with Kaldi. 
+
 ```shell
 # Suppose you have followed the recipe and prepare your data and faetures, then the training could be run by follows.
 # Enter your project, such as kaldi/egs/xmuspeech/sre and make sure ASV-Subtools is cloned here
@@ -656,9 +657,7 @@ Note, Voxceleb1.dev is used as the trainset of back-end for the Voxceleb1-O* tas
 
  > **These basic models performs good but the results are not the state-of-the-art yet**. I found that training strategies could have an important influence to the final performance, such as the number of epoch, the value of weight decay, the selection of optimizer, and so on. Unfortunately, I have not enough time and GPU to fine-tune so many models, especially training model with a big dataset like Voxceleb2 whose duration is more than 2300h (In this case, it will spend 1~2 days if to train one fbank80-based Resnet2d model for 6 epochs with 4 V100 GPUs).
  >
- > ------Snowdar---2020-06-02------
-
-***... information updating ...***
+ > --#--Snowdar--2020-06-02--#--
 
 ---
 
@@ -666,17 +665,17 @@ Note, Voxceleb1.dev is used as the trainset of back-end for the Voxceleb1-O* tas
 
 AP-OLR Challenge 2020  is opened now, welcome to register by the [home page](http://cslt.riit.tsinghua.edu.cn/mediawiki/index.php/OLR_Challenge_2020). 
 
-The **baseline training script** is available in [subtools/recipe/ap-olr2020-baseline/run.sh](./recipe/ap-olr2020-baseline/run.sh).
+The **baseline training script** is available in [subtools/recipe/ap-olr2020-baseline/run.sh](./recipe/ap-olr2020-baseline/run.sh). And the baseline results could be seen in [subtools/recipe/ap-olr2020-baseline/results.txt](./recipe/ap-olr2020-baseline/results.txt).
 
-**Plan**: Zheng Li, Miao Zhao, Qingyang Hong, Lin Li, Zhiyuan Tang, Dong Wang, Cheng Yang and Liming Song: AP20-OLR Challenge: Three Tasks and Their Baselines, submitted to APSIPA ASC 2020.
+**Plan**: Zheng Li, Miao Zhao, Qingyang Hong, Lin Li, Zhiyuan Tang, Dong Wang, Cheng Yang and Liming Song: [AP20-OLR Challenge: Three Tasks and Their Baselines](http://arxiv.org/abs/2006.03473), submitted to APSIPA ASC 2020.
 
-**Important Dates**:
-Jun. 1, AP20-OLR training/dev data release.
-Oct. 1, register deadline.
-Oct. 20, test data release.
-Nov. 1, 24:00, Beijing time, submission deadline.
-Nov. 27, convening of seminar.
-Dec. 10, results announcement.
+**Important Dates**:  
+Jun. 1, AP20-OLR training/dev data release.  
+Oct. 1, register deadline.  
+Oct. 20, test data release.  
+Nov. 1, 24:00, Beijing time, submission deadline.  
+Nov. 27, convening of seminar.  
+Dec. 10, results announcement.  
 
 For previous challenges (2016-2019), see http://olr.cslt.org.
 
