@@ -117,7 +117,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [Novograd](https://arxiv.org/pdf/1905.11286.pdf)
   + [x] [Gradient Centralization](https://arxiv.org/pdf/2004.01461.pdf) [Extra bound to optimizer]
 
-- **Training Stratagy**
+- **Training Strategy**
   + [x] [AdamW](https://arxiv.org/pdf/1711.05101v1.pdf) + [WarmRestarts](https://arxiv.org/pdf/1608.03983v4.pdf)
   + [ ] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau)
   + [x] [Training with Magin Decay Stratagy](https://arxiv.org/pdf/1904.03479.pdf)
