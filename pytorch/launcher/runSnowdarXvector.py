@@ -214,7 +214,7 @@ model_params = {
 
     "margin_loss":False, 
     "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 
-                          "s":30, "mhe_loss":False, "mhe_w":0.01},
+                          "s":30, "mhe_loss":False, "mhe_w":0.01, "curricular":False},
     "use_step":False, 
     "step_params":{"T":None,
                    "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,

@@ -52,9 +52,6 @@ class SpecAugment():
         if self.p_f > 0. or self.p_t > 0.:
             if isinstance(inputs, np.ndarray):
                     numpy_tensor = True
-                    # To avoid "ValueError: assignment destination is read-only".
-                    # Do not use inputs.flags.writeable = True when the version of numpy >= 1.17.
-                    inputs = np.require(inputs, requirements=['O', 'W']) 
             elif isinstance(inputs, torch.Tensor):
                     numpy_tensor = False
             else:

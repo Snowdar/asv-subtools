@@ -47,7 +47,8 @@ class Xvector(TopVirtualNnet):
             "double":False,
             "mhe_loss":False, "mhe_w":0.01,
             "inter_loss":0.,
-            "ring_loss":0.
+            "ring_loss":0.,
+            "curricular":False
         }
 
         default_step_params = {
@@ -166,7 +167,7 @@ class Xvector(TopVirtualNnet):
         x = self.auto(self.ex_tdnn5, x)
         x = self.tdnn4(x)
         if self.skip_connection:
-            x += identity
+            x = x + identity
         x = self.tdnn5(x)
         x = self.stats(x)
         x = self.auto(self.tdnn6, x)
@@ -215,7 +216,7 @@ class Xvector(TopVirtualNnet):
         x = self.auto(self.ex_tdnn5, x)
         x = self.tdnn4(x)
         if self.skip_connection:
-            x += identity
+            x = x + identity
         x = self.tdnn5(x)
         x = self.stats(x)
 

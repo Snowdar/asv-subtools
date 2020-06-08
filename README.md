@@ -109,6 +109,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [AAM-Softmax Loss](https://arxiv.org/pdf/1801.07698v1.pdf)
   + [x] [Double AM-Softmax Loss](https://www.mdpi.com/2076-3417/10/1/60)
   + [x] [Ring Loss](https://arxiv.org/pdf/1803.00130.pdf)
+  + [x] [Curricular Margin Softmax Loss](https://arxiv.org/pdf/2004.00288.pdf)
 
 - **Optimizer** [Out of Pytorch built-in functions]
   + [x] [Lookahead](https://arxiv.org/pdf/1907.08610.pdf) [A wrapper optimizer]
@@ -121,7 +122,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [AdamW](https://arxiv.org/pdf/1711.05101v1.pdf) + [WarmRestarts](https://arxiv.org/pdf/1608.03983v4.pdf)
   + [ ] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau)
   + [x] [Training with Magin Decay Stratagy](https://arxiv.org/pdf/1904.03479.pdf)
-  + [x] [Heated Up Stratagy](https://arxiv.org/pdf/1809.04157.pdf)
+  + [x] [Heated Up Strategy](https://arxiv.org/pdf/1809.04157.pdf)
   + [x] [Multi-task Learning with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was contributed by [Yi Liu](http://yiliu.org.cn/). Thanks.]
   + [ ] Multi-task Learning with Phonetic Information (Pytorch)
   + [ ] Generative Adversarial Networks (GAN)

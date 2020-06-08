@@ -180,6 +180,7 @@ class SimpleTrainer(_BaseTrainer):
             # Synchronize the grad for grad_norm when using horovod.
             if utils.use_horovod(): optimizer.synchronize()
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), self.params["max_change"])
+
             if math.isnan(grad_norm):
                 raise RuntimeError('There is nan problem in iter/epoch: {0}/{1}'.format(self.training_point[1]+1, self.training_point[0]+1))
             else:

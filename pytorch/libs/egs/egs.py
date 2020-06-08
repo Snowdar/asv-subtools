@@ -65,9 +65,13 @@ class ChunkEgs(Dataset):
         else:
             target = self.data_frame[index][4:]
 
+        # Note, egs read from kaldi_io is read-only and 
+        # use egs = np.require(egs, requirements=['O', 'W']) to make it writeable.
+        # It avoids the problem "ValueError: assignment destination is read-only".
+        # Note that, do not use inputs.flags.writeable = True when the version of numpy >= 1.17.
+        egs = np.require(egs, requirements=['O', 'W'])
+
         if self.aug is not None:
-            # Note, egs from kaldi_io is read-only and 
-            # use egs = np.require(egs, requirements=['O', 'W']) to make it writeable if needed in augmentation method.
             return self.aug(egs.T), target
         else:
             return egs.T, target
@@ -106,7 +110,7 @@ class VectorEgs(Dataset):
         if not self.io_status :
             return 0., 0.
 
-        egs = kaldi_io.read_vec_flt(self.data_frame[index][1])
+        egs = np.require(kaldi_io.read_vec_flt(self.data_frame[index][1]), requirements=['O', 'W'])
 
         if self.num_target_types == 1:
             target = self.data_frame[index][2]

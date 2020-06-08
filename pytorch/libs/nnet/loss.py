@@ -145,6 +145,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
              mhe_loss=False, mhe_w=0.01,
              inter_loss=0.,
              ring_loss=0.,
+             curricular=False,
              reduction='mean', eps=1.0e-10, init=True):
 
         self.input_dim = input_dim
@@ -163,13 +164,11 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         self.ring_loss = ring_loss
         self.lambda_factor = 0
 
-        #if self.method == "sm1":
-         #   self.alpha = torch.nn.Parameter(torch.randn(num_targets, 1))
+        self.curricular = CurricularMarginComponent() if curricular else None
 
         if self.ring_loss > 0:
             self.r = torch.nn.Parameter(torch.tensor(20.))
             self.feature_normalize = False
-
 
         self.eps = eps
 
@@ -184,10 +183,10 @@ class MarginSoftmaxLoss(TopVirtualLoss):
 
         self.loss_function = torch.nn.CrossEntropyLoss(reduction=reduction)
 
-        # Init
+        # Init weight.
         if init:
              # torch.nn.init.xavier_normal_(self.weight, gain=1.0)
-            torch.nn.init.normal_(self.weight, 0., 0.01) # it seems well.
+            torch.nn.init.normal_(self.weight, 0., 0.01) # It seems better.
 
     def forward(self, inputs, targets):
         """
@@ -196,6 +195,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         assert len(inputs.shape) == 3
         assert inputs.shape[2] == 1
 
+        ## Normalize
         normalized_x = F.normalize(inputs.squeeze(dim=2), dim=1)
         normalized_weight = F.normalize(self.weight.squeeze(dim=2), dim=1)
         cosine_theta = F.linear(normalized_x, normalized_weight) # Y = W*X
@@ -212,7 +212,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
             outputs = self.s * cosine_theta
             return self.loss_function(outputs, targets)
 
-        ## Margin
+        ## Margin Penalty
         # cosine_theta [batch_size, num_class]
         # targets.unsqueeze(1) [batch_size, 1]
         cosine_theta_target = cosine_theta.gather(1, targets.unsqueeze(1))
@@ -242,16 +242,21 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         else:
             raise ValueError("Do not support this {0} margin w.r.t [ am | aam | sm1 | sm2 | sm3 ]".format(self.method))
 
+        if self.curricular is not None:
+            cosine_theta = self.curricular(cosine_theta, cosine_theta_target, penalty_cosine_theta)
+
         if self.double:
             cosine_theta = 1/(1+self.lambda_factor) * double_cosine_theta + self.lambda_factor/(1+self.lambda_factor) * cosine_theta
 
         outputs = self.s * cosine_theta.scatter(1, targets.unsqueeze(1), 
                   1/(1+self.lambda_factor) * penalty_cosine_theta + self.lambda_factor/(1+self.lambda_factor) * cosine_theta_target)
 
-        # Here reported loss will be always higher than softmax loss for the absolute margin penalty and 
-        # it is a lie about why we can not decrease the loss to a mininum value. We 
-        # should not report the loss after margin penalty but we really do that to avoid computing the 
+        ## Other extra loss
+        # Final reported loss will be always higher than softmax loss for the absolute margin penalty and 
+        # it is a lie about why we can not decrease the loss to a mininum value. We should not report the 
+        # loss after margin penalty did but we really report this invalid loss to avoid computing the 
         # training loss twice.
+
         if self.ring_loss > 0:
             ring_loss = torch.mean((self.s - self.r)**2)/2
         else:
@@ -277,8 +282,35 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         self.lambda_factor = lambda_factor
 
     def extra_repr(self):
-        return '(~affine): ~(input_dim={input_dim}, num_targets={num_targets}, method={method}, double={double}, margin={m}, s={s}, t={t}, ' \
-               'feature_normalize={feature_normalize}, mhe_loss={mhe_loss}, mhe_w={mhe_w}, eps={eps})'.format(**self.__dict__)
+        return '(~affine): ~(input_dim={input_dim}, num_targets={num_targets}, method={method}, double={double}, ' \
+               'margin={m}, s={s}, t={t}, feature_normalize={feature_normalize}, mhe_loss={mhe_loss}, mhe_w={mhe_w}, ' \
+               'eps={eps})'.format(**self.__dict__)
+
+
+class CurricularMarginComponent(torch.nn.Module):
+    """CurricularFace is implemented as a called component for MarginSoftmaxLoss.
+    Reference: Huang, Yuge, Yuhan Wang, Ying Tai, Xiaoming Liu, Pengcheng Shen, Shaoxin Li, Jilin Li, 
+               and Feiyue Huang. 2020. “CurricularFace: Adaptive Curriculum Learning Loss for Deep Face 
+               Recognition.” ArXiv E-Prints arXiv:2004.00288.
+    Github: https://github.com/HuangYG123/CurricularFace.
+    """
+    def __init__(self, momentum=0.99):
+        super(CurricularMarginComponent, self).__init__()
+        self.momentum = momentum
+        self.register_buffer('t', torch.zeros(1))
+
+    def forward(self, cosine_theta, cosine_theta_target, penalty_cosine_theta):
+        with torch.no_grad():
+            self.t = (1 - self.momentum) * cosine_theta_target.mean() + self.momentum * self.t
+
+        mask = cosine_theta > penalty_cosine_theta
+        hard_example = cosine_theta[mask]
+        # Use clone to avoid problem "RuntimeError: one of the variables needed for gradient computation 
+        # has been modified by an inplace operation"
+        cosine_theta_clone = cosine_theta.clone()
+        cosine_theta_clone[mask] = hard_example * (self.t + hard_example)
+
+        return cosine_theta_clone
 
 
 class LogisticAffinityLoss(TopVirtualLoss):
