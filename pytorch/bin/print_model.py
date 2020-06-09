@@ -36,12 +36,12 @@ model = utils.create_model_from_py(model_blueprint, model_creation)
 total_params=0
 state_dict=model.state_dict()
 for name in state_dict:
-    if args.exclude not in name:
+    if args.exclude == "" or args.exclude not in name:
         total_params += state_dict[name].numel()
 
 total_learnable_params=0
 for name, params in model.named_parameters():
-    if args.exclude not in name:
+    if args.exclude == "" or args.exclude not in name:
         total_learnable_params += params.numel()
 
 r_total_params, r_total_learnable_params = clever_format([total_params, total_learnable_params])

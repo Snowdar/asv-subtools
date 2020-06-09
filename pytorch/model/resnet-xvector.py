@@ -97,7 +97,7 @@ class ResNetXvector(TopVirtualNnet):
                 self.loss = SoftmaxLoss(resnet_params["planes"][3], num_targets)
 
             # An example to using transform-learning without initializing loss.affine parameters
-            self.transform_keys = ["resnet","stats","fc"]
+            self.transform_keys = ["resnet", "stats", "fc1", "fc2"]
 
             if margin_loss and transfer_from == "softmax_loss":
                 # For softmax_loss to am_softmax_loss

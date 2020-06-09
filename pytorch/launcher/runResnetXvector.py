@@ -25,24 +25,25 @@ import libs.support.utils as utils
 from  libs.support.logging_stdout import patch_logging_stream
 
 """A launcher script with python version (Snowdar's launcher to do experiments w.r.t resnet-xvector.py).
-Python version is given rather than Shell is to support more freedom without limitation of parameters transfer from shell to python.
+Python version is gived (rather than Shell) to have more freedom, such as decreasing limitation of parameters that transfering 
+them to python from shell.
 
-Note, this launcher does not contains dataset preparation, augmentation, extracting acoustic features and back-end scoring etc.
+Note, this launcher does not contain dataset preparation, augmentation, extracting acoustic features and back-end scoring etc.
     1.See subtools/recipe/voxceleb/runVoxceleb.sh to get complete stages.
     2.See subtools/newCopyData.sh, subtools/makeFeatures.sh.sh, subtools/computeVad.sh, subtools/augmentDataByNoise.sh and 
           subtools/scoreSets.sh and run these script separately before or after running this launcher.
 
-How to modify and use this launcher:
+How to modify this launcher:
     1.Prepare your kaldi format dataset and model.py (model blueprint);
-    2.Give the path of dataset and model blueprint etc. in main parameters field;
-    3.Change the import name of model in 'model = model_py.model_name(...)' a.w.t model.py by yourself;
+    2.Give the path of dataset, model blueprint, etc. in main parameters field;
+    3.Change the imported name of model in 'model = model_py.model_name(...)' w.r.t model.py by yourself;
     4.Modify any training parameters what you want to change (epochs, optimizer and lr_scheduler etc.);
-    5.Modify extracting parameters in stage 4 a.w.t your own training config;
+    5.Modify parameters of extracting in stage 4 w.r.t your own training config;
     6.Run this launcher.
 
 Conclusion: preprare -> config -> run.
 
-How to run this launcher to training model:
+How to run this launcher to train a model:
     1.For CPU-based training case. The key option is --use-gpu.
         python3 launcher.py --use-gpu=false
     2.For single-GPU training case (Default).

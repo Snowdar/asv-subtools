@@ -242,14 +242,16 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         else:
             raise ValueError("Do not support this {0} margin w.r.t [ am | aam | sm1 | sm2 | sm3 ]".format(self.method))
 
-        if self.curricular is not None:
-            cosine_theta = self.curricular(cosine_theta, cosine_theta_target, penalty_cosine_theta)
+        penalty_cosine_theta = 1 / (1 + self.lambda_factor) * penalty_cosine_theta + \
+                               self.lambda_factor / (1 + self.lambda_factor) * cosine_theta_target
 
         if self.double:
             cosine_theta = 1/(1+self.lambda_factor) * double_cosine_theta + self.lambda_factor/(1+self.lambda_factor) * cosine_theta
 
-        outputs = self.s * cosine_theta.scatter(1, targets.unsqueeze(1), 
-                  1/(1+self.lambda_factor) * penalty_cosine_theta + self.lambda_factor/(1+self.lambda_factor) * cosine_theta_target)
+        if self.curricular is not None:
+            cosine_theta = self.curricular(cosine_theta, cosine_theta_target, penalty_cosine_theta)
+
+        outputs = self.s * cosine_theta.scatter(1, targets.unsqueeze(1), penalty_cosine_theta)
 
         ## Other extra loss
         # Final reported loss will be always higher than softmax loss for the absolute margin penalty and 
