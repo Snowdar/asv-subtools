@@ -188,8 +188,8 @@ class TdnnfBlock(torch.nn.Module):
 
 
 class GruAffine(torch.nn.Module):
-    """xmuspeech (Author: LZ) 2020-02-05
-    A GRU affine component.
+    """A GRU affine component.
+    Author: Zheng Li xmuspeech 2020-02-05
     """
     def __init__(self, input_dim, output_dim):
         super(GruAffine, self).__init__()
@@ -452,7 +452,7 @@ class AttentionAlphaComponent(torch.nn.Module):
 
 class AttentiveStatisticsPooling(torch.nn.Module):
     """ An attentive statistics pooling layer according to []"""
-    def __init__(self, input_dim, hidden_size=64, context=[0], stddev=True, eps=1.0e-10):
+    def __init__(self, input_dim, hidden_size=64, context=[0], stddev=True, stddev_attention=False, eps=1.0e-10):
         super(AttentiveStatisticsPooling, self).__init__()
 
         self.stddev = stddev
@@ -464,7 +464,7 @@ class AttentiveStatisticsPooling(torch.nn.Module):
             self.output_dim = input_dim
 
         self.eps = eps
-
+        self.stddev_attention = stddev_attention
         self.attention = AttentionAlphaComponent(input_dim, hidden_size, context)
 
     def forward(self, inputs):
@@ -480,8 +480,12 @@ class AttentiveStatisticsPooling(torch.nn.Module):
         mean = torch.sum(alpha * inputs, dim=2, keepdim=True)
 
         if self.stddev :
-            var = torch.sum(alpha * inputs**2, dim=2, keepdim=True) - mean**2
-            std = torch.sqrt(var.clamp(min=self.eps))
+            if self.stddev_attention:
+                var = torch.sum(alpha * inputs**2, dim=2, keepdim=True) - mean**2
+                std = torch.sqrt(var.clamp(min=self.eps))
+            else:
+                var = torch.mean((inputs - mean)**2, dim=2)
+                std = torch.unsqueeze(torch.sqrt(var.clamp(min=self.eps)), dim=2)
             return torch.cat((mean, std), dim=1)
         else :
             return mean

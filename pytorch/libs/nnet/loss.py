@@ -284,7 +284,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         self.lambda_factor = lambda_factor
 
     def extra_repr(self):
-        return '(~affine): ~(input_dim={input_dim}, num_targets={num_targets}, method={method}, double={double}, ' \
+        return '(~affine): (input_dim={input_dim}, num_targets={num_targets}, method={method}, double={double}, ' \
                'margin={m}, s={s}, t={t}, feature_normalize={feature_normalize}, mhe_loss={mhe_loss}, mhe_w={mhe_w}, ' \
                'eps={eps})'.format(**self.__dict__)
 
@@ -294,9 +294,10 @@ class CurricularMarginComponent(torch.nn.Module):
     Reference: Huang, Yuge, Yuhan Wang, Ying Tai, Xiaoming Liu, Pengcheng Shen, Shaoxin Li, Jilin Li, 
                and Feiyue Huang. 2020. “CurricularFace: Adaptive Curriculum Learning Loss for Deep Face 
                Recognition.” ArXiv E-Prints arXiv:2004.00288.
-    Github: https://github.com/HuangYG123/CurricularFace.
+    Github: https://github.com/HuangYG123/CurricularFace. Note, the momentum of this github is a wrong value w.r.t
+            the above paper. The momentum 't' should not increase so fast and I have corrected it as follow.
     """
-    def __init__(self, momentum=0.99):
+    def __init__(self, momentum=0.01):
         super(CurricularMarginComponent, self).__init__()
         self.momentum = momentum
         self.register_buffer('t', torch.zeros(1))

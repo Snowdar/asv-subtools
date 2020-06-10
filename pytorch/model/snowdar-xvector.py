@@ -18,7 +18,7 @@ class Xvector(TopVirtualNnet):
              SE=False, se_ratio=4,
              tdnn_layer_params={},
              tdnn6=True, tdnn7_params={},
-             attentive_pooling=False, attentive_pooling_params={"hidden_size":64},
+             attentive_pooling=False, attentive_pooling_params={"hidden_size":64, "stddev_attention":False},
              LDE_pooling=False, LDE_pooling_params={"c_num":64, "nodes":128},
              focal_loss=False, focal_loss_params={"gamma":2},
              margin_loss=False, margin_loss_params={},

@@ -38,7 +38,7 @@ num=0
 if [ "$list" != "" ];then
 num=`echo "$list" | wc -l | awk '{print $1}'`
 else
-echo "Need to removing nothing. It means that your datadir will be recovered form bakeup if you used this script before."
+echo "Need to remove nothing. It means that your datadir will be recovered form bakeup if you used this script before."
 fi
 
 echo -e "[`echo $list`] $num utts here will be removed."

@@ -306,7 +306,12 @@ def assign_params_dict(default_params:dict, params:dict, force_check=False, supp
     for k, v in default_params.items():
         if k in params_keys:
             if isinstance(v, type(params[k])):
-                default_params[k] = params[k]
+                if isinstance(v, dict):
+                    # To parse a sub-dict.
+                    sub_params = assign_params_dict(v, params[k], force_check, support_unknow)
+                    default_params[k] = sub_params
+                else:
+                    default_params[k] = params[k]
             elif isinstance(v, float) and isinstance(params[k], int):
                 default_params[k] = params[k] * 1.0
             elif v is None or params[k] is None:

@@ -199,7 +199,7 @@ model_params = {
     "training":True, "extracted_embedding":"far",
     "resnet_params":{
             "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
-            "head_maxpool":True, "head_maxpool_params":{"kernel_size":3, "stride":2, "padding":1},
+            "head_maxpool":False, "head_maxpool_params":{"kernel_size":3, "stride":2, "padding":1},
             "block":"BasicBlock",
             "layers":[3, 4, 6, 3],
             "planes":[32, 64, 128, 256],
