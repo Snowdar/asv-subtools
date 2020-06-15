@@ -16,7 +16,7 @@ class ResNetXvector(TopVirtualNnet):
     """ A resnet x-vector framework """
     
     def init(self, inputs_dim, num_targets, aug_dropout=0., tail_dropout=0., training=True, extracted_embedding="near", 
-             resnet_params={}, fc1=False, fc1_params={}, fc2_params={}, margin_loss=False, margin_loss_params={},
+             resnet_params={}, pooling="statistics", pooling_params={}, fc1=False, fc1_params={}, fc2_params={}, margin_loss=False, margin_loss_params={},
              use_step=False, step_params={}, transfer_from="softmax_loss"):
 
         ## Params.
@@ -31,6 +31,16 @@ class ResNetXvector(TopVirtualNnet):
             "full_pre_activation":True,
             "zero_init_residual":False
             }
+
+        default_pooling_params = {
+            "num_head":1,
+            "hidden_size":64,
+            "share":True,
+            "affine_layers":1,
+            "context":[0],
+            "temperature":False, 
+            "fixed":True
+        }
         
         default_fc_params = {
             "nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
@@ -53,11 +63,11 @@ class ResNetXvector(TopVirtualNnet):
             }
 
         resnet_params = utils.assign_params_dict(default_resnet_params, resnet_params)
+        pooling_params = utils.assign_params_dict(default_pooling_params, pooling_params)
         fc1_params = utils.assign_params_dict(default_fc_params, fc1_params)
         fc2_params = utils.assign_params_dict(default_fc_params, fc2_params)
         margin_loss_params = utils.assign_params_dict(default_margin_loss_params, margin_loss_params)
         step_params = utils.assign_params_dict(default_step_params, step_params)
-
 
         ## Var.
         self.extracted_embedding = extracted_embedding # only near here.
@@ -77,7 +87,19 @@ class ResNetXvector(TopVirtualNnet):
         resnet_output_dim = (inputs_dim + self.resnet.get_downsample_multiple() - 1) // self.resnet.get_downsample_multiple() \
                             * resnet_params["planes"][3] if self.convXd == 2 else resnet_params["planes"][3]
 
-        self.stats = StatisticsPooling(resnet_output_dim, stddev=True)
+        # Pooling
+        if pooling == "lde":
+            self.stats = LDEPooling(resnet_output_dim, c_num=pooling_params["num_head"])
+        elif pooling == "attentive":
+            self.stats = AttentiveStatisticsPooling(resnet_output_dim, hidden_size=pooling_params["hidden_size"], 
+                                                    context=pooling_params["context"], stddev=True)
+        elif pooling == "multi-head":
+            self.stats = MultiHeadAttentionPooling(resnet_output_dim, **pooling_params)
+        elif pooling == "multi-resolution":
+            self.stats = MultiResolutionMultiHeadAttentionPooling(resnet_output_dim, **pooling_params)
+        else:
+            self.stats = StatisticsPooling(resnet_output_dim, stddev=True)
+
         self.fc1 = ReluBatchNormTdnnLayer(self.stats.get_output_dim(), resnet_params["planes"][3], **fc1_params) if fc1 else None
 
         if fc1:

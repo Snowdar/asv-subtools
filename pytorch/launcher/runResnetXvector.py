@@ -200,13 +200,24 @@ model_params = {
     "resnet_params":{
             "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
             "head_maxpool":False, "head_maxpool_params":{"kernel_size":3, "stride":2, "padding":1},
-            "block":"BasicBlock",
+            "block":"BasicBlock", # BasicBlock, Bottleneck
             "layers":[3, 4, 6, 3],
             "planes":[32, 64, 128, 256],
             "convXd":2,
             "norm_layer_params":{"momentum":0.5, "affine":True},
             "full_pre_activation":True,
             "zero_init_residual":False},
+
+    "pooling":"statistics", # statistics, lde, attentive, multi-head, multi-resolution
+    "pooling_params":{"num_head":1,
+                      "hidden_size":64,
+                      "share":True,
+                      "affine_layers":1,
+                      "context":[0],
+                      "temperature":False, 
+                      "fixed":True
+                      },
+
     "fc1":True,
     "fc1_params":{
             "nonlinearity":'relu', "nonlinearity_params":{"inplace":True},

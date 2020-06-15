@@ -159,6 +159,11 @@ def create_model_from_py(model_blueprint, model_creation=""):
                      in model_blueprint, such as using 'Xvector(40,2)' to create an Xvector nnet.
                      Note, it will return model_module if model_creation is not given, else return model.
     """
+    if not os.path.exists(model_blueprint):
+        raise TypeError("Expected {} to exist.".format(model_blueprint))
+    if os.path.getsize(model_blueprint) == 0:
+        raise TypeError("There is nothing in {}.".format(model_blueprint))
+
     sys.path.insert(0, os.path.dirname(model_blueprint))
     model_module_name = os.path.basename(model_blueprint).split('.')[0]
     model_module = __import__(model_module_name)
@@ -168,6 +173,7 @@ def create_model_from_py(model_blueprint, model_creation=""):
     else:
         model = eval("model_module.{0}".format(model_creation))
         return model
+
 
 def write_nnet_config(model_blueprint:str, model_creation:str, nnet_config:str):
     dataframe = pd.DataFrame([model_blueprint, model_creation], index=["model_blueprint", "model_creation"])

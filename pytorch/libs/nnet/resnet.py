@@ -98,7 +98,6 @@ class BasicBlock(nn.Module):
 
         return out
 
-    
     def forward(self, x):
         if self.full_pre_activation:
             return self._full_pre_activation_forward(x)
@@ -116,31 +115,50 @@ class Bottleneck(nn.Module):
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         width = int(planes * (base_width / 64.)) * groups
+        
+        self.downsample = downsample
+        self.stride = stride
+        self.full_pre_activation = full_pre_activation
+
+        if self.full_pre_activation:
+            self._full_pre_activation(inplanes, planes, Conv, width, stride, norm_layer, norm_layer_params)
+        else:
+            self._original(inplanes, planes, Conv, width, stride, norm_layer, norm_layer_params)
+
+    def _original(self, inplanes, planes, Conv, width, stride, norm_layer, norm_layer_params):
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv1x1(inplanes, width, Conv)
         self.bn1 = norm_layer(width, **norm_layer_params)
+        self.relu1 = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(width, width, Conv, stride, groups, dilation)
         self.bn2 = norm_layer(width, **norm_layer_params)
+        self.relu1 = nn.ReLU(inplace=True)
         self.conv3 = conv1x1(width, planes * self.expansion, Conv)
         self.bn3 = norm_layer(planes * self.expansion, **norm_layer_params)
-        self.relu = nn.ReLU(inplace=True)
-        self.downsample = downsample
-        self.stride = stride
+        self.relu3 = nn.ReLU(inplace=True)
 
-        # To do: full_pre_activation.
-        if full_pre_activation:
-            raise TypeError("Do not implement full_pre_activation for Bottleneck yet.")
+    def _full_pre_activation(self, inplanes, planes, Conv, width, stride, norm_layer, norm_layer_params):
+        # Both self.conv2 and self.downsample layers downsample the input when stride != 1
+        self.bn1 = norm_layer(inplanes, **norm_layer_params)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.conv1 = conv1x1(inplanes, width, Conv)
+        self.bn2 = norm_layer(width, **norm_layer_params)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.conv2 = conv3x3(width, width, Conv, stride, groups, dilation)
+        self.bn3 = norm_layer(width, **norm_layer_params)
+        self.relu3 = nn.ReLU(inplace=True)
+        self.conv3 = conv1x1(width, planes * self.expansion, Conv)
 
-    def forward(self, x):
+    def _original_forward(self, x):
         identity = x
 
         out = self.conv1(x)
         out = self.bn1(out)
-        out = self.relu(out)
+        out = self.relu1(out)
 
         out = self.conv2(out)
         out = self.bn2(out)
-        out = self.relu(out)
+        out = self.relu2(out)
 
         out = self.conv3(out)
         out = self.bn3(out)
@@ -149,9 +167,38 @@ class Bottleneck(nn.Module):
             identity = self.downsample(x)
 
         out += identity
-        out = self.relu(out)
+        out = self.relu3(out)
 
         return out
+
+    def _full_pre_activation_forward(self, x):
+        identity = x
+
+        out = self.bn1(x)
+        out = self.relu1(out)
+        out = self.conv1(out)
+
+        out = self.bn2(out)
+        out = self.relu2(out)
+        out = self.conv2(out)
+
+        out = self.bn3(out)
+        out = self.relu3(out)
+        out = self.conv3(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity
+
+        return out
+
+    def forward(self, x):
+        if self.full_pre_activation:
+            return self._full_pre_activation_forward(x)
+        else:
+            return self._original_forward(x)
+
 
 
 class ResNet(nn.Module):

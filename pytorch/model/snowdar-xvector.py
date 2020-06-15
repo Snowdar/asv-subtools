@@ -18,9 +18,7 @@ class Xvector(TopVirtualNnet):
              SE=False, se_ratio=4,
              tdnn_layer_params={},
              tdnn6=True, tdnn7_params={},
-             attentive_pooling=False, attentive_pooling_params={"hidden_size":64, "stddev_attention":False},
-             LDE_pooling=False, LDE_pooling_params={"c_num":64, "nodes":128},
-             focal_loss=False, focal_loss_params={"gamma":2},
+             pooling="statistics", pooling_params={},
              margin_loss=False, margin_loss_params={},
              use_step=False, step_params={},
              transfer_from="softmax_loss",
@@ -39,6 +37,17 @@ class Xvector(TopVirtualNnet):
         default_tdnn_layer_params = {
             "nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
             "bn-relu":False, "bn":True, "bn_params":{"momentum":0.5, "affine":False, "track_running_stats":True}
+        }
+
+        default_pooling_params = {
+            "num_nodes":1500,
+            "num_head":1,
+            "hidden_size":64,
+            "share":True,
+            "affine_layers":1,
+            "context":[0],
+            "temperature":False, 
+            "fixed":True
         }
 
         default_margin_loss_params = {
@@ -61,8 +70,9 @@ class Xvector(TopVirtualNnet):
 
         dropout_params = utils.assign_params_dict(default_dropout_params, dropout_params)
         tdnn_layer_params = utils.assign_params_dict(default_tdnn_layer_params, tdnn_layer_params)
-        # If param is not be specified, default it a.w.t tdnn_layer_params.
-        tdnn7_params = utils.assign_params_dict(tdnn_layer_params, tdnn7_params) 
+        # If param is not be specified, default it w.r.t tdnn_layer_params.
+        tdnn7_params = utils.assign_params_dict(tdnn_layer_params, tdnn7_params)
+        pooling_params = utils.assign_params_dict(default_pooling_params, pooling_params)
         margin_loss_params = utils.assign_params_dict(default_margin_loss_params, margin_loss_params)
         step_params = utils.assign_params_dict(default_step_params, step_params)
 
@@ -94,17 +104,23 @@ class Xvector(TopVirtualNnet):
         self.ex_tdnn5 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
         self.tdnn4 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params)
 
-        nodes = LDE_pooling_params.pop("nodes") if LDE_pooling else 1500
+        
+        num_nodes = pooling_params.pop("num_nodes")
 
-        self.tdnn5 = ReluBatchNormTdnnLayer(512, nodes, **tdnn_layer_params)
+        self.tdnn5 = ReluBatchNormTdnnLayer(512, num_nodes, **tdnn_layer_params)
 
         # Pooling
-        if LDE_pooling:
-            self.stats = LDEPooling(nodes, **LDE_pooling_params)
-        elif attentive_pooling:
-            self.stats = AttentiveStatisticsPooling(nodes, **attentive_pooling_params, stddev=True)
+        if pooling == "lde":
+            self.stats = LDEPooling(num_nodes, c_num=pooling_params["num_head"])
+        elif pooling == "attentive":
+            self.stats = AttentiveStatisticsPooling(num_nodes, hidden_size=pooling_params["hidden_size"], 
+                                                    context=pooling_params["context"], stddev=True)
+        elif pooling == "multi-head":
+            self.stats = MultiHeadAttentionPooling(num_nodes, **pooling_params)
+        elif pooling == "multi-resolution":
+            self.stats = MultiResolutionMultiHeadAttentionPooling(num_nodes, **pooling_params)
         else:
-            self.stats = StatisticsPooling(nodes, stddev=True)
+            self.stats = StatisticsPooling(num_nodes, stddev=True)
 
         stats_dim = self.stats.get_output_dim()
 
@@ -126,8 +142,6 @@ class Xvector(TopVirtualNnet):
         if training :
             if margin_loss:
                 self.loss = MarginSoftmaxLoss(512, num_targets, **margin_loss_params)
-            elif focal_loss:
-                self.loss = FocalLoss(512, num_targets, **focal_loss_params)
             else:
                 self.loss = SoftmaxLoss(512, num_targets)
 

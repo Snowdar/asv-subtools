@@ -13,7 +13,7 @@ from libs.support.utils import to_device
 import libs.support.utils as utils
 
 
-### There are some custom components/layers. ###
+### There are some basic custom components/layers. ###
 
 ## Base ✿
 class TdnnAffine(torch.nn.Module):
@@ -26,9 +26,9 @@ class TdnnAffine(torch.nn.Module):
         e.g.  [-2,0,2]
     If context is [0], then the TdnnAffine is equal to linear layer.
     """
-    def __init__(self, input_dim, output_dim, context=[0], bias=True, pad=True, norm_w=False, norm_f=False, subsampling_factor=1):
+    def __init__(self, input_dim, output_dim, context=[0], bias=True, pad=True, stride=1, groups=1, norm_w=False, norm_f=False):
         super(TdnnAffine, self).__init__()
-        
+        assert input_dim % groups == 0
         # Check to make sure the context sorted and has no duplicated values
         for index in range(0, len(context) - 1):
             if(context[index] >= context[index + 1]):
@@ -39,12 +39,13 @@ class TdnnAffine(torch.nn.Module):
         self.context = context
         self.bool_bias = bias
         self.pad = pad
+        self.groups = groups
 
         self.norm_w = norm_w
         self.norm_f = norm_f
 
         # It is used to subsample frames with this factor
-        self.stride = subsampling_factor
+        self.stride = stride
 
         self.left_context = context[0] if context[0] < 0 else 0 
         self.right_context = context[-1] if context[-1] > 0 else 0 
@@ -58,7 +59,7 @@ class TdnnAffine(torch.nn.Module):
 
         kernel_size = (self.tot_context,)
 
-        self.weight = torch.nn.Parameter(torch.randn(output_dim, input_dim, *kernel_size))
+        self.weight = torch.nn.Parameter(torch.randn(output_dim, input_dim//groups, *kernel_size))
 
         if self.bool_bias:
             self.bias = torch.nn.Parameter(torch.randn(output_dim))
@@ -126,7 +127,7 @@ class TdnnAffine(torch.nn.Module):
         if self.norm_f:
             inputs = F.normalize(inputs, dim=1)
 
-        outputs = F.conv1d(inputs, filters, self.bias, self.stride, padding=0, dilation=1, groups=1)
+        outputs = F.conv1d(inputs, filters, self.bias, stride=self.stride, padding=0, dilation=1, groups=self.groups)
 
         return outputs
 
@@ -225,14 +226,17 @@ class GruAffine(torch.nn.Module):
         return outputs
 
 
+## Block ✿
 class SoftmaxAffineLayer(torch.nn.Module):
     """ An usual 2-fold softmax layer with an affine transform.
     @dim: which dim to apply softmax on
     """
-    def __init__(self, input_dim, output_dim, dim=1, log=True, bias=True, special_init=False):
+    def __init__(self, input_dim, output_dim, context=[0], dim=1, log=True, bias=True, groups=1, t=1., special_init=False):
         super(SoftmaxAffineLayer, self).__init__()
 
-        self.affine = TdnnAffine(input_dim, output_dim, bias=bias)
+        self.affine = TdnnAffine(input_dim, output_dim, context=context, bias=bias, groups=groups)
+        # A temperature parameter.
+        self.t = t
 
         if log:
             self.softmax = torch.nn.LogSoftmax(dim=dim)
@@ -242,12 +246,11 @@ class SoftmaxAffineLayer(torch.nn.Module):
         if special_init :
             torch.nn.init.xavier_uniform_(self.affine.weight, gain=torch.nn.init.calculate_gain('sigmoid'))
 
-
     def forward(self, inputs):
         """
         @inputs: any, such as a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
-        return self.softmax(self.affine(inputs))
+        return self.softmax(self.affine(inputs)/self.t)
 
 
 ## ReluBatchNormLayer
@@ -275,7 +278,7 @@ class _BaseActivationBatchNorm(torch.nn.Module):
         default_params = utils.assign_params_dict(default_params, options)
 
         # This 'if else' is used to keep a corrected order when printing model.
-        # torch.sequential is not used for I do not want too many layer wrapper and just keep structure as tdnn1.affine 
+        # torch.sequential is not used for I do not want too many layer wrappers and just keep structure as tdnn1.affine 
         # rather than tdnn1.layers.affine or tdnn1.layers[0] etc..
         if not default_params["bn-relu"]:
             # ReLU-BN
@@ -328,11 +331,12 @@ class ReluBatchNormTdnnLayer(_BaseActivationBatchNorm):
     """ TDNN-ReLU-BN.
     An usual 3-fold layer with TdnnAffine affine.
     """
-    def __init__(self, input_dim, output_dim, context=[0], **options):
+    def __init__(self, input_dim, output_dim, context=[0], affine_type="tdnn", **options):
         super(ReluBatchNormTdnnLayer, self).__init__()
 
         affine_options = {
             "bias":True, 
+            "groups":1,
             "norm_w":False,
             "norm_f":False
         }
@@ -345,7 +349,11 @@ class ReluBatchNormTdnnLayer(_BaseActivationBatchNorm):
         #          (affine): TdnnAffine()
         #          (activation): ReLU()
         #          (batchnorm): BatchNorm1d(512, eps=1e-05, momentum=0.5, affine=False, track_running_stats=True)
-        self.affine = TdnnAffine(input_dim, output_dim, context, **affine_options)
+        if affine_type == "tdnn":
+            self.affine = TdnnAffine(input_dim, output_dim, context, **affine_options)
+        else:
+            self.affine = ParitySeparationAffine(input_dim, output_dim, context, **affine_options)
+
         self.add_relu_bn(output_dim, options=options)
 
         # Implement forward function extrally if needed when forward-graph is changed.
@@ -361,169 +369,6 @@ class ReluBatchNormTdnnfLayer(_BaseActivationBatchNorm):
         self.affine = TdnnfBlock(input_dim, output_dim, inner_size, context_size)
         self.add_relu_bn(output_dim, options=options)
 
-
-## Pooling ✿
-class StatisticsPooling(torch.nn.Module):
-    """ An usual mean [+ stddev] poolling layer"""
-    def __init__(self, input_dim, stddev=True, unbiased=False, eps=1.0e-10):
-        super(StatisticsPooling, self).__init__()
-
-        self.stddev = stddev
-        self.input_dim = input_dim
-
-        if self.stddev :
-            self.output_dim = 2 * input_dim
-        else :
-            self.output_dim = input_dim
-
-        self.eps = eps
-        # Used for unbiased estimate of stddev
-        self.unbiased = unbiased
-
-    def forward(self, inputs):
-        """
-        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
-        """
-        assert len(inputs.shape) == 3
-        assert inputs.shape[1] == self.input_dim
-
-        # Get the num of frames
-        counts = inputs.shape[2]
-
-        mean = torch.unsqueeze(inputs.sum(dim=2) / counts, dim=2)
-
-        if self.stddev :
-            if self.unbiased and counts > 1:
-                counts = counts - 1
-
-            # The sqrt (as follows) is deprecated because it results in Nan problem.
-            # std = torch.unsqueeze(torch.sqrt(torch.sum((inputs - mean)**2, dim=2) / counts), dim=2)
-            # There is a eps to solve this problem.
-            # Another method: Var is equal to std in "cat" way, actually. So, just use Var directly.
-
-            var = torch.sum((inputs - mean)**2, dim=2) / counts
-            std = torch.unsqueeze(torch.sqrt(var.clamp(min=self.eps)), dim=2)
-            return torch.cat((mean, std), dim=1)
-        else:
-            return mean
-
-    def get_output_dim(self):
-        return self.output_dim
-    
-    def extra_repr(self):
-        return '{input_dim}, {output_dim}, stddev={stddev}, unbiased={unbiased}, eps={eps}'.format(**self.__dict__)
-
-    @classmethod
-    def thop_count(self, m, x, y):
-        pass
-        # x = x[0]
-
-        # kernel_ops = torch.zeros(m.weight.size()[2:]).numel()  # Kw x Kh
-        # bias_ops = 1 if m.bias is not None else 0
-
-        # # N x Cout x H x W x  (Cin x Kw x Kh + bias)
-        # total_ops = y.nelement() * (m.input_dim * kernel_ops + bias_ops)
-
-        # m.total_ops += torch.DoubleTensor([int(total_ops)])
-
-
-class AttentionAlphaComponent(torch.nn.Module):
-    """ Return alpha for self attention
-            alpha = softmax(v'·f(w·x + b) + k)
-        where f is relu followed by batchnorm here
-    """
-    def __init__(self, input_dim, hidden_size=64, context=[0]):
-        super(AttentionAlphaComponent, self).__init__()
-
-        self.input_dim = input_dim
-        self.hidden_size = hidden_size
-        self.relu_affine = ReluBatchNormTdnnLayer(input_dim, hidden_size, context=context, bn=False)
-        # Dim=2 means to apply softmax in different frames-index (batch is a 3-dim tensor in this case)
-        self.softmax_affine = SoftmaxAffineLayer(hidden_size, 1, dim=2, log=False, bias=True)
-    
-    def forward(self, inputs):
-        """
-        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
-        """
-        return self.softmax_affine(self.relu_affine(inputs))
-
-    def extra_repr(self):
-        return '{input_dim}, hidden_size={hidden_size}'.format(**self.__dict__)
-
-class AttentiveStatisticsPooling(torch.nn.Module):
-    """ An attentive statistics pooling layer according to []"""
-    def __init__(self, input_dim, hidden_size=64, context=[0], stddev=True, stddev_attention=False, eps=1.0e-10):
-        super(AttentiveStatisticsPooling, self).__init__()
-
-        self.stddev = stddev
-        self.input_dim = input_dim
-
-        if self.stddev :
-            self.output_dim = 2 * input_dim
-        else :
-            self.output_dim = input_dim
-
-        self.eps = eps
-        self.stddev_attention = stddev_attention
-        self.attention = AttentionAlphaComponent(input_dim, hidden_size, context)
-
-    def forward(self, inputs):
-        """
-        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
-        """
-        assert len(inputs.shape) == 3
-        assert inputs.shape[1] == self.input_dim
-
-        alpha = self.attention(inputs)
- 
-        # Weight avarage
-        mean = torch.sum(alpha * inputs, dim=2, keepdim=True)
-
-        if self.stddev :
-            if self.stddev_attention:
-                var = torch.sum(alpha * inputs**2, dim=2, keepdim=True) - mean**2
-                std = torch.sqrt(var.clamp(min=self.eps))
-            else:
-                var = torch.mean((inputs - mean)**2, dim=2)
-                std = torch.unsqueeze(torch.sqrt(var.clamp(min=self.eps)), dim=2)
-            return torch.cat((mean, std), dim=1)
-        else :
-            return mean
-
-    def get_output_dim(self):
-        return self.output_dim
-
-
-
-class LDEPooling(torch.nn.Module):
-    """A novel learnable dictionary encoding layer according to [Weicheng Cai, etc., "A NOVEL LEARNABLE 
-    DICTIONARY ENCODING LAYER FOR END-TO-END LANGUAGE IDENTIFICATION", icassp, 2018]"""
-    def __init__(self, input_dim, c_num=64):
-        super(LDEPooling, self).__init__()
-
-        self.input_dim = input_dim
-        self.output_dim = input_dim * c_num
-
-        self.mu = torch.nn.Parameter(torch.randn(input_dim, c_num))
-        self.s = torch.nn.Parameter(torch.ones(c_num))
-
-        self.softmax_for_w = torch.nn.Softmax(dim=3)
-
-    def forward(self, inputs):
-        """
-        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
-        """
-        assert len(inputs.shape) == 3
-        assert inputs.shape[1] == self.input_dim
-
-        r = inputs.transpose(1,2).unsqueeze(3) - self.mu
-        w = self.softmax_for_w(self.s * torch.sum(r**2, dim=2, keepdim=True))
-        e = torch.mean(w * r, dim=1)
-
-        return e.reshape(-1, self.output_dim, 1)
-
-    def get_output_dim(self):
-        return self.output_dim
 
 
 ## Others ✿
@@ -648,3 +493,64 @@ class SEBlock(torch.nn.Module):
         scale = self.sigmoid(self.fc_2(x))
 
         return inputs * scale
+
+
+class MultiAffine(torch.nn.Module):
+    """To complete.
+    """
+    def __init__(self, input_dim, output_dim, num=1, split_input=True, bias=True):
+        if not isinstance(num, int):
+            raise TypeError("Expected an integer num, but got {}.".format(type(num).__name__))
+        if num < 1:
+            raise ValueError("Expected num >= 1, but got num={} .".format(num))
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.num = num
+        self.bool_bias = bias
+
+        if split_input:
+            assert self.input_dim % self.num == 0
+            self.num_feature_every_part = self.input_dim // self.num
+        else:
+            self.num_feature_every_part = input_dim
+
+        self.weight = torch.nn.Parameter(torch.randn(1, self.num, self.output_dim, self.num_feature_every_part))
+
+        if self.bool_bias:
+            self.bias = torch.nn.Parameter(torch.randn(1, self.num, output_dim, 1))
+        else:
+            self.register_parameter('bias', None)
+
+    def forward(self, inputs):
+        # inputs [batch-size, num_head, num_feature_every_part, frames]
+        x = ininputs.reshape(inputs.shape[0], -1, self.num_feature_every_part, inputs.shape[2])
+        y = torch.matmul(x, self.weight)
+
+        if self.bias is not None:
+            return y + bias
+        else:
+            return y
+
+
+class ParitySeparationAffine(torch.nn.Module):
+    """By this component, the chunk will be grouped to two parts, odd and even.
+    """
+    def __init__(self, input_dim, out_dim, **options):
+        super(ParitySeparationAffine, self).__init__()
+
+        self.odd = TdnnAffine(input_dim, out_dim // 2, stride=2, **options)
+        self.even = TdnnAffine(input_dim, out_dim // 2, stride=2, **options)
+
+    def forward(self, inputs):
+        """
+        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
+        """
+        assert len(inputs.shape) == 3
+        assert inputs.shape[1] == self.input_dim
+        
+        if inputs.shape[2] % 2 != 0:
+            # Make sure that the chunk length of inputs is an even number.
+            inputs = F.pad(inputs, (0, 1), mode="constant", value=0)
+
+        return torch.cat((self.odd(inputs), self.even(inputs[:,:,1:])))

@@ -99,9 +99,11 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 - **Component**
   + [x] [Attentive Statistics Pooling](https://arxiv.org/pdf/1803.10963v1.pdf)
-  + [x] [ Learnable Dictionary Encoding (LDE) Pooling](https://arxiv.org/pdf/1804.00385.pdf)
-  + [x] [Sequeze and Excitation (SE)](https://arxiv.org/pdf/1709.01507.pdf) [An [example](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1704.pdf) of speaker recognition based on Resnet1d by Jianfeng Zhou.]
-  + [ ] Multi-head Attention Pooling
+  + [x] [Learnable Dictionary Encoding (LDE) Pooling](https://arxiv.org/pdf/1804.00385.pdf)
+  + [x] [Multi-Head Attention Pooling](https://upcommons.upc.edu/bitstream/handle/2117/178623/2616.pdf?sequence=1&isAllowed=y) ==*new*== [The codes could be found [here](./pytorch/libs/nnet/pooling.py), by Snowdar.]
+  + [x] [Global Multi-Head Attention Pooling](https://www.researchgate.net/publication/341085045_Multi-Resolution_Multi-Head_Attention_in_Deep_Speaker_Embedding) ==*new*==
+  + [x] [Multi-Resolution Multi-Head Attention Pooling](https://www.researchgate.net/publication/341085045_Multi-Resolution_Multi-Head_Attention_in_Deep_Speaker_Embedding) ==*new*==
+  + [x] [Sequeze and Excitation (SE)](https://arxiv.org/pdf/1709.01507.pdf) [A resnet1d-based SE example of speaker recognition could be found in this [paper](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1704.pdf), by Jianfeng Zhou.]
 
 - **Loss Function**
   + [x] Softmax Loss (Affine + Softmax + Cross-Entropy)
@@ -109,7 +111,9 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [AAM-Softmax Loss](https://arxiv.org/pdf/1801.07698v1.pdf)
   + [x] [Double AM-Softmax Loss](https://www.mdpi.com/2076-3417/10/1/60)
   + [x] [Ring Loss](https://arxiv.org/pdf/1803.00130.pdf)
-  + [x] [Curricular Margin Softmax Loss](https://arxiv.org/pdf/2004.00288.pdf)
+
+  <!--+ [x] [Curricular Margin Softmax Loss](https://arxiv.org/pdf/2004.00288.pdf)-->
+  <!--It does not work in my experiments-->
 
 - **Optimizer** [Out of Pytorch built-in functions]
   + [x] [Lookahead](https://arxiv.org/pdf/1907.08610.pdf) [A wrapper optimizer]
@@ -190,7 +194,7 @@ Here is the method cloning ASV-Subtools from Github:
 ```shell
 # Clone asv-subtools from github
 cd kaldi/egs/xmuspeech/sre
-git clone https://github.com/Snowdar/asv-subtools/.git
+git clone https://github.com/Snowdar/asv-subtools.git subtools
 ```
 
 ### 4. Install Python Requirements  

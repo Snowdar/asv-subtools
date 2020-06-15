@@ -208,10 +208,16 @@ model_params = {
     "tdnn6":True, 
     "tdnn7_params":{"nonlinearity":"default", "bn":True},
 
-    "attentive_pooling":False, "attentive_pooling_params":{"hidden_size":64},
-    "LDE_pooling":False, "LDE_pooling_params":{"c_num":64, "nodes":128},
-
-    "focal_loss":False, "focal_loss_params":{"gamma":2},
+    "pooling":"statistics", # statistics, lde, attentive, multi-head, multi-resolution
+    "pooling_params":{"num_nodes":1500,
+                      "num_head":1,
+                      "hidden_size":64,
+                      "share":True,
+                      "affine_layers":1,
+                      "context":[0],
+                      "temperature":False, 
+                      "fixed":True
+                      },
 
     "margin_loss":False, 
     "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 

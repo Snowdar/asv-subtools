@@ -179,7 +179,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
             if self.s < suggested_s[0]:
                 print("Warning : using feature noamlization with small scalar s={s} could result in bad convergence. \
                 There are some suggested s : {suggested_s} w.r.t p_target {p_target}.".format(
-                    s=self.s, suggested_s=suggested_s, p_target=p_target))
+                s=self.s, suggested_s=suggested_s, p_target=p_target))
 
         self.loss_function = torch.nn.CrossEntropyLoss(reduction=reduction)
 
@@ -296,6 +296,8 @@ class CurricularMarginComponent(torch.nn.Module):
                Recognition.” ArXiv E-Prints arXiv:2004.00288.
     Github: https://github.com/HuangYG123/CurricularFace. Note, the momentum of this github is a wrong value w.r.t
             the above paper. The momentum 't' should not increase so fast and I have corrected it as follow.
+
+    By the way, it does not work in my experiments.
     """
     def __init__(self, momentum=0.01):
         super(CurricularMarginComponent, self).__init__()
