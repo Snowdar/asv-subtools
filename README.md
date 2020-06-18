@@ -42,7 +42,7 @@ In ASV-Subtools, [Kaldi](http://www.kaldi-asr.org/) is used to extract acoustic 
 
 The project structure, training framework and data pipeline shown as follows could help you to have some insights into ASV-Subtools.
 
-> By the way, **if you can not see the pictures in Github**, maybe you should try to check the DNS of your network or use a VPN agent. If you are a student of XMU, then the VPN of campus network could be very helpful for these types of problems (see [https://vpn.xmu.edu.cn](https://vpn.xmu.edu.cn) for a configuration). Of course, **the least worst way is to clone ASV-Subtools to your local notebook.**
+> By the way, **if you can not see the pictures in Github**, maybe you should try to check the DNS of your network or use a VPN agent. If you are a student of XMU, then the VPN of campus network could be very helpful for these types of problems (see [https://vpn.xmu.edu.cn](https://vpn.xmu.edu.cn) for a configuration). Of course, **at least the last way is to clone ASV-Subtools to your local notebook.**
 
 ### Project Structure  
 ASV-Subtools contains **three main branches**:
