@@ -7,6 +7,7 @@
 import torch
 
 from thop.vision.basic_hooks import *
+from .pooling import *
 from .components import *
 from .loss import *
 

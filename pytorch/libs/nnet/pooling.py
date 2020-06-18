@@ -82,11 +82,12 @@ class LDEPooling(torch.nn.Module):
     Reference: Weicheng Cai, etc., "A NOVEL LEARNABLE DICTIONARY ENCODING LAYER FOR END-TO-END 
                LANGUAGE IDENTIFICATION", icassp, 2018
     """
-    def __init__(self, input_dim, c_num=64):
+    def __init__(self, input_dim, c_num=64, eps=1.0e-10):
         super(LDEPooling, self).__init__()
 
         self.input_dim = input_dim
         self.output_dim = input_dim * c_num
+        self.eps = eps
 
         self.mu = torch.nn.Parameter(torch.randn(input_dim, c_num))
         self.s = torch.nn.Parameter(torch.ones(c_num))
@@ -101,7 +102,8 @@ class LDEPooling(torch.nn.Module):
         assert inputs.shape[1] == self.input_dim
 
         r = inputs.transpose(1,2).unsqueeze(3) - self.mu
-        w = self.softmax_for_w(self.s * torch.sum(r**2, dim=2, keepdim=True))
+        # Make sure beta=self.s**2+self.eps > 0
+        w = self.softmax_for_w(- (self.s**2 + self.eps) * torch.sum(r**2, dim=2, keepdim=True))
         e = torch.mean(w * r, dim=1)
 
         return e.reshape(-1, self.output_dim, 1)
@@ -214,7 +216,7 @@ class AttentiveStatisticsPooling(torch.nn.Module):
     Reference: Okabe, Koji, Takafumi Koshinaka, and Koichi Shinoda. 2018. "Attentive Statistics Pooling 
                for Deep Speaker Embedding." ArXiv Preprint ArXiv:1803.10963.
     """
-    def __init__(self, input_dim, affine_layers=2, hidden_size=64, context=[0], stddev=True, stddev_attention=False, eps=1.0e-10):
+    def __init__(self, input_dim, affine_layers=2, hidden_size=64, context=[0], stddev=True, stddev_attention=True, eps=1.0e-10):
         super(AttentiveStatisticsPooling, self).__init__()
 
         self.stddev = stddev

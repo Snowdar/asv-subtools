@@ -210,9 +210,9 @@ model_params = {
 
     "pooling":"statistics", # statistics, lde, attentive, multi-head, multi-resolution
     "pooling_params":{"num_head":1,
-                      "hidden_size":64,
                       "share":True,
                       "affine_layers":1,
+                      "hidden_size":64,
                       "context":[0],
                       "temperature":False, 
                       "fixed":True

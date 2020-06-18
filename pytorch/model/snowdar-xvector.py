@@ -42,9 +42,9 @@ class Xvector(TopVirtualNnet):
         default_pooling_params = {
             "num_nodes":1500,
             "num_head":1,
-            "hidden_size":64,
             "share":True,
             "affine_layers":1,
+            "hidden_size":64,
             "context":[0],
             "temperature":False, 
             "fixed":True
@@ -104,7 +104,6 @@ class Xvector(TopVirtualNnet):
         self.ex_tdnn5 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params) if extend else None
         self.tdnn4 = ReluBatchNormTdnnLayer(512,512, **tdnn_layer_params)
 
-        
         num_nodes = pooling_params.pop("num_nodes")
 
         self.tdnn5 = ReluBatchNormTdnnLayer(512, num_nodes, **tdnn_layer_params)
@@ -113,7 +112,8 @@ class Xvector(TopVirtualNnet):
         if pooling == "lde":
             self.stats = LDEPooling(num_nodes, c_num=pooling_params["num_head"])
         elif pooling == "attentive":
-            self.stats = AttentiveStatisticsPooling(num_nodes, hidden_size=pooling_params["hidden_size"], 
+            self.stats = AttentiveStatisticsPooling(num_nodes, affine_layers=pooling_params["affine_layers"], 
+                                                    hidden_size=pooling_params["hidden_size"], 
                                                     context=pooling_params["context"], stddev=True)
         elif pooling == "multi-head":
             self.stats = MultiHeadAttentionPooling(num_nodes, **pooling_params)

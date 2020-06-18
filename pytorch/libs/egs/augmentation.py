@@ -47,7 +47,7 @@ class SpecAugment():
 
     def __call__(self, inputs):
         """
-        @inputs: a 2-dimensional tensor (a batch), including [frenquency, time]
+        @inputs: a 2-dimensional tensor (a matrix), including [frenquency, time]
         """
         if self.p_f > 0. or self.p_t > 0.:
             if isinstance(inputs, np.ndarray):

@@ -204,19 +204,19 @@ model_params = {
                          "bn-relu":False, 
                          "bn":True, 
                          "bn_params":{"momentum":0.5, "affine":False, "track_running_stats":True}},
-    "tdnn6":True, 
-    "tdnn7_params":{"nonlinearity":"default", "bn":True},
 
     "pooling":"statistics", # statistics, lde, attentive, multi-head, multi-resolution
     "pooling_params":{"num_nodes":1500,
                       "num_head":1,
-                      "hidden_size":64,
                       "share":True,
                       "affine_layers":1,
+                      "hidden_size":64,
                       "context":[0],
                       "temperature":False, 
                       "fixed":True
                       },
+    "tdnn6":True, 
+    "tdnn7_params":{"nonlinearity":"default", "bn":True},
 
     "margin_loss":False, 
     "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 

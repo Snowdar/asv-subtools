@@ -133,7 +133,7 @@ class TdnnAffine(torch.nn.Module):
 
     def extra_repr(self):
         return '{input_dim}, {output_dim}, context={context}, bias={bool_bias}, stride={stride}, ' \
-               'pad={pad}, norm_w={norm_w}, norm_f={norm_f}'.format(**self.__dict__)
+               'pad={pad}, groups={groups}, norm_w={norm_w}, norm_f={norm_f}'.format(**self.__dict__)
 
     @classmethod
     def thop_count(self, m, x, y):
@@ -499,6 +499,8 @@ class MultiAffine(torch.nn.Module):
     """To complete.
     """
     def __init__(self, input_dim, output_dim, num=1, split_input=True, bias=True):
+        super(MultiAffine, self).__init__()
+
         if not isinstance(num, int):
             raise TypeError("Expected an integer num, but got {}.".format(type(num).__name__))
         if num < 1:
@@ -521,16 +523,25 @@ class MultiAffine(torch.nn.Module):
             self.bias = torch.nn.Parameter(torch.randn(1, self.num, output_dim, 1))
         else:
             self.register_parameter('bias', None)
+        
+        self.init_weight()
+
+    def init_weight(self):
+        # Note, var should be small to avoid slow-shrinking
+        torch.nn.init.normal_(self.weight, 0., 0.01)
+
+        if self.bias is not None:
+            torch.nn.init.constant_(self.bias, 0.)
 
     def forward(self, inputs):
         # inputs [batch-size, num_head, num_feature_every_part, frames]
-        x = ininputs.reshape(inputs.shape[0], -1, self.num_feature_every_part, inputs.shape[2])
-        y = torch.matmul(x, self.weight)
+        x = inputs.reshape(inputs.shape[0], -1, self.num_feature_every_part, inputs.shape[2])
+        y = torch.matmul(self.weight, x)
 
         if self.bias is not None:
-            return y + bias
+            return (y + self.bias).reshape(inputs.shape[0], -1, inputs.shape[2])
         else:
-            return y
+            return y.reshape(inputs.shape[0], -1, inputs.shape[2])
 
 
 class ParitySeparationAffine(torch.nn.Module):

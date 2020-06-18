@@ -38,11 +38,11 @@ The 'sub' of 'subtools' means that there are many modular tools and the parts co
 
 ## Introduction  
 
-In ASV-Subtools, [Kaldi](http://www.kaldi-asr.org/) is used to extract acoustic features and scoring in the back-end. And [Pytorch](https://pytorch.org/) is used to build a model freely and train it with a custom style.
+In ASV-Subtools, [Kaldi](http://www.kaldi-asr.org/) is used to extract acoustic features and scoring in the back-end and [Pytorch](https://pytorch.org/) is used to build a model freely and train it with a custom style.
 
 The project structure, training framework and data pipeline shown as follows could help you to have some insights into ASV-Subtools.
 
-> By the way, **if you can not see the pictures in Github**, maybe you should try to check the DNS of your network or use a VPN agent. If you are a student of XMU, then the VPN of campus network could be very helpful for these types of problems (see [https://vpn.xmu.edu.cn](https://vpn.xmu.edu.cn) for a configuration). Of course, **there is also an absolute final way that cloning ASV-Subtools to your local notebook.**
+> By the way, **if you can not see the pictures in Github**, maybe you should try to check the DNS of your network or use a VPN agent. If you are a student of XMU, then the VPN of campus network could be very helpful for these types of problems (see [https://vpn.xmu.edu.cn](https://vpn.xmu.edu.cn) for a configuration). Of course, **the least worst way is to clone ASV-Subtools to your local notebook.**
 
 ### Project Structure  
 ASV-Subtools contains **three main branches**:
@@ -58,12 +58,12 @@ For pytorch branch, there are **two important concepts**:
 + **Model Blueprint**: the path of ```your_model.py```
 + **Model Creation** : the code to init a model class, such as ```resnet(40, 1211, loss="AM")```
 
-In ASV-Subtools, the model is individual. This means that we should know the the path of ```model.py``` and how to init this model class at least when using this model in training or testing module. This structure is designed to avoid modifying codes of static modules frequently. For example, if the embedding extractor is wrote down as a called program and we use a inline method ```from my_model_py import my_model``` to import a fixed model from a fixed ```model.py``` , then it will be not free for ```model_2.py```, ```model_3.py``` and so on.
+In ASV-Subtools, the model is individual, which means that we should know the path of ```model.py``` and how to initialize this model class at least when using this model in training or testing module. This structure is designed to avoid modifying codes of static modules frequently. For example, if the embedding extractor is wrote down as a called program and we use an inline method ```from my_model_py import my_model``` to import a fixed model from a fixed ```model.py``` , then it will be not free for ```model_2.py```, ```model_3.py``` and so on.
 
-**Note that**, all model ([torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module)) shoud inherit [libs.nnet.framework.TopVirtualNnet](./pytorch/libs/nnet/framework.py) class to get some default functions, such as **auto-saving model creation and blueprint**, extracting emdedding of whole utterance, step-training, computing accuracy, etc.. It is easy to transform the original model of Pytorch to ASV-Subtools model by inheriting. Just modify your ```model.py``` w.r.t this [x-vector example](./pytorch/model/xvector.py).
+**Note that**, all models ([torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module)) shoud inherit [libs.nnet.framework.TopVirtualNnet](./pytorch/libs/nnet/framework.py) class to get some default functions, such as **auto-saving model creation and blueprint**, extracting emdedding of whole utterance, step-training, computing accuracy, etc.. It is easy to transform the original model of Pytorch to ASV-Subtools model by inheriting. Just modify your ```model.py``` w.r.t this [x-vector example](./pytorch/model/xvector.py).
 
 ### Training Framework  
-The basic training framework is provided here and the relations between every module are very clear. So it will be not complex if you want to change anything you want to have a custom ASV-Subtools.  
+The basic training framework is provided here and the relations between every module are very clear. So it will be not complex if you want to change anything when you want to have a custom ASV-Subtools.  
 
 **Note that**, [libs/support/utils.py](./pytorch/libs/support/utils.py) has many common functions, so it is imported in most of ```*.py```.
 
@@ -147,7 +147,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 ## Ready to Start  
 ### 1. Install Kaldi  
-The Pytorch-training has less relation to Kaldi, but we have not provided other interfaces to concatenate acoustic features and training now. So if you don't want to use Kaldi, you could change the [libs.egs.egs.ChunkEgs](./pytorch/libs/egs/egs.py) class where the features are given to Pytorch only by [torch.utils.data.Dataset](https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset). Besides, you should also change the interface of extracting x-vector after training done. Note that, most of scripts which require Kaldi could be not available in this case, such as subtools/makeFeatures.sh and subtools/augmentDataByNoise.sh.
+Pytorch-training is not much related to Kaldi, but we have not provided other interfaces to concatenate acoustic feature and training module now. So if you don't want to use Kaldi, you could change the [libs.egs.egs.ChunkEgs](./pytorch/libs/egs/egs.py) class where the features are given to Pytorch only by [torch.utils.data.Dataset](https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset). Besides, you should also change the interface of extracting x-vector after training. Note that, most of scripts which require Kaldi could be not available in this case, such as subtools/makeFeatures.sh and subtools/augmentDataByNoise.sh.
 
 **If you prefer to use Kaldi, then install Kaldi firstly w.r.t http://www.kaldi-asr.org/doc/install.html.**
 
@@ -292,11 +292,11 @@ sh subtools/kaldi/patch/runPatch-base-command.sh
 ## Training Model
 If you have completed the [Ready to Start](#ready-to-start) stage, then you could try to train a model with ASV-Subtools.
 
-For kaldi trainig, some launcher scripts named ```run*.sh``` could be found in [subtoos/Kaldi/](./kaldi).
+For kaldi training, some launcher scripts named ```run*.sh``` could be found in [subtoos/Kaldi/](./kaldi).
 
 For pytorch training, some launcher scripts named ```run*.py``` could be found in [subtools/pytorch/launcher/](./pytorch/launcher/). And some models named ```*.py``` could be found in [subtools/pytorch/model/](./pytorch/model).  Note that, model will be called in ```launcher.py```.
 
-Here is a pytorch training example, but you should follow a [pipeline](./recipe/voxceleb/runVoxceleb.sh) of [recipe](#recipe) to prepare your data and features before training. The part of data preprocessing is not complex and it is same with Kaldi. 
+Here is a pytorch training example, but you should follow a [pipeline](./recipe/voxceleb/runVoxceleb.sh) of [recipe](#recipe) to prepare your data and features before training. The part of data preprocessing is not complex and it is the same as Kaldi. 
 
 ```shell
 # Suppose you have followed the recipe and prepare your data and faetures, then the training could be run by follows.
@@ -312,13 +312,33 @@ subtools/runLauncher.sh runSnowdarXvector.py --gpu-id=0,1,2,3 --stage=0
 
 ## Recipe
 ### [1] Voxceleb Recipe [Speaker Recognition]
-[Voxceleb](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/index.html#about) is a popular dataset for the task of speaker recognition. It has two part now, [Voxceleb1](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html) and [Voxceleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html).
+[Voxceleb](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/index.html#about) is a popular dataset for the task of speaker recognition. It has two parts now, [Voxceleb1](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html) and [Voxceleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html).
 
 There are **two recipes for Voxceleb**:
 
 **i. Test Voxceleb1-O only**
 
 It means the trainset could be sampled from both Voxceleb1.dev and Voxceleb2 with a fixed training condition. The training script is available in [subtools/recipe/voxceleb/runVoxceleb.sh](./recipe/voxceleb/runVoxceleb.sh).
+
+The voxceleb1 recipe with mfcc23&pitch features is available:
+**Link**: https://pan.baidu.com/s/1nMXaAXiOnFGRhahzVyrQmg
+**Password**: 24sg
+
+```shell
+# Download this recipe to kaldi/egs/xmuspeech directory
+cd kaldi/egs/xmuspeech
+tar xzf voxceleb1_recipe.tar.gz
+cd voxceleb1
+
+# Clone ASV-Subtools (Suppose the configuration of related environment has been done)
+git clone https://github.com/Snowdar/asv-subtools.git subtools
+
+# Train an extended x-vector model (Do not use multi-GPU training for it is not stable for specaugment.)
+subtools/runPytorchLauncher.sh runSnowdarXvector-extended-spec-am.py --stage=0
+
+# Score (EER = 2.444% for voxceleb1.test)
+subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_spec_am --epochs 21 --score plda
+```
 
 **Results of Voxceleb1-O with Voxceleb1.dev.aug1:1 Training only**
 
@@ -660,7 +680,7 @@ It means the trainset could only be sampled from Voxceleb2 with a fixed training
 Note, Voxceleb1.dev is used as the trainset of back-end for the Voxceleb1-O* task and Voxceleb2.dev for others. 
 
 
- > **These basic models performs good but the results are not the state-of-the-art yet**. I found that training strategies could have an important influence to the final performance, such as the number of epoch, the value of weight decay, the selection of optimizer, and so on. Unfortunately, I have not enough time and GPU to fine-tune so many models, especially training model with a big dataset like Voxceleb2 whose duration is more than 2300h (In this case, it will spend 1~2 days if to train one fbank80-based Resnet2d model for 6 epochs with 4 V100 GPUs).
+ > **These basic models performs good but the results are not the state-of-the-art yet**. I found that training strategies could have an important influence on the final performance, such as the number of epoch, the value of weight decay, the selection of optimizer, and so on. Unfortunately, I have not enough time and GPU to fine-tune so many models, especially training model with a large dataset like Voxceleb2 whose duration is more than 2300h (In this case, it will spend 1~2 days to train one fbank80-based Resnet2d model for 6 epochs with 4 V100 GPUs).
  >
  > --#--Snowdar--2020-06-02--#--
 
@@ -688,8 +708,8 @@ For previous challenges (2016-2019), see http://olr.cslt.org.
 ---
 
 ## Feedback
-+ If you find bugs or have some questions, please create a github issue in this repository to let everyone know it, so that a good solution could be contributed.
-+ If you have questions to me, you can also send e-mail to snowdar@stu.xmu.edu.cn and I will reply in my free time.
++ If you find bugs or have some questions, please create a github issue in this repository to let everyone knows it, so that a good solution could be contributed.
++ If you want to ask me any questions, you can also send e-mail to snowdar@stu.xmu.edu.cn and I will reply in my free time.
 
 ## Acknowledgement
 + Thanks to everyone who contribute their time, ideas and codes to ASV-Subtools.
