@@ -320,8 +320,8 @@ There are **two recipes for Voxceleb**:
 
 It means the trainset could be sampled from both Voxceleb1.dev and Voxceleb2 with a fixed training condition. The training script is available in [subtools/recipe/voxceleb/runVoxceleb.sh](./recipe/voxceleb/runVoxceleb.sh).
 
-The voxceleb1 recipe with mfcc23&pitch features is available:
-**Link**: https://pan.baidu.com/s/1nMXaAXiOnFGRhahzVyrQmg
+The voxceleb1 recipe with mfcc23&pitch features is available:  
+**Link**: https://pan.baidu.com/s/1nMXaAXiOnFGRhahzVyrQmg  
 **Password**: 24sg
 
 ```shell
