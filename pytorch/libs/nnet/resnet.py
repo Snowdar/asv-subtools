@@ -121,11 +121,11 @@ class Bottleneck(nn.Module):
         self.full_pre_activation = full_pre_activation
 
         if self.full_pre_activation:
-            self._full_pre_activation(inplanes, planes, Conv, groups, width, stride, norm_layer, norm_layer_params)
+            self._full_pre_activation(inplanes, planes, Conv, groups, width, stride, norm_layer, norm_layer_params, dilation)
         else:
-            self._original(inplanes, planes, Conv, groups, width, stride, norm_layer, norm_layer_params)
+            self._original(inplanes, planes, Conv, groups, width, stride, norm_layer, norm_layer_params, dilation)
 
-    def _original(self, inplanes, planes, Conv, groups, width, stride, norm_layer, norm_layer_params):
+    def _original(self, inplanes, planes, Conv, groups, width, stride, norm_layer, norm_layer_params, dilation):
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv1x1(inplanes, width, Conv)
         self.bn1 = norm_layer(width, **norm_layer_params)
@@ -137,7 +137,7 @@ class Bottleneck(nn.Module):
         self.bn3 = norm_layer(planes * self.expansion, **norm_layer_params)
         self.relu3 = nn.ReLU(inplace=True)
 
-    def _full_pre_activation(self, inplanes, planes, Conv, groups, width, stride, norm_layer, norm_layer_params):
+    def _full_pre_activation(self, inplanes, planes, Conv, groups, width, stride, norm_layer, norm_layer_params, dilation):
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
         self.bn1 = norm_layer(inplanes, **norm_layer_params)
         self.relu1 = nn.ReLU(inplace=True)
