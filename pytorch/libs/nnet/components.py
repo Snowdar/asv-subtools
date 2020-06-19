@@ -472,7 +472,7 @@ class SEBlock(torch.nn.Module):
     by JFChou xmuspeech 2019-07-13
        Snowdar xmuspeech 2020-04-28 [Check and update]
     """
-    def __init__(self, input_dim, ratio=4, inplace=True):
+    def __init__(self, input_dim, ratio=16, inplace=True):
         '''
         @ratio: a reduction ratio which allows us to vary the capacity and computational cost of the SE blocks 
         in the network.
@@ -481,8 +481,7 @@ class SEBlock(torch.nn.Module):
 
         self.input_dim = input_dim
 
-        self.pooling = StatisticsPooling(input_dim, stddev=False)
-        self.fc_1 = TdnnAffine(input_dim,input_dim//ratio)
+        self.fc_1 = TdnnAffine(input_dim, input_dim//ratio)
         self.relu = torch.nn.ReLU(inplace=inplace)
         self.fc_2 = TdnnAffine(input_dim//ratio, input_dim)
         self.sigmoid = torch.nn.Sigmoid()
@@ -494,7 +493,7 @@ class SEBlock(torch.nn.Module):
         assert len(inputs.shape) == 3
         assert inputs.shape[1] == self.input_dim
 
-        x = self.pooling(inputs)
+        x = inputs.mean(dim=2, keepdim=True)
         x = self.relu(self.fc_1(x))
         scale = self.sigmoid(self.fc_2(x))
 
