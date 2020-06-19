@@ -132,7 +132,7 @@ class Bottleneck(nn.Module):
         self.relu1 = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(width, width, Conv, stride, groups, dilation)
         self.bn2 = norm_layer(width, **norm_layer_params)
-        self.relu1 = nn.ReLU(inplace=True)
+        self.relu2 = nn.ReLU(inplace=True)
         self.conv3 = conv1x1(width, planes * self.expansion, Conv)
         self.bn3 = norm_layer(planes * self.expansion, **norm_layer_params)
         self.relu3 = nn.ReLU(inplace=True)
@@ -143,7 +143,7 @@ class Bottleneck(nn.Module):
         self.relu1 = nn.ReLU(inplace=True)
         self.conv1 = conv1x1(inplanes, width, Conv)
         self.bn2 = norm_layer(width, **norm_layer_params)
-        self.relu1 = nn.ReLU(inplace=True)
+        self.relu2 = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(width, width, Conv, stride, groups, dilation)
         self.bn3 = norm_layer(width, **norm_layer_params)
         self.relu3 = nn.ReLU(inplace=True)
@@ -275,6 +275,7 @@ class ResNet(nn.Module):
                                        dilate=replace_stride_with_dilation[2])
 
         self.downsample_multiple *= 8
+        self.output_planes = planes[3] * used_block.expansion
 
         #self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         #self.fc = nn.Linear(512 * block.expansion, num_classes)
@@ -304,6 +305,9 @@ class ResNet(nn.Module):
 
     def get_downsample_multiple(self):
         return self.downsample_multiple
+
+    def get_output_planes(self):
+        return self.output_planes
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer

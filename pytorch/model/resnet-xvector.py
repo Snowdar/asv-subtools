@@ -85,7 +85,7 @@ class ResNetXvector(TopVirtualNnet):
 
         # It is just equal to Ceil function.
         resnet_output_dim = (inputs_dim + self.resnet.get_downsample_multiple() - 1) // self.resnet.get_downsample_multiple() \
-                            * resnet_params["planes"][3] if self.convXd == 2 else resnet_params["planes"][3]
+                            * self.resnet.get_output_planes() if self.convXd == 2 else self.resnet.get_output_planes()
 
         # Pooling
         if pooling == "lde":
