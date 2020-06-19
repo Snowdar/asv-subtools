@@ -13,7 +13,8 @@ class Xvector(TopVirtualNnet):
     """ A composite x-vector framework """
     
     ## Base parameters - components - loss - training strategy.
-    def init(self, inputs_dim, num_targets, extend=False, skip_connection=False,
+    def init(self, inputs_dim, num_targets, extend=False, skip_connection=False, 
+             specaugment=False, specaugment_params={},
              aug_dropout=0., context_dropout=0., hidden_dropout=0., dropout_params={},
              SE=False, se_ratio=4,
              tdnn_layer_params={},
@@ -85,6 +86,7 @@ class Xvector(TopVirtualNnet):
         
         ## Nnet.
         # Head
+        self.specaugment = SpecAugment(**specaugment_params) if specaugment else None
         self.aug_dropout = get_dropout_from_wrapper(aug_dropout, dropout_params)
         self.context_dropout = ContextDropout(p=context_dropout) if context_dropout > 0 else None
         self.hidden_dropout = get_dropout_from_wrapper(hidden_dropout, dropout_params)
@@ -162,6 +164,7 @@ class Xvector(TopVirtualNnet):
 
         x = inputs
 
+        x = self.auto(self.specaugment, x)
         x = self.auto(self.aug_dropout, x)
         x = self.auto(self.context_dropout, x)
 

@@ -299,7 +299,13 @@ class _BaseActivationBatchNorm(torch.nn.Module):
             if default_params["nonlinearity"] in ["relu", "leaky_relu", "tanh", "sigmoid"]:
                 # Before special_init, there is another initial way been done in TdnnAffine and it 
                 # is just equal to use torch.nn.init.normal_(self.affine.weight, 0., 0.01) here. 
-                torch.nn.init.kaiming_uniform_(self.affine.weight, a=0, mode=default_params["mode"], 
+                if isinstance(self.affine, ChunkSeparationAffine):
+                    torch.nn.init.kaiming_uniform_(self.affine.odd.weight, a=0, mode=default_params["mode"], 
+                                               nonlinearity=default_params["nonlinearity"])
+                    torch.nn.init.kaiming_uniform_(self.affine.even.weight, a=0, mode=default_params["mode"], 
+                                               nonlinearity=default_params["nonlinearity"])
+                else:
+                    torch.nn.init.kaiming_uniform_(self.affine.weight, a=0, mode=default_params["mode"], 
                                                nonlinearity=default_params["nonlinearity"])
             else:
                 torch.nn.init.xavier_normal_(self.affine.weight, gain=1.0)
@@ -350,9 +356,9 @@ class ReluBatchNormTdnnLayer(_BaseActivationBatchNorm):
         #          (activation): ReLU()
         #          (batchnorm): BatchNorm1d(512, eps=1e-05, momentum=0.5, affine=False, track_running_stats=True)
         if affine_type == "tdnn":
-            self.affine = TdnnAffine(input_dim, output_dim, context, **affine_options)
+            self.affine = TdnnAffine(input_dim, output_dim, context=context, **affine_options)
         else:
-            self.affine = ParitySeparationAffine(input_dim, output_dim, context, **affine_options)
+            self.affine = ChunkSeparationAffine(input_dim, output_dim, context=context, **affine_options)
 
         self.add_relu_bn(output_dim, options=options)
 
@@ -544,14 +550,17 @@ class MultiAffine(torch.nn.Module):
             return y.reshape(inputs.shape[0], -1, inputs.shape[2])
 
 
-class ParitySeparationAffine(torch.nn.Module):
+class ChunkSeparationAffine(torch.nn.Module):
     """By this component, the chunk will be grouped to two parts, odd and even.
     """
-    def __init__(self, input_dim, out_dim, **options):
-        super(ParitySeparationAffine, self).__init__()
+    def __init__(self, input_dim, output_dim, **options):
+        super(ChunkSeparationAffine, self).__init__()
 
-        self.odd = TdnnAffine(input_dim, out_dim // 2, stride=2, **options)
-        self.even = TdnnAffine(input_dim, out_dim // 2, stride=2, **options)
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+
+        self.odd = TdnnAffine(input_dim, output_dim // 2, stride=2, **options)
+        self.even = TdnnAffine(input_dim, output_dim // 2, stride=2, **options)
 
     def forward(self, inputs):
         """
@@ -564,4 +573,4 @@ class ParitySeparationAffine(torch.nn.Module):
             # Make sure that the chunk length of inputs is an even number.
             inputs = F.pad(inputs, (0, 1), mode="constant", value=0)
 
-        return torch.cat((self.odd(inputs), self.even(inputs[:,:,1:])))
+        return torch.cat((self.odd(inputs), self.even(inputs[:,:,1:])), dim=1)

@@ -198,6 +198,9 @@ loader_params = {
 model_params = {
     "extend":False, "SE":False, "se_ratio":4, "training":True, "extracted_embedding":"far",
 
+    "specaugment":False,
+    "specaugment_params":{"frequency":0.2, "frame":0.2, "rows":2, "cols":2, "random_rows":True,"random_rows":True},
+
     "aug_dropout":0., "hidden_dropout":0., 
     "dropout_params":{"type":"default", "start_p":0., "dim":2, "method":"uniform",
                       "continuous":False, "inplace":True},

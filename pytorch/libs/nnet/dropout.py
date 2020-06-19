@@ -246,7 +246,13 @@ def get_dropout_from_wrapper(p=0., dropout_params={}):
             "dim":2,
             "method":"normal",
             "continuous":False,
-            "inplace":True
+            "inplace":True,
+            "frequency":0.2,
+            "frame":0.2,
+            "rows":1, 
+            "cols":1, 
+            "random_rows":False, 
+            "random_cols":False
         }
 
     dropout_params = utils.assign_params_dict(default_dropout_params, dropout_params)
