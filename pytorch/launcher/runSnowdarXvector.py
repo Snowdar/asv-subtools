@@ -218,7 +218,8 @@ model_params = {
                       "hidden_size":64,
                       "context":[0],
                       "temperature":False, 
-                      "fixed":True
+                      "fixed":True,
+                      "stddev":True
                       },
     "tdnn6":True, 
     "tdnn7_params":{"nonlinearity":"default", "bn":True},

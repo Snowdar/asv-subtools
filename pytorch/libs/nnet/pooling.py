@@ -266,11 +266,17 @@ class MultiHeadAttentionPooling(torch.nn.Module):
                Recognition.” ArXiv Preprint ArXiv:1906.09890.
     Note, in this paper, affine_layers is default to 1, and final_dim is 1 which means the weights are shared.
     """
-    def __init__(self, input_dim, num_head=4, share=True, affine_layers=1, **options):
+    def __init__(self, input_dim, stddev=True, num_head=4, share=True, affine_layers=1, **options):
         super(MultiHeadAttentionPooling, self).__init__()
 
         self.input_dim = input_dim
+        self.stddev = stddev
         self.num_head = num_head
+
+        if self.stddev :
+            self.output_dim = 2 * input_dim
+        else :
+            self.output_dim = input_dim
 
         if "split_input" in options.keys():
             if not options["split_input"]:
@@ -306,11 +312,15 @@ class MultiHeadAttentionPooling(torch.nn.Module):
         # After multi-multipling alpha and inputs for multi-head case, the mean could be got by reshaping back.
         mean = torch.sum(after_mul.reshape(batch_size, -1, chunk_size), dim=2, keepdim=True)
 
-        # The var/stddev is not recommended for attention components.
-        return mean
+        if self.stddev :
+            var = torch.mean((inputs - mean)**2, dim=2, keepdim=True)
+            std = torch.sqrt(var.clamp(min=1.0e-10))
+            return torch.cat((mean, std), dim=1)
+        else :
+            return mean
 
     def get_output_dim(self):
-        return self.input_dim
+        return self.output_dim
 
 
 class GlobalMultiHeadAttentionPooling(torch.nn.Module):
