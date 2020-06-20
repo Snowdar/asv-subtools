@@ -140,7 +140,7 @@ class Lookahead(Optimizer):
                 for p,q in zip(group['params'],slow_weights):
                     if p.grad is None:
                         continue
-                    q.data.add_(self.alpha,p.data - q.data)
+                    q.data.add_(self.alpha * (p.data - q.data))
                     p.data.copy_(q.data)
         return loss
 
@@ -239,16 +239,16 @@ class SGDW(Optimizer):
                         buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
                     else:
                         buf = param_state['momentum_buffer']
-                        buf.mul_(momentum).add_(1 - dampening, d_p)
+                        buf.mul_(momentum).add_((1 - dampening) * d_p)
                     if nesterov:
                         d_p = d_p.add(momentum, buf)
                     else:
                         d_p = buf
 
                 if group['weight_decay'] != 0:
-                    p.data.add_(-group['weight_decay'] * group['lr'], p.data)
+                    p.data.add_(-group['weight_decay'] * group['lr'] * p.data)
 
-                p.data.add_(-group['lr'], d_p)
+                p.data.add_(-group['lr'] * d_p)
 
         return loss
 
@@ -358,8 +358,8 @@ class AdamW(Optimizer):
                         grad.add_(-grad.mean(dim = tuple(range(1,len(list(grad.size())))), keepdim = True))
 
                 # Decay the first and second moment running average coefficient
-                exp_avg.mul_(beta1).add_(1 - beta1, grad)
-                exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
+                exp_avg.mul_(beta1).add_((1 - beta1) * grad)
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
                 if amsgrad:
                     # Maintains the maximum of all 2nd moment running avg. till now
                     torch.max(max_exp_avg_sq, exp_avg_sq, out=max_exp_avg_sq)
@@ -370,7 +370,7 @@ class AdamW(Optimizer):
 
                 step_size = group['lr'] / bias_correction1
 
-                p.data.addcdiv_(-step_size, exp_avg, denom)
+                p.data.addcdiv_(exp_avg, denom, value=-step_size)
 
         return loss
 
@@ -426,8 +426,8 @@ class RAdam(Optimizer):
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
                 beta1, beta2 = group['betas']
 
-                exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
-                exp_avg.mul_(beta1).add_(1 - beta1, grad)
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+                exp_avg.mul_(beta1).add_((1 - beta1) * grad)
 
                 state['step'] += 1
                 buffered = self.buffer[int(state['step'] % 10)]
@@ -446,13 +446,13 @@ class RAdam(Optimizer):
                     buffered[2] = step_size
 
                 if group['weight_decay'] != 0:
-                    p_data_fp32.add_(-group['weight_decay'] * group['lr'], p_data_fp32)
+                    p_data_fp32.add_(-group['weight_decay'] * group['lr'] * p_data_fp32)
 
                 if N_sma > self.N_sma_threshhold:
                     denom = exp_avg_sq.sqrt().add_(group['eps'])
-                    p_data_fp32.addcdiv_(-step_size, exp_avg, denom)
+                    p_data_fp32.addcdiv_(exp_avg, denom, value=-step_size)
                 else:
-                    p_data_fp32.add_(-step_size, exp_avg)
+                    p_data_fp32.add_(-step_size * exp_avg)
 
                 p.data.copy_(p_data_fp32)
 
@@ -512,9 +512,9 @@ class Ralamb(Optimizer):
 
                 # Decay the first and second moment running average coefficient
                 # m_t
-                exp_avg.mul_(beta1).add_(1 - beta1, grad)
+                exp_avg.mul_(beta1).add_((1 - beta1) * grad)
                 # v_t
-                exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
                 state['step'] += 1
                 buffered = self.buffer[int(state['step'] % 10)]
@@ -536,7 +536,7 @@ class Ralamb(Optimizer):
                     buffered[2] = radam_step
 
                 if group['weight_decay'] != 0:
-                    p_data_fp32.add_(-group['weight_decay'] * group['lr'], p_data_fp32)
+                    p_data_fp32.add_(-group['weight_decay'] * group['lr'] * p_data_fp32)
 
                 weight_norm = p.data.pow(2).sum().sqrt().clamp(0, 10)
                 radam_norm = p_data_fp32.pow(2).sum().sqrt()
@@ -552,9 +552,9 @@ class Ralamb(Optimizer):
                 # more conservative since it's an approximated value
                 if N_sma > self.N_sma_threshhold:
                     denom = exp_avg_sq.sqrt().add_(group['eps'])
-                    p_data_fp32.addcdiv_(-radam_step * trust_ratio, exp_avg, denom)
+                    p_data_fp32.addcdiv_(exp_avg, denom, value=-radam_step * trust_ratio)
                 else:
-                    p_data_fp32.add_(-radam_step * trust_ratio, exp_avg)
+                    p_data_fp32.add_(exp_avg, alpha=-radam_step * trust_ratio)
 
                 p.data.copy_(p_data_fp32)
 
@@ -634,8 +634,8 @@ class AdaMod(Optimizer):
                 state['step'] += 1
 
                 # Decay the first and second moment running average coefficient
-                exp_avg.mul_(beta1).add_(1 - beta1, grad)
-                exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
+                exp_avg.mul_(beta1).add_((1 - beta1) * grad)
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
                 denom = exp_avg_sq.sqrt().add_(group['eps'])
 
@@ -644,12 +644,12 @@ class AdaMod(Optimizer):
                 step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
 
                 if group['weight_decay'] != 0:
-                    p.data.add_(-group['weight_decay'] * group['lr'], p.data)
+                    p.data.add_(-group['weight_decay'] * group['lr'] * p.data)
 
                 # Applies momental bounds on actual learning rates
                 step_size = torch.full_like(denom, step_size)
                 step_size.div_(denom)
-                exp_avg_lr.mul_(group['beta3']).add_(1 - group['beta3'], step_size)
+                exp_avg_lr.mul_(group['beta3']).add_((1 - group['beta3']) * step_size)
                 step_size = torch.min(step_size,  exp_avg_lr)
                 step_size.mul_(exp_avg)
 
@@ -735,7 +735,7 @@ class Novograd(Optimizer):
                         state['max_exp_avg_sq'] = torch.zeros([]).to(state['exp_avg'].device)
 
                 if group['weight_decay'] != 0:
-                    p.data.add_(-group['weight_decay'] * group['lr'], p.data)
+                    p.data.add_(-group['weight_decay'] * group['lr'] * p.data)
 
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
                 if amsgrad:
@@ -749,7 +749,7 @@ class Novograd(Optimizer):
                 if exp_avg_sq == 0:
                     exp_avg_sq.copy_(norm)
                 else:
-                    exp_avg_sq.mul_(beta2).add_(1 - beta2, norm)
+                    exp_avg_sq.mul_(beta2).add_((1 - beta2) * norm)
 
                 if amsgrad:
                     # Maintains the maximum of all 2nd moment running avg. till now
@@ -766,6 +766,6 @@ class Novograd(Optimizer):
                     grad.mul_(1 - beta1)
                 exp_avg.mul_(beta1).add_(grad)
 
-                p.data.add_(-group['lr'], exp_avg)
+                p.data.add_(-group['lr'] * exp_avg)
         
         return loss
