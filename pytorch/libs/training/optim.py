@@ -43,8 +43,8 @@ def get_optimizer(model, params:dict={}):
     name = used_params["name"]
     learn_rate = used_params["learn_rate"]
     beta1 = used_params["beta1"]
-    beta2 = used_params["beta1"]
-    beta3 = used_params["beta1"]
+    beta2 = used_params["beta2"]
+    beta3 = used_params["beta3"]
     weight_decay = used_params["weight_decay"]
     gc = used_params["gc"]
 
