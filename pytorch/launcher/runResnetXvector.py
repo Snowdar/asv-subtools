@@ -258,13 +258,20 @@ optimizer_params = {
 }
 
 lr_scheduler_params = {
-    "name":"warmR",
+    "name":"reduceP", # warmR or reduceP
     "warmR.lr_decay_step":0, # 0 means decay after every epoch and 1 means every iter. 
     "warmR.T_max":3,
     "warmR.T_mult":2,
     "warmR.factor":1.0,  # The max_lr_decay_factor.
     "warmR.eta_min":4e-8,
-    "warmR.log_decay":False
+    "warmR.log_decay":False,
+    "reduceP.metric":'valid_acc',
+    "reduceP.check_interval":0, # 0 means check metric after every epoch and 1 means every iter. 
+    "reduceP.factor":0.1,  # scale of lr in every times.
+    "reduceP.patience":1, 
+    "reduceP.threshold":0.0001, 
+    "reduceP.cooldown":0, 
+    "reduceP.min_lr":0
 }
 
 epochs = 21 # Total epochs to train. It is important.

@@ -573,3 +573,18 @@ class ChunkSeparationAffine(torch.nn.Module):
             inputs = F.pad(inputs, (0, 1), mode="constant", value=0)
 
         return torch.cat((self.odd(inputs), self.even(inputs[:,:,1:])), dim=1)
+
+
+class Mixup(torch.nn.Module):
+    """Implement a mixup component to augment data and increase the generalization of model training.
+    Reference: 
+        [1] Zhang, Hongyi, Moustapha Cisse, Yann N. Dauphin, and David Lopez-Paz. n.d. Mixup: BEYOND EMPIRICAL RISK MINIMIZATION.
+        [2] Zhu, Yingke, Tom Ko, and Brian Mak. 2019. “Mixup Learning Strategies for Text-Independent Speaker Verification.”
+    """
+    def __init__(self, input_dim, output_dim, **options):
+        super(Mixup, self).__init__()
+
+        pass
+
+    def forward(self, inputs):
+        pass

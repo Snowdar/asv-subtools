@@ -254,26 +254,33 @@ class SimpleTrainer(_BaseTrainer):
                     if model.use_step:
                         model.step(*self.training_point)
 
-                    if lr_scheduler is not None:
-                        # It is not convenient to wrap lr_scheduler (doing).
-                        if isinstance(lr_scheduler, LRSchedulerWrapper):
-                            lr_scheduler.step(self.training_point)
-                        else:
-                            # For some pytorch lr_schedulers, but it is not available for all.
-                            lr_scheduler.step(this_epoch)
-
                     loss, acc = self.train_one_batch(batch)
 
-                    # For multi-GPU training.
-                    if utils.is_main_training():
-                        if data.valid_loader and self.reporter.is_report(self.training_point):
+                    # For multi-GPU training. Remember that it is not convenient to wrap lr_scheduler 
+                    # for there are many strategies with different details. Here, only warmR, ReduceLROnPlateau
+                    # and some simple schedulers whose step() parameter is 'epoch' only are supported. 
+                    lr_scheduler_params = {"training_point":self.training_point}
+
+                    if utils.is_main_training() or lr_scheduler.name == "reduceP":
+                        if data.valid_loader and (self.reporter.is_report(self.training_point) or \
+                           lr_scheduler.is_reduce_point(self.training_point)):
+
                             valid_loss, valid_acc = self.compute_validation(data.valid_loader)
                             snapshot = {"train_loss":"{0:.6f}".format(loss), "valid_loss":"{0:.6f}".format(valid_loss), 
                                         "train_acc":"{0:.2f}".format(acc*100), "valid_acc":"{0:.2f}".format(valid_acc*100)}
+                            # For ReduceLROnPlateau.
+                            lr_scheduler_params["valid_metric"] = (valid_loss, valid_acc)
                         else:
                             snapshot = {"train_loss":"{0:.6f}".format(loss), "valid_loss":"",
                                         "train_acc":"{0:.2f}".format(acc*100), "valid_acc":""}
 
+                    if lr_scheduler is not None:
+                        # It is not convenient to wrap lr_scheduler (doing).
+                        if isinstance(lr_scheduler, LRSchedulerWrapper):
+                            lr_scheduler.step(**lr_scheduler_params)
+                        else:
+                            # For some pytorch lr_schedulers, but it is not available for all.
+                            lr_scheduler.step(this_epoch)
                     if utils.is_main_training(): self.reporter.update(snapshot)
                 if utils.is_main_training(): self.save_model()
             if utils.is_main_training(): self.reporter.finish()

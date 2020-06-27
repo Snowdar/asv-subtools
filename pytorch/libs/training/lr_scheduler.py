@@ -25,7 +25,14 @@ class LRSchedulerWrapper():
             "warmR.factor":1.0,
             "warmR.eta_min":4e-8,
             "warmR.log_decay":False,
-            "warmR.lr_decay_step":1
+            "warmR.lr_decay_step":1,
+            "reduceP.metric":'valid_acc',
+            "reduceP.check_interval":0, 
+            "reduceP.factor":0.1, 
+            "reduceP.patience":10, 
+            "reduceP.threshold":0.0001, 
+            "reduceP.cooldown":0, 
+            "reduceP.min_lr":0
         }
 
         used_params = utils.assign_params_dict(default_params, params, force_check=False, support_unknow=True)
@@ -44,10 +51,30 @@ class LRSchedulerWrapper():
             T_max = split_params["warmR"].pop("T_max")
             self.lr_decay_step = split_params["warmR"].pop("lr_decay_step")
             self.lr_scheduler = CosineAnnealingWarmRestarts(base_optimizer, T_max, **split_params["warmR"])
+        elif self.name == "reduceP":
+            self.check_interval = split_params["reduceP"].pop("check_interval")
+            self.metric = split_params["reduceP"].pop("metric")
+            if self.metric == "valid_acc":
+                mode = "max"
+            elif self.metric == "valid_loss":
+                mode = "min"
+            else:
+                raise ValueError("Do not support {} metric for ReduceLROnPlateau strategy.".format(self.metric))
+            self.lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(base_optimizer, mode=mode, **split_params["reduceP"])
+            self.init = False
+            if utils.use_horovod():
+                raise TypeError("Do not support ReduceLROnPlateau for multi-gpu of Horovod now.")
         else:
             raise ValueError("Do not support {0} lr_scheduler now.".format(name))
+    
+    def is_reduce_point(self, training_point):
+        if self.name == "reduceP":
+            return (self.check_interval > 0 and training_point[1]%self.check_interval == 0) or \
+                   (self.check_interval <= 0 and training_point[1] + 1 == training_point[2])
+        else:
+            return False
 
-    def step(self, training_point=None):
+    def step(self, training_point=None, valid_metric=None):
         if self.name == "warmR":
             if self.lr_decay_step > 0 and training_point[1]%self.lr_decay_step == 0:
                 self.lr_scheduler.step(training_point[0]+training_point[1]/training_point[2])
@@ -55,7 +82,33 @@ class LRSchedulerWrapper():
                 self.lr_scheduler.step(training_point[0])
         elif self.name == "1cycle":
             self.lr_scheduler.step()
+        elif self.name == "reduceP":
+            # Sample a point in which the metrics of valid are computed and adjust learning rate at this point.
+            if self.is_reduce_point(training_point):
+                # Do not support horovod now.
+                if utils.use_ddp():
+                    # Multi-gpu case.
+                    # In this case, we do not compute valid set for all processes but just computing it in main process
+                    # and broadcast the metrics to other processes.
+                    if not self.init:
+                        device = utils.get_device_from_optimizer(self.lr_scheduler.optimizer)
+                        # Create a must tentor to prepare to broadcast with torch.distributed.broadcast fuction.
+                        self.metric = torch.randn(2, device=device) 
+                        # New a group to broadcast the special metric tensor. It is important.
+                        self.group = torch.distributed.new_group(ranks=list(range(torch.distributed.get_world_size())), 
+                                                                 backend="nccl")
+                        self.init = True
+                    if utils.is_main_training():
+                        # Gather the new value of metric.
+                        self.metric = torch.tensor([valid_metric[0], valid_metric[1]], device=self.metric.device)
+                    # Broadcast
+                    torch.distributed.broadcast(self.metric, 0, group=self.group)
+                    metric = self.metric[0] if self.metric == "valid_loss" else self.metric[1]
+                else:
+                    # Single-GPU case.
+                    metric = valid_metric[0] if self.metric == "valid_loss" else valid_metric[1]
 
+                self.lr_scheduler.step(metric)
 
 ## Learn rate scheduler ✿
 class CosineAnnealingWarmRestarts(_LRScheduler):

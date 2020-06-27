@@ -116,6 +116,12 @@ def get_device(model):
     return device
 
 
+def get_device_from_optimizer(optimizer):
+    for group in optimizer.param_groups:
+        for p in group['params']:
+            return p.device
+
+
 def get_tensors(tensor_sets):
     """Get a single tensor list from a nested tensor_sets list/tuple object,
     such as transforming [(tensor1,tensor2),tensor3] to [tensor1,tensor2,tensor3]
@@ -374,6 +380,7 @@ def dict_to_params_str(dict, auto=True, connect="=", sep=","):
 def read_log_csv(csv_path:str):
     dataframe = pd.read_csv(csv_path).drop_duplicates(["epoch", "iter"], keep="last", inplace=True)
     return dataframe
+
 
 ### Multi-GPU training [Two solutions: Horovod or DDP]
 def init_multi_gpu_training(gpu_id="", solution="ddp", port=29500):

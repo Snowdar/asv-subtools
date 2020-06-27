@@ -100,9 +100,9 @@ Of course, this data pipeline could be also followed to know the basic principle
 - **Component**
   + [x] [Attentive Statistics Pooling](https://arxiv.org/pdf/1803.10963v1.pdf)
   + [x] [Learnable Dictionary Encoding (LDE) Pooling](https://arxiv.org/pdf/1804.00385.pdf)
-  + [x] [Multi-Head Attention Pooling](https://upcommons.upc.edu/bitstream/handle/2117/178623/2616.pdf?sequence=1&isAllowed=y) ==*new*== [The codes could be found [here](./pytorch/libs/nnet/pooling.py), by Snowdar.]
-  + [x] [Global Multi-Head Attention Pooling](https://www.researchgate.net/publication/341085045_Multi-Resolution_Multi-Head_Attention_in_Deep_Speaker_Embedding) ==*new*==
-  + [x] [Multi-Resolution Multi-Head Attention Pooling](https://www.researchgate.net/publication/341085045_Multi-Resolution_Multi-Head_Attention_in_Deep_Speaker_Embedding) ==*new*==
+  + [x] [Multi-Head Attention Pooling](https://upcommons.upc.edu/bitstream/handle/2117/178623/2616.pdf?sequence=1&isAllowed=y) [The codes could be found [here](./pytorch/libs/nnet/pooling.py), by Snowdar.]
+  + [x] [Global Multi-Head Attention Pooling](https://www.researchgate.net/publication/341085045_Multi-Resolution_Multi-Head_Attention_in_Deep_Speaker_Embedding)
+  + [x] [Multi-Resolution Multi-Head Attention Pooling](https://www.researchgate.net/publication/341085045_Multi-Resolution_Multi-Head_Attention_in_Deep_Speaker_Embedding)
   + [x] [Sequeze and Excitation (SE)](https://arxiv.org/pdf/1709.01507.pdf) [A resnet1d-based SE example of speaker recognition could be found in this [paper](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1704.pdf), by Jianfeng Zhou.]
 
 - **Loss Function**
@@ -124,7 +124,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 - **Training Strategy**
   + [x] [AdamW](https://arxiv.org/pdf/1711.05101v1.pdf) + [WarmRestarts](https://arxiv.org/pdf/1608.03983v4.pdf)
-  + [ ] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau)
+  + [x] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau) ==*new*==
   + [x] [Training with Magin Decay Stratagy](https://arxiv.org/pdf/1904.03479.pdf)
   + [x] [Heated Up Strategy](https://arxiv.org/pdf/1809.04157.pdf)
   + [x] [Multi-task Learning with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was contributed by [Yi Liu](http://yiliu.org.cn/). Thanks.]

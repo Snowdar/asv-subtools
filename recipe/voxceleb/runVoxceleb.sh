@@ -100,14 +100,14 @@ subtools/runPytorchLauncher.sh runStandardXvector-voxceleb1o2.py --stage=0
 # Scoring the baseline with only voxceleb1_train_aug trainig.
 # standard_voxceleb1 is the model dir which is set in runSnowdarXvector-voxceleb1.py.
 # Cosine: lda128 -> norm -> cosine -> AS-norm (Near emdedding is better)
-# If use AM-softmax, replace lda with submean (--lda false --submean true) could have better performace based on cosine scoring.
+# If using AM-softmax, replace lda with submean (--lda false --submean true) could have better performace for cosine scoring.
 subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_voxceleb1  \
                                                        --epochs "21" --score cosine --score-norm true
 # PLDA: lda256 -> norm -> PLDA (Far emdedding is better and PLDA is better than Cosine here (w/o AM-softmax and just a small model))
 subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_voxceleb1  \
                                                        --epochs "21" --score plda --score-norm false
 
-# Scoreing the baseline with voxceleb1o2_train_aug training.
+# Scoring the baseline with voxceleb1o2_train_aug training.
 subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_voxceleb1o2 \
                                                        --epochs "15" --score cosine --score-norm true
 subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/standard_voxceleb1o2 \

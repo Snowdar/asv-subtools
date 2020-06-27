@@ -187,7 +187,7 @@ egs_params = {
 loader_params = {
     "use_fast_loader":True, # It is a queue loader to prefetch batch and storage.
     "max_prefetch":10,
-    "batch_size":512, 
+    "batch_size":128, 
     "shuffle":True, 
     "num_workers":2,
     "pin_memory":False, 
@@ -236,8 +236,8 @@ model_params = {
 }
 
 optimizer_params = {
-    "name":"adamW",
-    "learn_rate":0.001,
+    "name":"sgdW",
+    "learn_rate":0.0025,
     "beta1":0.9,
     "beta2":0.999,
     "beta3":0.999,
@@ -248,13 +248,20 @@ optimizer_params = {
 }
 
 lr_scheduler_params = {
-    "name":"warmR",
+    "name":"reduceP", # warmR or reduceP
     "warmR.lr_decay_step":0, # 0 means decay after every epoch and 1 means every iter. 
     "warmR.T_max":3,
     "warmR.T_mult":2,
     "warmR.factor":1.0,  # The max_lr_decay_factor.
     "warmR.eta_min":4e-8,
-    "warmR.log_decay":False
+    "warmR.log_decay":False,
+    "reduceP.metric":'valid_acc',
+    "reduceP.check_interval":1000, # 0 means check metric after every epoch and 1 means every iter. 
+    "reduceP.factor":0.1,  # scale of lr in every times.
+    "reduceP.patience":1, 
+    "reduceP.threshold":0.0001, 
+    "reduceP.cooldown":0, 
+    "reduceP.min_lr":0
 }
 
 epochs = 21 # Total epochs to train. It is important.
