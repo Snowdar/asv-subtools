@@ -33,7 +33,7 @@ def Nonlinearity(nonlinearity="relu", inplace=True, negative_slope=0.01):
     elif nonlinearity == 'mish' :
         activation = Mish()
     elif nonlinearity == 'tanh' :
-        activation = torch.nn.Tanh(inplace=inplace)
+        activation = torch.nn.Tanh()
     elif nonlinearity == "" or nonlinearity is None or nonlinearity == False:
         activation = None
     else:

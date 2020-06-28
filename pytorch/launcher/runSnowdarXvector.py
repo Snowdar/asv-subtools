@@ -187,7 +187,7 @@ egs_params = {
 loader_params = {
     "use_fast_loader":True, # It is a queue loader to prefetch batch and storage.
     "max_prefetch":10,
-    "batch_size":128, 
+    "batch_size":512, 
     "shuffle":True, 
     "num_workers":2,
     "pin_memory":False, 
@@ -236,8 +236,8 @@ model_params = {
 }
 
 optimizer_params = {
-    "name":"sgdW",
-    "learn_rate":0.0025,
+    "name":"adamW",
+    "learn_rate":0.001,
     "beta1":0.9,
     "beta2":0.999,
     "beta3":0.999,
@@ -248,7 +248,7 @@ optimizer_params = {
 }
 
 lr_scheduler_params = {
-    "name":"reduceP", # warmR or reduceP
+    "name":"warmR", # warmR or reduceP
     "warmR.lr_decay_step":0, # 0 means decay after every epoch and 1 means every iter. 
     "warmR.T_max":3,
     "warmR.T_mult":2,
