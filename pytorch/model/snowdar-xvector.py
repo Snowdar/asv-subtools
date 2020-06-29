@@ -14,6 +14,7 @@ class Xvector(TopVirtualNnet):
     
     ## Base parameters - components - loss - training strategy.
     def init(self, inputs_dim, num_targets, extend=False, skip_connection=False, 
+             mixup=False, mixup_alpha=1.0,
              specaugment=False, specaugment_params={},
              aug_dropout=0., context_dropout=0., hidden_dropout=0., dropout_params={},
              SE=False, se_ratio=4,
@@ -87,6 +88,7 @@ class Xvector(TopVirtualNnet):
         
         ## Nnet.
         # Head
+        self.mixup = Mixup(alpha=mixup_alpha) if mixup else None
         self.specaugment = SpecAugment(**specaugment_params) if specaugment else None
         self.aug_dropout = get_dropout_from_wrapper(aug_dropout, dropout_params)
         self.context_dropout = ContextDropout(p=context_dropout) if context_dropout > 0 else None
@@ -149,6 +151,8 @@ class Xvector(TopVirtualNnet):
             else:
                 self.loss = SoftmaxLoss(512, num_targets)
 
+            self.wrapper_loss = MixupLoss(self.loss, self.mixup) if mixup else None
+
             # An example to using transform-learning without initializing loss.affine parameters
             self.transform_keys = ["tdnn1","tdnn2","tdnn3","tdnn4","tdnn5","stats","tdnn6","tdnn7",
                                    "ex_tdnn1","ex_tdnn2","ex_tdnn3","ex_tdnn4","ex_tdnn5",
@@ -166,6 +170,7 @@ class Xvector(TopVirtualNnet):
 
         x = inputs
 
+        x = self.auto(self.mixup, x)
         x = self.auto(self.specaugment, x)
         x = self.auto(self.aug_dropout, x)
         x = self.auto(self.context_dropout, x)
@@ -194,21 +199,32 @@ class Xvector(TopVirtualNnet):
         x = self.auto(self.hidden_dropout, x)
         return x
 
-
     @utils.for_device_free
     def get_loss(self, inputs, targets):
         """Should call get_loss() after forward() with using Xvector model function.
         e.g.:
             m=Xvector(20,10)
             loss=m.get_loss(m(inputs),targets)
-        """
-        return self.loss(inputs, targets)
 
-    def get_posterior(self):
-        """Should call get_posterior after get_loss. This function is to get outputs from loss component.
-        @return: return posterior
+        model.get_loss [custom] -> loss.forward [custom]
+          |
+          v
+        model.get_accuracy [custom] -> loss.get_accuracy [custom] -> loss.compute_accuracy [static] -> loss.predict [static]
         """
-        return self.loss.get_posterior()
+        if self.wrapper_loss is not None:
+            return self.wrapper_loss(inputs, targets)
+        else:
+            return self.loss(inputs, targets)
+
+    @utils.for_device_free
+    def get_accuracy(self, targets):
+        """Should call get_accuracy() after get_loss().
+        @return: return accuracy
+        """
+        if self.wrapper_loss is not None:
+            return self.wrapper_loss.get_accuracy(targets)
+        else:
+            return self.loss.get_accuracy(targets)
 
     @for_extract_embedding(maxChunk=10000, isMatrix=True)
     def extract_embedding(self, inputs):
@@ -248,18 +264,15 @@ class Xvector(TopVirtualNnet):
 
         return xvector
 
-
     def get_warmR_T(T_0, T_mult, epoch):
         n = int(math.log(max(0.05, (epoch / T_0 * (T_mult - 1) + 1)), T_mult))
         T_cur = epoch - T_0 * (T_mult ** n - 1) / (T_mult - 1)
         T_i = T_0 * T_mult ** (n)
         return T_cur, T_i
 
-
     def compute_decay_value(self, start, end, T_cur, T_i):
         # Linear decay in every cycle time.
         return start - (start - end)/(T_i-1) * (T_cur%T_i)
-
 
     def step(self, epoch, this_iter, epoch_batchs):
         # Heated up for t and s.

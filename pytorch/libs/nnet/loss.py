@@ -39,6 +39,40 @@ class TopVirtualLoss(torch.nn.Module):
         assert self.posterior is not None
         return self.posterior
 
+    @utils.for_device_free
+    def get_accuracy(self, targets):
+        """
+        @return: return accuracy
+        """
+        return self.compute_accuracy(self.get_posterior(), targets)
+
+    @utils.for_device_free
+    def predict(self, outputs):
+        """
+        @outputs: the outputs tensor with [batch-size,n,1] shape comes from affine before computing softmax or 
+                  just softmax for n classes
+        @return: an 1-dimensional vector including class-id (0-based) for prediction
+        """
+        with torch.no_grad():
+            prediction = torch.squeeze(torch.argmax(outputs, dim=1))
+
+        return prediction
+
+    @utils.for_device_free
+    def compute_accuracy(self, outputs, targets):
+        """
+        @outputs: the outputs tensor with [batch-size,n,1] shape comes from affine before computing softmax or 
+                 just softmax for n classes
+        @return: the float accuracy
+        """
+        assert outputs.shape[0] == len(targets)
+
+        with torch.no_grad():
+            prediction = self.predict(outputs)
+            num_correct = (targets==prediction).sum()
+
+        return num_correct.item()/len(targets)
+
 #############################################
 
 ## Loss ✿
@@ -344,3 +378,41 @@ class LogisticAffinityLoss(TopVirtualLoss):
             return outputs.sum() / targets.shape[0]
         else:
             raise ValueError("Do not support this reduction {0}".format(self.reduction))
+
+
+class MixupLoss(TopVirtualLoss):
+    """Implement a mixup component to augment data and increase the generalization of model training.
+    Reference: 
+        [1] Zhang, Hongyi, Moustapha Cisse, Yann N. Dauphin, and David Lopez-Paz. n.d. Mixup: BEYOND EMPIRICAL RISK MINIMIZATION.
+        [2] Zhu, Yingke, Tom Ko, and Brian Mak. 2019. “Mixup Learning Strategies for Text-Independent Speaker Verification.”
+
+    Github: https://github.com/hongyi-zhang/mixup/blob/master/cifar/utils.py
+    """
+    def init(self, base_loss, mixup_component):
+        
+        self.base_loss = base_loss
+        self.mixup_component = mixup_component
+
+    def forward(self, inputs, targets):
+        if self.training:
+            lam = self.mixup_component.lam
+            index = self.mixup_component.index
+
+            loss = lam * self.base_loss(inputs, targets) + \
+                (1 - lam) * self.base_loss(inputs, targets[index])
+        else:
+            loss = self.base_loss(inputs, targets)
+
+        return loss
+
+    def get_accuracy(self, targets):
+        if self.training:
+            # It is not very clear to compute accuracy for mixed data.
+            lam = self.mixup_component.lam
+            index = self.mixup_component.index
+            return lam * self.compute_accuracy(self.base_loss.get_posterior(), targets) + \
+                   (1 - lam) * self.compute_accuracy(self.base_loss.get_posterior(), targets[index])
+        else:
+            return self.compute_accuracy(self.base_loss.get_posterior(), targets)
+
+

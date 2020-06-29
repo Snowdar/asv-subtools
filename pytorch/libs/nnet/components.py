@@ -580,11 +580,25 @@ class Mixup(torch.nn.Module):
     Reference: 
         [1] Zhang, Hongyi, Moustapha Cisse, Yann N. Dauphin, and David Lopez-Paz. n.d. Mixup: BEYOND EMPIRICAL RISK MINIMIZATION.
         [2] Zhu, Yingke, Tom Ko, and Brian Mak. 2019. “Mixup Learning Strategies for Text-Independent Speaker Verification.”
+
+    Github: https://github.com/hongyi-zhang/mixup/blob/master/cifar/utils.py
     """
-    def __init__(self, input_dim, output_dim, **options):
+    def __init__(self, alpha=1.0):
         super(Mixup, self).__init__()
 
-        pass
+        self.alpha = alpha
 
     def forward(self, inputs):
-        pass
+        if not self.training: return inputs
+
+        batch_size = inputs.shape[0]
+        self.lam = np.random.beta(self.alpha, self.alpha) if self.alpha > 0. else 1.
+        # Shuffle the original index to generate the pairs, such as
+        # Origin:           1 2 3 4 5
+        # After Shuffling:  3 4 1 5 2
+        # Then the pairs are (1, 3), (2, 4), (3, 1), (4, 5), (5,2).
+        self.index = torch.randperm(batch_size, device=inputs.device)
+
+        mixed_data = self.lam * inputs + (1 - self.lam) * inputs[self.index,:]
+
+        return mixed_data

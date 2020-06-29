@@ -180,7 +180,7 @@ gpu_id = args.gpu_id # If NULL, then it will be auto-specified.
 run_lr_finder = args.run_lr_finder
 
 egs_params = {
-    "aug":None, # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
+    "aug":"specaugment", # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
     "aug_params":{"frequency":0.2, "frame":0.2, "rows":4, "cols":4, "random_rows":True,"random_rows":True}
 }
 
@@ -196,8 +196,8 @@ loader_params = {
 
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
 model_params = {
-    "extend":False, "SE":False, "se_ratio":4, "training":True, "extracted_embedding":"far",
-
+    "extend":True, "SE":False, "se_ratio":4, "training":True, "extracted_embedding":"far",
+    "mixup":True, "mixup_alpha":1.0,
     "specaugment":False,
     "specaugment_params":{"frequency":0.2, "frame":0.2, "rows":2, "cols":2, "random_rows":True,"random_rows":True},
 
@@ -222,14 +222,14 @@ model_params = {
                       "stddev":True
                       },
     "tdnn6":True, 
-    "tdnn7_params":{"nonlinearity":"default", "bn":True},
+    "tdnn7_params":{"nonlinearity":"", "bn":False},
 
-    "margin_loss":False, 
+    "margin_loss":True, 
     "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 
                           "s":30, "mhe_loss":False, "mhe_w":0.01, "curricular":False},
-    "use_step":False, 
+    "use_step":True, 
     "step_params":{"T":None,
-                   "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
+                   "m":True, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
                    "s":False, "s_tuple":(30, 12), "s_list":None,
                    "t":False, "t_tuple":(0.5, 1.2), 
                    "p":False, "p_tuple":(0.5, 0.1)}
@@ -279,7 +279,7 @@ traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
 model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/standard_voxceleb1"
+model_dir="exp/extended_voxceleb1"
 ##--------------------------------------------------##
 ##
 ######################################################### START #########################################################

@@ -192,7 +192,7 @@ class SimpleTrainer(_BaseTrainer):
         else:
             optimizer.step()
 
-        accuracy = model.compute_accuracy(model.get_posterior(), targets) if self.params["compute_accuracy"] else None
+        accuracy = model.get_accuracy(targets) if self.params["compute_accuracy"] else None
 
         return loss.item(), accuracy
 
@@ -216,7 +216,7 @@ class SimpleTrainer(_BaseTrainer):
 
                 if self.params["compute_valid_accuracy"]:
                     # This will occupy extra GPU memory.
-                    accuracy += model.compute_accuracy(model.get_posterior(), targets) * len(targets)
+                    accuracy += model.get_accuracy(targets) * len(targets)
 
                 if self.params["compute_one_batch_valid"]:
                     break

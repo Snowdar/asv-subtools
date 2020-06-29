@@ -89,6 +89,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 - **Front-end**
   + [x] [Convenient Augmentation of Reverb, Noise, Music and Babble](./augmentDataByNoise.sh)
   + [x] Inverted [Specaugment](https://arxiv.org/pdf/1904.08779.pdf)
+  + [x] [Mixup](https://arxiv.org/pdf/1710.09412.pdf) [For speaker recognition, see this [paper](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/2250.pdf).] ==*new*==
 
 - **Model**
   + [x] [Standard X-vector](http://www.danielpovey.com/files/2017_interspeech_embeddings.pdf)
@@ -125,7 +126,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 - **Training Strategy**
   + [x] [AdamW](https://arxiv.org/pdf/1711.05101v1.pdf) + [WarmRestarts](https://arxiv.org/pdf/1608.03983v4.pdf)
   + [x] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau) ==*new*==
-  + [x] [Training with Magin Decay Stratagy](https://arxiv.org/pdf/1904.03479.pdf)
+  + [x] [Training with Magin Decay Strategy](https://arxiv.org/pdf/1904.03479.pdf)
   + [x] [Heated Up Strategy](https://arxiv.org/pdf/1809.04157.pdf)
   + [x] [Multi-task Learning with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was contributed by [Yi Liu](http://yiliu.org.cn/). Thanks.]
   + [ ] Multi-task Learning with Phonetic Information (Pytorch)

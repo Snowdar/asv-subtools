@@ -84,7 +84,6 @@ class TopVirtualNnet(torch.nn.Module):
         self.rename_transform_keys = {}
         self.init(*args, **kwargs)
 
-
     def init(self, *args, **kwargs):
         raise NotImplementedError
 
@@ -96,15 +95,22 @@ class TopVirtualNnet(torch.nn.Module):
     def forward(self, *inputs):
         raise NotImplementedError
 
-
     # You could use this decorator if needed in class function overwriting 
     @utils.for_device_free
     def get_loss(self, *inputs, targets):
         """
-        @return: return a loss tensor, such as return form torch.nn.CrossEntropyLoss(reduction='mean')
+        @return: return a loss tensor, such as return from torch.nn.CrossEntropyLoss(reduction='mean')
+
+        e.g.:
+            m=Xvector(20,10)
+            loss=m.get_loss(m(inputs),targets)
+
+        model.get_loss [custom] -> loss.forward [custom]
+          |
+          v
+        model.get_accuracy [custom] -> loss.get_accuracy [custom] -> loss.compute_accuracy [static] -> loss.predict [static]
         """
         return self.loss(*inputs, targets)
-
 
     def get_posterior(self):
         """
@@ -112,12 +118,17 @@ class TopVirtualNnet(torch.nn.Module):
         """
         return self.loss.get_posterior()
 
+    @utils.for_device_free
+    def get_accuracy(self, targets):
+        """
+        @return: return accuracy
+        """
+        return self.loss.get_accuracy(targets)
 
     def auto(self, layer, x):
         """It is convenient for forward-computing when layer could be None or not
         """
         return layer(x) if layer is not None else x
-
 
     def load_transform_state_dict(self, state_dict):
         """It is used in transform-learning.
@@ -130,7 +141,6 @@ class TopVirtualNnet(torch.nn.Module):
         self.load_state_dict(remaining, strict=False)
 
         return self
-
 
     # We could use this decorator if needed when overwriting class function. 
     @for_extract_embedding(maxChunk=10000, isMatrix=True)
@@ -153,7 +163,6 @@ class TopVirtualNnet(torch.nn.Module):
             prediction = torch.squeeze(torch.argmax(outputs, dim=1))
 
         return prediction
-
 
     @utils.for_device_free
     def compute_accuracy(self, outputs, targets):
