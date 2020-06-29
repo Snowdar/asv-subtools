@@ -121,7 +121,7 @@ echo "Fusion weights are as follows:"
 cat $mat
 [ "$keep_mat" == "false" ] && [ "$eval" == "false" ] && rm -f $mat
 echo "Get fusion eer:"
-subtools/computeEER.sh $outscore 3 $trials 3 2>/dev/null
+subtools/computeEER.sh $trials $outscore 2>/dev/null
 [ "$equal_fusion" == "true" ] && echo "( fuision with equal weight :" `subtools/computeEER.sh $outscore.equal 3 $trials 3 2>/dev/null` ")" && rm -f $mat.equal
 [ "$computeCavg" == "true" ] && echo "Get fusion Cavg:"
 [ "$computeCavg" == "true" ] && subtools/computeCavg.py -pairs $trials $outscore

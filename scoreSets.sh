@@ -306,7 +306,7 @@ for the_classfier in $(echo $score | sed 's/-/ /g');do
     
     outscores="$outscores ${outname}.score"
     for the_metric in $(echo $metric | sed 's/-/ /g');do
-        [ "$the_metric" == "eer" ] && subtools/computeEER.sh --write-file ${outname}.eer ${outname}.score 3 $trials 3 && outsets="$outsets ${outname}.eer"
+        [ "$the_metric" == "eer" ] && subtools/computeEER.sh --write-file ${outname}.eer $trials ${outname}.score && outsets="$outsets ${outname}.eer"
         [ "$the_metric" == "Cavg" ] && subtools/computeCavg.py -pairs $trials ${outname}.score > ${outname}.Cavg && \
             cat ${outname}.Cavg && outsets="$outsets ${outname}.Cavg"
 
