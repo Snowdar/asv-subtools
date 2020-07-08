@@ -28,11 +28,11 @@ class LRSchedulerWrapper():
             "warmR.lr_decay_step":1,
             "reduceP.metric":'valid_acc',
             "reduceP.check_interval":0, 
-            "reduceP.factor":0.1, 
+            "reduceP.factor":0.5, 
             "reduceP.patience":10, 
             "reduceP.threshold":0.0001, 
             "reduceP.cooldown":0, 
-            "reduceP.min_lr":0
+            "reduceP.min_lr":0.
         }
 
         used_params = utils.assign_params_dict(default_params, params, force_check=False, support_unknow=True)

@@ -206,7 +206,7 @@ git clone https://github.com/Snowdar/asv-subtools.git subtools
 ### 5. Support Multi-GPU Training  
 ASV-Subtools provide both **DDP (recommended)** and Horovod solutions to support multi-GPU training.
 
-**Some answers about how to use multi-GPU taining, see [subtools/pytorch/launcher/runSnowdarXvector.py](./pytorch/launcher/runSnowdarXvector.py). It is very convenient and easy now.**
+**Some answers about how to use multi-GPU training, see [subtools/pytorch/launcher/runSnowdarXvector.py](./pytorch/launcher/runSnowdarXvector.py). It is very convenient and easy now.**
 
 Requirements List:  
 + DDP: Pytorch, NCCL  
@@ -258,7 +258,7 @@ sh subtools/kaldi/patch/runPatch-multitask.sh
 ```
 
 #### Accelerate X-vector Extractor of Kaldi
-It will spend so much time to compile nnet3 models for the utterances with different frames when extracting x-vectors based on Kaldi. To optimize this problem, ASV-Subtools provides an **offine** modification (MOD) in [subtools/kaldi/sid/nnet3/xvector/extract_xvectors.sh](./kaldi/sid/nnet3/xvector/extract_xvectors.sh) to accelerate extracting. This MOD requires two extra commands, **nnet3-compile-xvector-net** and **nnet3-offline-xvector-compute**. When extracting x-vectors, all model with different input chunk-size will be compiled firstly. Then the utterances which have the same frames could share a compiled nnet3 network. It saves much time by avoiding a lot of duplicate dynamic compilations.
+It will spend so much time to compile nnet3 models for the utterances with different frames when extracting x-vectors based on Kaldi. To optimize this problem, ASV-Subtools provides an **offine** modification (MOD) in [subtools/kaldi/sid/nnet3/xvector/extract_xvectors.sh](./kaldi/sid/nnet3/xvector/extract_xvectors.sh) to accelerate extracting. This MOD requires two extra commands, **nnet3-compile-xvector-net** and **nnet3-offline-xvector-compute**. When extracting x-vectors, all models with different input chunk-size will be compiled firstly. Then the utterances which have the same frames could share a compiled nnet3 network. It saves much time by avoiding a lot of duplicate dynamic compilations.
 
 Besides, the ```scp``` spliting type w.r.t length of utterances ([subtools/splitDataByLength.sh](./splitDataByLength.sh)) is adopted to balance the frames of different ```nj``` when multi-processes is used.
 
