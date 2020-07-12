@@ -33,14 +33,14 @@ if [ "$nosil" == "true" ];then
         awk -v num=$num -v data=$data '{if(NF!=2){print $1 > data"/.error"}}
                                   END{if(NR!=num){print $1 > data"/.error"}}' $data/utt2num_frames.nosil
         [ ! -f $data/.error ] && echo "[Note] The file $data/utt2num_frames.nosil is exist, so do not generate it again." && exit 0
-        [ -f $data/.error ] && echo "[Warning] There is sames a error in $data/utt2num_frames.nosil, so generate it again."
+        [ -f $data/.error ] && echo "[Warning] There is an error in $data/utt2num_frames.nosil, so generate it again."
     fi
 else
     if [ -f $data/utt2num_frames ];then
         awk -v num=$num -v data=$data '{if(NF!=2){print $1 > data"/.error"}}
                                   END{if(NR!=num){print $1 > data"/.error"}}' $data/utt2num_frames
         [ ! -f $data/.error ] && echo "[Note] The file $data/utt2num_frames is exist, so do not generate it again." && exit 0
-        [ -f $data/.error ] && echo "[Warning] There is sames a error in $data/utt2num_frames, so generate it again."
+        [ -f $data/.error ] && echo "[Warning] There is an error in $data/utt2num_frames, so generate it again."
     fi
 fi
 
