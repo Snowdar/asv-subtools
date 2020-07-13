@@ -88,6 +88,7 @@ train_stage = max(-1, args.train_stage)
 ## Preprocess options
 force_clear=args.force_clear
 preprocess_nj = 20
+compress=False
 cmn = True # traditional cmn process
 
 chunk_size = 200
@@ -179,16 +180,16 @@ utils.set_all_seed(1024) # Note that, in different machine, random still will be
 if stage <= 2 and endstage >= 0:
     # Here only give limited options because it is not convenient.
     # Suggest to pre-execute this shell script to make it freedom and then continue to run this launcher.
-   kaldi_common.execute_command("sh subtools/pytorch/pipeline/preprocess_to_egs.sh "
+    kaldi_common.execute_command("sh subtools/pytorch/pipeline/preprocess_to_egs.sh "
                                  "--stage {stage} --endstage {endstage} --valid-split-type {valid_split_type} "
                                  "--nj {nj} --cmn {cmn} --limit-utts {limit_utts} --min-chunk {chunk_size} --overlap {overlap} "
                                  "--sample-type {sample_type} --chunk-num {chunk_num} --scale {scale} --force-clear {force_clear} "
-                                 "--valid-num-utts {valid_utts} --valid-chunk-num {valid_chunk_num_every_utt} "
+                                 "--valid-num-utts {valid_utts} --valid-chunk-num {valid_chunk_num_every_utt} --compress {compress}"
                                  "{traindata} {egs_dir}".format(stage=stage, endstage=endstage, valid_split_type=valid_split_type, 
                                  nj=preprocess_nj, cmn=str(cmn).lower(), limit_utts=limit_utts, chunk_size=chunk_size, overlap=overlap, 
                                  sample_type=sample_type, chunk_num=chunk_num, scale=scale, force_clear=str(force_clear).lower(), 
-                                 valid_utts=valid_utts, valid_chunk_num_every_utt=valid_chunk_num_every_utt, traindata=traindata, 
-                                 egs_dir=egs_dir))
+                                 valid_utts=valid_utts, valid_chunk_num_every_utt=valid_chunk_num_every_utt, compress=str(compress).lower()
+                                 traindata=traindata, egs_dir=egs_dir))
 
 
 #### Train model

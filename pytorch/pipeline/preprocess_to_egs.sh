@@ -14,7 +14,7 @@ fetures_exp=exp/features
 # Do vad and traditional cmn process
 nj=20
 cmn=true 
-compress=false # Should be false to make use of kaldi_io I/O
+compress=false # Could be false to make use of kaldi_io I/O. If true, save space of disk but increase training time.
 
 # Remove utts
 min_chunk=200

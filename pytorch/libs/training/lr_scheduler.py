@@ -93,17 +93,17 @@ class LRSchedulerWrapper():
                     if not self.init:
                         device = utils.get_device_from_optimizer(self.lr_scheduler.optimizer)
                         # Create a must tentor to prepare to broadcast with torch.distributed.broadcast fuction.
-                        self.metric = torch.randn(2, device=device) 
+                        self.broadcast_metric = torch.randn(2, device=device) 
                         # New a group to broadcast the special metric tensor. It is important.
                         self.group = torch.distributed.new_group(ranks=list(range(torch.distributed.get_world_size())), 
                                                                  backend="nccl")
                         self.init = True
                     if utils.is_main_training():
                         # Gather the new value of metric.
-                        self.metric = torch.tensor([valid_metric[0], valid_metric[1]], device=self.metric.device)
+                        self.broadcast_metric = torch.tensor([valid_metric[0], valid_metric[1]], device=self.broadcast_metric.device)
                     # Broadcast
-                    torch.distributed.broadcast(self.metric, 0, group=self.group)
-                    metric = self.metric[0] if self.metric == "valid_loss" else self.metric[1]
+                    torch.distributed.broadcast(self.broadcast_metric, 0, group=self.group)
+                    metric = self.broadcast_metric[0] if self.metric == "valid_loss" else self.broadcast_metric[1]
                 else:
                     # Single-GPU case.
                     metric = valid_metric[0] if self.metric == "valid_loss" else valid_metric[1]
