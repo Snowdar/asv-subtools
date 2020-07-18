@@ -164,7 +164,7 @@ cat INSTALL
 
 # Compile tools firstly
 cd tools
-sh extras/check_dependencies.sh
+bash extras/check_dependencies.sh
 make -j 4
 
 # Config src before compiling
@@ -254,7 +254,7 @@ Use [subtools/kaldi/runMultiTaskXvector.sh](./kaldi/runMultiTaskXvector.sh) to t
 # Enter your project, such as kaldi/egs/xmuspeech/sre and make sure ASV-Subtools is cloned here
 # Just run this patch to compile some extra C++ commands with Kaldi's format
 cd kaldi/egs/xmuspeech/sre
-sh subtools/kaldi/patch/runPatch-multitask.sh
+bash subtools/kaldi/patch/runPatch-multitask.sh
 ```
 
 #### Accelerate X-vector Extractor of Kaldi
@@ -271,7 +271,7 @@ Besides, the ```scp``` spliting type w.r.t length of utterances ([subtools/split
 #     src/nnet3bin/nnet3-offline-xvector-compute.cc
 
 cd kaldi/egs/xmuspeech/sre
-sh subtools/kaldi/patch/runPatch-base-command.sh
+bash subtools/kaldi/patch/runPatch-base-command.sh
 ```
 
 #### Add A MMI-GMM Classifier for The Back-End
@@ -288,7 +288,7 @@ If you have run [subtools/kaldi/patch/runPatch-base-command.sh](./kaldi/patch/ru
 #    src/gmmbin/gmm-global-est-weights-ebw.cc
 
 cd kaldi/egs/xmuspeech/sre
-sh subtools/kaldi/patch/runPatch-base-command.sh
+bash subtools/kaldi/patch/runPatch-base-command.sh
 ```
 ## Training Model
 If you have completed the [Ready to Start](#ready-to-start) stage, then you could try to train a model with ASV-Subtools.
