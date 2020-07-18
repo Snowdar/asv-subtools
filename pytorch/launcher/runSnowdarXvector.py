@@ -319,7 +319,7 @@ if stage <= 2 and endstage >= 0 and utils.is_main_training():
                                  "{traindata} {egs_dir}".format(stage=stage, endstage=endstage, valid_split_type=valid_split_type, 
                                  nj=preprocess_nj, cmn=str(cmn).lower(), limit_utts=limit_utts, chunk_size=chunk_size, overlap=overlap, 
                                  sample_type=sample_type, chunk_num=chunk_num, scale=scale, force_clear=str(force_clear).lower(), 
-                                 valid_utts=valid_utts, valid_chunk_num_every_utt=valid_chunk_num_every_utt, compress=str(compress).lower()
+                                 valid_utts=valid_utts, valid_chunk_num_every_utt=valid_chunk_num_every_utt, compress=str(compress).lower(),
                                  traindata=traindata, egs_dir=egs_dir))
 
 #### Train model
