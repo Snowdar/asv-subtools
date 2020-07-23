@@ -1,4 +1,10 @@
 Obtained by Snowdar, Zheng Li at XMUSPEECH in May 2020.
+Update by Zheng Li in July 2020
+
+Update information (July 2020):
+1. The EER result of the i-vector system in Cross-channel LID task on AP20-OLR-ref-dev was corrected.
+2. The script for Cavg of open-set dialect identification task was changed in which a bug was fixed, resulting in the new Cavg results on  open-set dialect identification task.
+3. For open-set dialect identification task, a new script named computeCavg_unknown.py was provided to compute Cavg and it will be used in the final test procedure.
 
 AP20-OLR challenge sets three tasks that will be evaluated and ranked separately.
 
@@ -14,8 +20,8 @@ Baseline results on AP20-OLR-ref-dev (to help estimate the system performance wh
 ------------------------------------------------------------------------------------------------------------------
 Task[Cavg/EER%]           [Kaldi]i-vector    [Kaldi]x-vector    [Pytorch]x-vector 
 ------------------------------------------------------------------------------------------------------------------
-Cross-channel LID         0.2965/19.40        0.3583/36.37        0.2696/26.94
-Dialect identification    0.0142/1.33         0.0267/2.53         0.0302/3.13
+Cross-channel LID         0.2965/29.12        0.3583/36.37        0.2696/26.94
+Dialect identification     0.0703/9.33          0.0807/14.67        0.0849/12.40
 ------------------------------------------------------------------------------------------------------------------
 
 Baseline results on AP20-OLR-test (standard test set for the challenge)
@@ -23,8 +29,8 @@ Baseline results on AP20-OLR-test (standard test set for the challenge)
 Task[Cavg/EER%]           [Kaldi]i-vector    [Kaldi]x-vector    [Pytorch]x-vector 
 ------------------------------------------------------------------------------------------------------------------
 Cross-channel LID         0.1542/19.40        0.2098/22.49        0.1321/14.58
-Dialect identification    0.2439/23.94        0.2370/22.25        0.1938/19.74
-Noisy LID                 0.0967/9.77         0.1079/11.12        0.0715/7.14
+Dialect identification     0.2214/23.94        0.2117/22.25        0.1752/19.74
+Noisy LID                      0.0967/9.77          0.1079/11.12        0.0715/7.14
 ------------------------------------------------------------------------------------------------------------------
 
 

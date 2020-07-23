@@ -1,6 +1,10 @@
 #!/bin/bash
 
 # Copyright xmuspeech (Author: Snowdar, Zheng Li 2020-05-30)
+# Update by Zheng Li 2020-07-23
+# Update info: For open-set dialect identification task (task 2), a new script named computeCavg_unknown.py was provided to compute Cavg and it will be used in the final test procedure.
+#              As for task 1 and task 3, the computation of Cavg in computeCavg.py is not changed.
+#
 # Corresponding email: ap_olr@163.com
 # Please refer to https://speech.xmu.edu.cn/ or http://olr.cslt.org for more info
 
@@ -62,10 +66,10 @@ sh run_kaldi_ivector.sh
 # the system performance when participants repeat the baseline systems or prepare their own systems.
 # Task 1: Cross-channel LID; Task2 : dialect identification; Task3: no ref-development set provided
 for exp in exp/pytorch_xvector/far_epoch21 exp/pytorch_xvector/far_epoch21 exp/kaldi_xvector/embedding1 exp/kaldi_ivector;do
-  for task in 1 2;do
-    subtools/scoreSets.sh --eval false --vectordir $exp --prefix mfcc_20_5.0  --enrollset=task${task}_enroll --testset=task${task}_test \
-                          --lda true --clda 100 --submean true --score "lr" --metric "Cavg"
-  done
+  subtools/scoreSets.sh --eval false --vectordir $exp --prefix mfcc_20_5.0  --enrollset=task1_enroll --testset=task1_test \
+                        --lda true --clda 100 --submean true --score "lr" --metric "Cavg"
+  subtools/scoreSets_new.sh --eval false --vectordir $exp --prefix mfcc_20_5.0  --enrollset=task2_enroll --testset=task2_test \
+                        --lda true --clda 100 --submean true --score "lr" --metric "Cavg"  --open-set-test true
 done
 
 # You can compare your results on AP20-OLR-ref-dev with results.txt to check your systems.
