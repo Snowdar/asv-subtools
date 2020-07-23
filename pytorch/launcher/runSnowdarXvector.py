@@ -166,7 +166,7 @@ cmn = True # Traditional cmn process.
 chunk_size = 200
 limit_utts = 8
 
-sample_type="speaker_balance" # sequential | speaker_balance
+sample_type="sequential" # sequential | speaker_balance
 chunk_num=-1 # -1 means using scale, 0 means using max and >0 means itself.
 overlap=0.1
 scale=1.5 # Get max / num_spks * scale for every speaker.
@@ -218,6 +218,7 @@ model_params = {
                       "affine_layers":1,
                       "hidden_size":64,
                       "context":[0],
+                      "stddev":True,
                       "temperature":False, 
                       "fixed":True,
                       "stddev":True

@@ -38,6 +38,7 @@ class ResNetXvector(TopVirtualNnet):
             "share":True,
             "affine_layers":1,
             "context":[0],
+            "stddev":True,
             "temperature":False, 
             "fixed":True
         }
@@ -88,17 +89,18 @@ class ResNetXvector(TopVirtualNnet):
                             * self.resnet.get_output_planes() if self.convXd == 2 else self.resnet.get_output_planes()
 
         # Pooling
+        stddev = pooling_params.pop("stddev")
         if pooling == "lde":
             self.stats = LDEPooling(resnet_output_dim, c_num=pooling_params["num_head"])
         elif pooling == "attentive":
             self.stats = AttentiveStatisticsPooling(resnet_output_dim, hidden_size=pooling_params["hidden_size"], 
-                                                    context=pooling_params["context"], stddev=True)
+                                                    context=pooling_params["context"], stddev=stddev)
         elif pooling == "multi-head":
-            self.stats = MultiHeadAttentionPooling(resnet_output_dim, **pooling_params)
+            self.stats = MultiHeadAttentionPooling(resnet_output_dim, stddev=stddev, **pooling_params)
         elif pooling == "multi-resolution":
             self.stats = MultiResolutionMultiHeadAttentionPooling(resnet_output_dim, **pooling_params)
         else:
-            self.stats = StatisticsPooling(resnet_output_dim, stddev=True)
+            self.stats = StatisticsPooling(resnet_output_dim, stddev=stddev)
 
         self.fc1 = ReluBatchNormTdnnLayer(self.stats.get_output_dim(), resnet_params["planes"][3], **fc1_params) if fc1 else None
 
@@ -228,12 +230,12 @@ if __name__ == "__main__":
     # Let bach-size:128, fbank:40, frames:200.
     tensor = torch.randn(128, 40, 200)
     print("Test resnet2d ...")
-    resnet2d = ResnetXvector(40, 1211, resnet_params={"convXd":2})
+    resnet2d = ResNetXvector(40, 1211, resnet_params={"convXd":2})
     print(resnet2d)
     print(resnet2d(tensor).shape)
     print("\n")
     print("Test resnet1d ...")
-    resnet1d = ResnetXvector(40, 1211, resnet_params={"convXd":1})
+    resnet1d = ResNetXvector(40, 1211, resnet_params={"convXd":1})
     print(resnet1d)
     print(resnet1d(tensor).shape)
 

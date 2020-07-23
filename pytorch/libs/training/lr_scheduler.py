@@ -69,7 +69,8 @@ class LRSchedulerWrapper():
     
     def is_reduce_point(self, training_point):
         if self.name == "reduceP":
-            return (self.check_interval > 0 and training_point[1]%self.check_interval == 0) or \
+            # It will check the point with a global num_iter value.
+            return (self.check_interval > 0 and (training_point[0] * training_point[2] + training_point[1] + 1)%self.check_interval == 0) or \
                    (self.check_interval <= 0 and training_point[1] + 1 == training_point[2])
         else:
             return False
@@ -77,6 +78,7 @@ class LRSchedulerWrapper():
     def step(self, training_point=None, valid_metric=None):
         if self.name == "warmR":
             if self.lr_decay_step > 0 and training_point[1]%self.lr_decay_step == 0:
+                # It will check the point at the start of every epoch (not a global decay-strategy).
                 self.lr_scheduler.step(training_point[0]+training_point[1]/training_point[2])
             elif self.lr_decay_step == 0:
                 self.lr_scheduler.step(training_point[0])

@@ -48,6 +48,7 @@ class Xvector(TopVirtualNnet):
             "affine_layers":1,
             "hidden_size":64,
             "context":[0],
+            "stddev":True,
             "temperature":False, 
             "fixed":True,
             "stddev":True
