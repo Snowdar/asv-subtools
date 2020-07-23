@@ -66,10 +66,10 @@ bash run_kaldi_ivector.sh
 # the system performance when participants repeat the baseline systems or prepare their own systems.
 # Task 1: Cross-channel LID; Task2 : dialect identification; Task3: no ref-development set provided
 for exp in exp/pytorch_xvector/far_epoch21 exp/pytorch_xvector/far_epoch21 exp/kaldi_xvector/embedding1 exp/kaldi_ivector;do
-  subtools/scoreSets.sh --eval false --vectordir $exp --prefix mfcc_20_5.0  --enrollset=task1_enroll --testset=task1_test \
+  subtools/scoreSets.sh --eval false --vectordir $exp --prefix mfcc_20_5.0  --enrollset task1_enroll --testset task1_test \
                         --lda true --clda 100 --submean true --score "lr" --metric "Cavg"
-  bash scoreSets_new.sh --eval false --vectordir $exp --prefix mfcc_20_5.0  --enrollset=task2_enroll --testset=task2_test \
-                        --lda true --clda 100 --submean true --score "lr" --metric "Cavg"  --open_set_test true
+  sh scoreSets_open_set.sh --eval false --vectordir $exp --prefix mfcc_20_5.0  --enrollset task2_enroll --testset task2_test \
+                        --lda true --clda 100 --submean true --score "lr" --metric "Cavg"
 done
 
 # You can compare your results on AP20-OLR-ref-dev with results.txt to check your systems.
@@ -78,7 +78,7 @@ done
 # Task 1: Cross-channel LID; Task2 : dialect identification; Task3: noisy LID
 for exp in exp/pytorch_xvector/far_epoch21 exp/pytorch_xvector/far_epoch21 exp/kaldi_xvector/embedding1 exp/kaldi_ivector;do
   for task in 1 2 3;do
-    subtools/scoreSets.sh --eval true --vectordir $exp --prefix mfcc_20_5.0  --enrollset=task${task}_enroll --testset=task${task}_test \
+    subtools/scoreSets.sh --eval true --vectordir $exp --prefix mfcc_20_5.0  --enrollset task${task}_enroll --testset task${task}_test \
                           --lda true --clda 100 --submean true --score "lr" --metric "Cavg"
     # Transfer the format of score file to requred format.
     subtools/score2table.sh $exp/task${task}_test/lr_task${task}_enroll_task${task}_test_lda100_submean_norm.score $exp/task${task}_test/lr_task${task}_enroll_task${task}_test_lda100_submean_norm.score.requred
