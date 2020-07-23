@@ -54,11 +54,11 @@ python3 run_pytorch_xvector.py --stage=0
 
 ## Kaldi x-vector model training
 # Training (preprocess -> get_egs -> training -> extract_xvectors)
-sh run_kaldi_xvector.sh
+bash run_kaldi_xvector.sh
 
 ## Kaldi i-vector model training
 # Training (preprocess -> get_egs -> training -> extract_ivectors)
-sh run_kaldi_ivector.sh
+bash run_kaldi_ivector.sh
 
 ### Back-end scoring: lda100 -> submean -> norm -> LR 
 
@@ -68,8 +68,8 @@ sh run_kaldi_ivector.sh
 for exp in exp/pytorch_xvector/far_epoch21 exp/pytorch_xvector/far_epoch21 exp/kaldi_xvector/embedding1 exp/kaldi_ivector;do
   subtools/scoreSets.sh --eval false --vectordir $exp --prefix mfcc_20_5.0  --enrollset=task1_enroll --testset=task1_test \
                         --lda true --clda 100 --submean true --score "lr" --metric "Cavg"
-  subtools/scoreSets_new.sh --eval false --vectordir $exp --prefix mfcc_20_5.0  --enrollset=task2_enroll --testset=task2_test \
-                        --lda true --clda 100 --submean true --score "lr" --metric "Cavg"  --open-set-test true
+  bash scoreSets_new.sh --eval false --vectordir $exp --prefix mfcc_20_5.0  --enrollset=task2_enroll --testset=task2_test \
+                        --lda true --clda 100 --submean true --score "lr" --metric "Cavg"  --open_set_test true
 done
 
 # You can compare your results on AP20-OLR-ref-dev with results.txt to check your systems.

@@ -73,7 +73,7 @@ whiten_data_config="train[train dev]" # if NULL, will be set "$enrollset[$enroll
 score="cosine"  # cosine | plda | aplda | svm | gmm | lr #
 metric="eer" # eer | Cavg #
 
-open-set-test=false 
+open_set_test=false 
 
 #####################
 
