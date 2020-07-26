@@ -3,6 +3,10 @@
 #***************************************
 #author: TINA
 #date: 2014_10_13 CSLT
+
+# update by Zheng Li at XMUSPEECH
+# 2020 07 26
+
 #***************************************
 
 import os, sys, math
@@ -12,6 +16,8 @@ from numpy import linalg
 from sklearn import svm
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neighbors import DistanceMetric
+
+from sklearn import preprocessing
 
 if __name__ == "__main__":
 
@@ -26,10 +32,21 @@ if __name__ == "__main__":
 	sys.stderr.write('Paras: ' + fin_train + ' ' + fin_test + ' ' + fout_ + '\n')
 
 	# data preparation for training set
-	fin = open(fin_train, 'r')
-
+	
 	train_data = []
 	train_lable = []
+
+	fin = open(fin_train, 'r')
+	sort_ = []
+	for line in fin:
+		sort_.append(line)
+	fin.close()
+	sort_.sort()
+	fin = open(fin_train, 'w')
+	fin.writelines(sort_)
+	fin.close()
+
+	fin = open(fin_train, 'r')
 
 	for line in fin:
 		line = line.strip()
@@ -44,8 +61,10 @@ if __name__ == "__main__":
 	fin.close()
 
 	# model training
+	#scaler = preprocessing.StandardScaler().fit(train_data)
+	#scaler.transform(train_data)
 
-	clf = svm.SVC(C=Cvalue, kernel = curve,probability = True, max_iter = maxit, random_state = 777, class_weight = None, gamma="auto")
+	clf = svm.SVC(C=Cvalue, kernel = curve, probability = True, max_iter = maxit, random_state = 777, class_weight = None, gamma="auto")
 	#clf = svm.SVC(kernel = curve,probability = True, max_iter = maxit, random_state = 777, class_weight = 'auto')
 	clf.fit(train_data, train_lable)
 
@@ -55,7 +74,17 @@ if __name__ == "__main__":
 
 	test_data = []
 	test_lable = []
-
+	
+	fin = open(fin_test, 'r')
+	sort_ = []
+	for line in fin:
+		sort_.append(line)
+	fin.close()
+	sort_.sort()
+	fin = open(fin_test, 'w')
+	fin.writelines(sort_)
+	fin.close()
+	
 	fin = open(fin_test, 'r')
 	
 	for line in fin:
@@ -68,6 +97,8 @@ if __name__ == "__main__":
 	sys.stderr.write('test_data: ' + str(len(test_data)) + ' ' + 'test_lable: ' + str(len(test_lable)) + '\n')
 
 	fin.close()	
+
+	#scaler.transform(test_data)
 
 	# predict
 	fout = open(fout_, 'w')	
