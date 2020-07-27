@@ -44,12 +44,12 @@ function do_lines_task_parallel(){
     done
     subtools/kaldi/utils/split_scp.pl $input_file $split_scps || exit 1
 
-
     # Execute function
     trap "subtools/linux/kill_pid_tree.sh --show true $$ && echo -e '\nAll killed'" INT
     pids=""
     for i in $(seq $nj);do
-        $this_function $temp_dir/$name.$i.input $temp_dir/$output_name.$i.output > $temp_dir/$i.log 2>&1 || exit 1 & 
+        # $i is input to this_function by $3
+        $this_function $temp_dir/$name.$i.input $temp_dir/$output_name.$i.output $i > $temp_dir/$i.log 2>&1 || exit 1 & 
         pids="$pids $!"
     done
     trap "subtools/linux/kill_pid_tree.sh --show true $pids && echo -e '\nAll killed'" INT

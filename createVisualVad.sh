@@ -9,6 +9,7 @@ nj=20
 exp=exp/features
 
 . subtools/parse_options.sh
+. subtools/linux/functions.sh
 . subtools/path.sh
 
 if [[ $# != 1 ]];then
@@ -19,14 +20,19 @@ fi
 
 data=$1
 
-[ ! -f "$data/utt2num_frames" ] && feat-to-len scp:$data/feats.scp ark,t:$data/utt2num_frames
-
+[ ! -s "$data/utt2num_frames" ] && subtools/get_utt2num_frames_from_feats.sh --nj $nj $data
 
 name=`echo "$data" | sed 's/\// /g' | awk '{for(i=1;i<=NF-1;i++){printf $i"_";}printf $NF}'`
 outdir=$exp/visual/vad/$name
 mkdir -p $outdir
 
-awk '{value="";for(i=0;i<$2;i++){value=value" 1"} print $1,"[",value,"]"}' $data/utt2num_frames | copy-vector \
-ark:- ark,scp:$outdir/vad.ark,$data/vad.scp
+function create_vad_label(){
+    awk '{value="";for(i=0;i<$2;i++){value=value" 1"} print $1,"[",value,"]"}' $1 | copy-vector \
+        ark:- ark,scp:$outdir/vad.$3.ark,$2
+    # $3 is the num of nj
+    return 0
+}
+
+do_lines_task_parallel --nj $nj create_vad_label $data/utt2num_frames $data/vad.scp
 
 echo "Create visual vad done."
