@@ -47,5 +47,3 @@ i=`expr $i + 1`
 done
 
 echo "Get $scp done."
-
-

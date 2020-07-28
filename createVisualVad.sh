@@ -33,6 +33,6 @@ function create_vad_label(){
     return 0
 }
 
+echo "Create visual vad by $data/num2num_frames..."
 do_lines_task_parallel --nj $nj create_vad_label $data/utt2num_frames $data/vad.scp
-
 echo "Create visual vad done."

@@ -230,7 +230,3 @@ print("ASV EER=%f%%, threshold=%f"%(asv_eer*100,asv_threshold))
 print("ASV Pfa=%f%%, Pmiss=%f%%, 1-Pmiss,spoof=%f%%"%(P_fa_asv*100,P_miss_asv*100,(1-P_miss_spoof_asv)*100))
 print("CM EER=%f%%, threshold=%f"%(cm_eer*100,cm_threshold))
 print("Final min-tDCF=%f"%(min_tDCF))
-
-
-
-

@@ -150,3 +150,4 @@ if __name__ == '__main__':
   cavgs, min_cavg = get_cavg(pairs, lang_num, min_score, max_score, threshhold_bins, p_target)
 
   print(round(min_cavg, 4))
+  
