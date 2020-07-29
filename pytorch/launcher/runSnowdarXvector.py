@@ -158,19 +158,19 @@ endstage = min(4, args.endstage)
 train_stage = max(-1, args.train_stage)
 ##--------------------------------------------------##
 ## Preprocess options
-force_clear=args.force_clear
+force_clear = args.force_clear
 preprocess_nj = 20
-compress=False
+compress = False
 cmn = True # Traditional cmn process.
 
 chunk_size = 200
 limit_utts = 8
 
-sample_type="sequential" # sequential | speaker_balance
-chunk_num=-1 # -1 means using scale, 0 means using max and >0 means itself.
-overlap=0.1
-scale=1.5 # Get max / num_spks * scale for every speaker.
-valid_split_type="--total-spk" # --total-spk or --default
+sample_type = "sequential" # sequential | speaker_balance
+chunk_num = -1 # -1 means using scale, 0 means using max and >0 means itself.
+overlap = 0.1
+scale = 1.5 # Get max / num_spks * scale for every speaker.
+valid_split_type = "--total-spk" # --total-spk or --default
 valid_utts = 1024
 valid_chunk_num_every_utt = 2
 ##--------------------------------------------------##
@@ -274,14 +274,14 @@ report_interval_iters = 100 # About validation computation and loss reporting. I
 suffix = "params" # Used in saved model file.
 ##--------------------------------------------------##
 ## Other options
-exist_model=""  # Use it in transfer learning.
+exist_model = ""  # Use it in transfer learning.
 ##--------------------------------------------------##
 ## Main params
-traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
-egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
+traindata = "data/mfcc_23_pitch/voxceleb1_train_aug"
+egs_dir = "exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
-model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/extended_voxceleb1_spec_am_reduceP_sgd"
+model_blueprint = "subtools/pytorch/model/snowdar-xvector.py"
+model_dir = "exp/extended_voxceleb1_spec_am_reduceP_sgd"
 ##--------------------------------------------------##
 ##
 ######################################################### START #########################################################

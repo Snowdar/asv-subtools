@@ -179,9 +179,12 @@ class ResNetXvector(TopVirtualNnet):
         if self.extracted_embedding == "far":
             assert self.fc1 is not None
             xvector = self.fc1.affine(x)
-        elif self.extracted_embedding == "near":
+        elif self.extracted_embedding == "near_affine":
             x = self.auto(self.fc1, x)
             xvector = self.fc2.affine(x)
+        elif self.extracted_embedding == "near":
+            x = self.auto(self.fc1, x)
+            xvector = self.fc2(x)
         else:
             raise TypeError("Expected far or near position, but got {}".format(self.extracted_embedding))
 

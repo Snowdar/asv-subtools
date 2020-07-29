@@ -259,9 +259,12 @@ class Xvector(TopVirtualNnet):
         if self.extracted_embedding == "far" :
             assert self.tdnn6 is not None
             xvector = self.tdnn6.affine(x)
-        elif self.extracted_embedding == "near":
+        elif self.extracted_embedding == "near_affine":
             x = self.auto(self.tdnn6, x)
             xvector = self.tdnn7.affine(x)
+        elif self.extracted_embedding == "near":
+            x = self.auto(self.tdnn6, x)
+            xvector = self.tdnn7(x)
 
         return xvector
 
