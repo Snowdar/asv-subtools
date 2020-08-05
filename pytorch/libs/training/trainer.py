@@ -55,7 +55,7 @@ class _BaseTrainer():
         default_params = {"model_dir":"", "model_blueprint":"", "exist_model":"", "start_epoch":0, "epochs":10, 
                           "use_gpu":True, "gpu_id":"", "benchmark":True, "max_change":10.0, 
                           "compute_accuracy":True, "compute_valid_accuracy":True, "compute_one_batch_valid":True,
-                          "suffix":"params"}
+                          "suffix":"params", "nan_debug":False, "use_tensorboard":True}
 
         elements, params = package
         self.elements = utils.assign_params_dict(default_elements, elements)
@@ -168,7 +168,15 @@ class SimpleTrainer(_BaseTrainer):
         if not model.training:
             model.train()
 
-        inputs, targets = batch
+        if self.params["nan_debug"]:
+            device = utils.get_device(self.elements["model"])
+            inputs = torch.load("{0}/nan.batch".format(self.params["model_dir"])).to(device)
+            targets = torch.load("{0}/nan.targets".format(self.params["model_dir"])).to(device)
+            self.elements["model"].load_state_dict(torch.load("{0}/nan.params".format(self.params["model_dir"]), 
+                                             map_location="cpu"))
+            self.elements["model"].to(device)
+        else:
+            inputs, targets = batch
         optimizer.zero_grad()
 
         loss = model.get_loss(model_forward(inputs), targets)
@@ -182,8 +190,16 @@ class SimpleTrainer(_BaseTrainer):
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), self.params["max_change"])
 
             if math.isnan(grad_norm):
-                raise RuntimeError('There is nan problem in iter/epoch: {0}/{1}'.format(self.training_point[1]+1, self.training_point[0]+1))
+                if self.params["nan_debug"]:
+                    raise RuntimeError("[NOT OK] Nan is still found in this debug.")
+                torch.save(inputs.cpu(), "{0}/nan.batch".format(self.params["model_dir"]))
+                torch.save(targets.cpu(), "{0}/nan.targets".format(self.params["model_dir"]))
+                torch.save(self.elements["model"].state_dict(), "{0}/nan.params".format(self.params["model_dir"]))
+                raise RuntimeError('There is Nan problem in iter/epoch: {0}/{1} (nan batch and params are saved in {2})'.format(self.training_point[1]+1, 
+                self.training_point[0]+1, "{0}/nan.*".format(self.params["model_dir"])))
             else:
+                if self.params["nan_debug"]:
+                    raise RuntimeError("[OK] There is no nan found for this debug.")
                 if utils.use_horovod():
                     with optimizer.skip_synchronize():
                         optimizer.step()
@@ -244,6 +260,7 @@ class SimpleTrainer(_BaseTrainer):
             model = self.elements["model"]
             model_forward = self.elements["model_forward"] # See init_training.
             lr_scheduler = self.elements["lr_scheduler"]
+            last_lr = self.elements["optimizer"].state_dict()['param_groups'][0]['lr']
 
             if utils.is_main_training(): logger.info("Training will run for {0} epochs.".format(epochs))
 
@@ -256,6 +273,8 @@ class SimpleTrainer(_BaseTrainer):
 
                     loss, acc = self.train_one_batch(batch)
 
+                    model.backward_step(*self.training_point)
+
                     # For multi-GPU training. Remember that it is not convenient to wrap lr_scheduler 
                     # for there are many strategies with different details. Here, only warmR, ReduceLROnPlateau
                     # and some simple schedulers whose step() parameter is 'epoch' only are supported. 
@@ -266,18 +285,29 @@ class SimpleTrainer(_BaseTrainer):
                            lr_scheduler.is_reduce_point(self.training_point)):
 
                             valid_loss, valid_acc = self.compute_validation(data.valid_loader)
+                            # real_snapshot is set for tensorboard to avoid workspace problem
+                            real_snapshot = {"train_loss":loss, "valid_loss":valid_loss, 
+                                             "train_acc":acc*100, "valid_acc":valid_acc*100}
                             snapshot = {"train_loss":"{0:.6f}".format(loss), "valid_loss":"{0:.6f}".format(valid_loss), 
-                                        "train_acc":"{0:.2f}".format(acc*100), "valid_acc":"{0:.2f}".format(valid_acc*100)}
+                                        "train_acc":"{0:.2f}".format(acc*100), "valid_acc":"{0:.2f}".format(valid_acc*100),
+                                        "real":real_snapshot}
                             # For ReduceLROnPlateau.
                             lr_scheduler_params["valid_metric"] = (valid_loss, valid_acc)
                         else:
+                            real_snapshot = {"train_loss":loss, "train_acc":acc*100}
                             snapshot = {"train_loss":"{0:.6f}".format(loss), "valid_loss":"",
-                                        "train_acc":"{0:.2f}".format(acc*100), "valid_acc":""}
+                                        "train_acc":"{0:.2f}".format(acc*100), "valid_acc":"",
+                                        "real":real_snapshot}
 
                     if lr_scheduler is not None:
                         # It is not convenient to wrap lr_scheduler (doing).
                         if isinstance(lr_scheduler, LRSchedulerWrapper):
                             lr_scheduler.step(**lr_scheduler_params)
+                            if lr_scheduler.name == "reduceP":
+                                current_lr = self.elements["optimizer"].state_dict()['param_groups'][0]['lr']
+                                if current_lr < last_lr:
+                                    last_lr = current_lr
+                                    self.save_model(from_epoch=False)
                         else:
                             # For some pytorch lr_schedulers, but it is not available for all.
                             lr_scheduler.step(this_epoch)
@@ -292,19 +322,29 @@ class SimpleTrainer(_BaseTrainer):
 
     @for_lr_finder
     def lr_finder_compute(self, train_batch):
+        model = self.elements["model"]
+        if model.use_step:
+            model.step(*self.training_point)
         loss, acc = self.train_one_batch(train_batch)
-        valid_loss, valid_acc = self.compute_validation(self.elements["data"].valid_loader)
-        return [loss, acc, valid_loss, valid_acc]
+        model.backward_step(*self.training_point)
+        if utils.is_main_training():
+            valid_loss, valid_acc = self.compute_validation(self.elements["data"].valid_loader)
+        return ["train_loss", "train_acc", "valid_loss", "valid_acc"], [loss, acc, valid_loss, valid_acc]
 
-    def run_lr_finder(self, save_file:str, init_lr=1e-8, final_lr=10., num_iters=None, beta=0.98):
-        self.select_device()
+    def run_lr_finder(self, save_file:str, comment=None, init_lr=1e-8, final_lr=10., num_iters=None, beta=0.98):
+        self.init_training()
+        log_dir =  self.params["model_dir"] + "/log/" # For tensorboardX
+        if comment is not None:
+            save_file = comment + "-" + save_file
+        save_file = log_dir + save_file
         log_lrs, values_matrix = self.lr_finder_compute(self.elements["data"].train_loader, self.elements["optimizer"], 
-                                                        init_lr=init_lr, final_lr=final_lr, num_iters=num_iters, beta=beta)
-        save_file = self.params["model_dir"] + "/log/" + save_file
-        df = pd.DataFrame(np.vstack([log_lrs, values_matrix]).T, 
-                          columns=["log_lr", "train_loss", "train_acc", "valid_loss", "valid_acc"])
-        logger.info("Save lr finder values to {}.".format(save_file))
-        df.to_csv(save_file)
+                                                        init_lr=init_lr, final_lr=final_lr, num_iters=num_iters, beta=beta, 
+                                                        log_dir=log_dir, comment=comment)
+        if utils.is_main_training():
+            df = pd.DataFrame(np.vstack([log_lrs, values_matrix]).T, 
+                            columns=["log_lr", "train_loss", "train_acc", "valid_loss", "valid_acc"])
+            logger.info("Save lr finder values to {}.".format(save_file))
+            df.to_csv(save_file)
 
 
 class MultitaskTrainer(_BaseTrainer):

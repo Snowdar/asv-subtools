@@ -182,6 +182,6 @@ class TopVirtualNnet(torch.nn.Module):
     def step(self, epoch, this_iter, epoch_batchs):
         pass
 
-
-
+    def backward_step(self, epoch, this_iter, epoch_batchs):
+        pass
 

@@ -11,6 +11,8 @@ from torch.utils.data import DataLoader
 from torch.optim.optimizer import Optimizer
 from .reporter import LRFinderReporter
 
+import libs.support.utils as utils
+
 # Wrap stderr before logger init.
 progressbar.streams.wrap_stderr()
 
@@ -23,7 +25,8 @@ def for_lr_finder(function):
     Self means using this decorator in trainer class.
     Reference: https://sgugger.github.io/how-do-you-find-a-good-learning-rate.html.
     """
-    def wrapper(self, trn_loader, optimizer, init_lr=1e-6, final_lr=10., num_iters=None, beta=0.98, split=[5,-10]):
+    def wrapper(self, trn_loader, optimizer, init_lr=1e-6, final_lr=10., num_iters=None, beta=0.98, split=[5,-10], 
+                log_dir=None, comment=None):
         if init_lr < 0:
             raise ValueError("Expected init_lr > 0, but got init_lr = {}.".format(init_lr))
         if final_lr < init_lr:
@@ -52,7 +55,8 @@ def for_lr_finder(function):
         avg_values = 0.
         log_lrs = []
 
-        reporter = LRFinderReporter(num_iters)
+        if utils.is_main_training():
+            reporter = LRFinderReporter(num_iters, log_dir=log_dir, comment=comment)
 
         # Start.
         lr = init_lr
@@ -63,13 +67,21 @@ def for_lr_finder(function):
                 num_batch += 1
 
                 # The values is a vector of numpy and function return a list of float values.
-                values = np.array(function(self, batch))
+                keys, values =function(self, batch)
+
+                values = np.array(values)
+
+                if not utils.is_main_training():
+                    continue
 
                 # Compute the smoothed values. The avg_values will be also a vector of numpy rather than 0.
                 avg_values = beta * avg_values + (1 - beta) * values
                 smoothed_values = avg_values / (1 - beta ** num_batch)
 
-                snapshot = {"lr":lr, "metric":smoothed_values[0]}
+                snapshot = {"lr":lr}
+                for i in range(len(keys)):
+                    snapshot[keys[i]] = smoothed_values[i]
+
                 reporter.update(num_batch, snapshot)
 
                 # Stop if the main value is exploding.
@@ -98,6 +110,8 @@ def for_lr_finder(function):
                 lr *= mult
                 optimizer.param_groups[0]['lr'] = lr
 
+        if not utils.is_main_training():
+            return None, None
         reporter.finish()
         return log_lrs[split[0]:split[1]], value_matrix.T[:,split[0]:split[1]]
     return wrapper

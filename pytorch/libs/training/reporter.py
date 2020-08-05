@@ -24,7 +24,8 @@ class Reporter():
         default_params = {
             "report_times_every_epoch":None,
             "report_interval_iters":100,
-            "record_file":"train.csv"
+            "record_file":"train.csv",
+            "use_tensorboard":False
         }
         self.trainer = trainer
         default_params = utils.assign_params_dict(default_params, self.trainer.params)
@@ -33,6 +34,14 @@ class Reporter():
             self.report_interval_iters = max(1, self.trainer.training_point[2]//default_params["report_times_every_epoch"])
         else:
             self.report_interval_iters = default_params["report_interval_iters"]
+
+        if default_params["use_tensorboard"]:
+            from tensorboardX import SummaryWriter
+            model_name = os.path.basename(self.trainer.params["model_dir"])
+            time_string = time.strftime('%Y-%m-%d-%H-%M-%S',time.localtime(time.time()))
+            self.board_writer = SummaryWriter("{}/log/{}-{}-tensorboard".format(self.trainer.params["model_dir"], model_name, time_string))
+        else:
+            self.board_writer = None
 
         self.epochs = self.trainer.params["epochs"]
 
@@ -110,6 +119,12 @@ class Reporter():
                 update_iters = current_epoch * num_batchs_train + current_iter + 1
                 self.bar.update(update_iters, current_epoch=current_epoch+1, current_iter=current_iter+1)
 
+                real_snapshot = snapshot.pop("real")
+                if self.board_writer is not None:
+                    board_info = {"lr":current_lr}
+                    board_info.update(real_snapshot)
+                    self.board_writer.add_scalars("base_scalar_group", board_info, update_iters)
+
                 info_dict = {"epoch":current_epoch+1, "iter":current_iter+1, "position":update_iters, 
                              "lr":"{0:.8f}".format(current_lr)}
                 info_dict.update(snapshot)
@@ -132,7 +147,20 @@ class Reporter():
 
 
 class LRFinderReporter():
-    def __init__(self, max_value):
+    def __init__(self, max_value, log_dir=None, comment=None):
+
+        if log_dir is not None:
+            assert isinstance(log_dir, str)
+            from tensorboardX import SummaryWriter
+            time_string = time.strftime('%Y-%m-%d-%H-%M-%S',time.localtime(time.time()))
+            if comment is None:
+                comment = ""
+            else:
+                comment = comment + "-"
+            self.board_writer = SummaryWriter("{}/{}{}-lr-finder-tensorboard".format(log_dir, comment, time_string))
+        else:
+            self.board_writer = None
+
         widgets=[progressbar.Percentage(format='%(percentage)3.2f%%'), " | ", "Iter:",
                  progressbar.Variable('current_iter', format='{formatted_value}', width=0, precision=0), "/{0}".format(max_value), ", ",
                  progressbar.Variable('snapshot', format='{formatted_value}', width=8, precision=0),
@@ -152,6 +180,8 @@ class LRFinderReporter():
                 if res is None:break
                 update_iters, snapshot = res
                 self.bar.update(update_iters, current_iter=update_iters, snapshot=utils.dict_to_params_str(snapshot, auto=False, sep=", "))
+                if self.board_writer is not None:
+                    self.board_writer.add_scalars("lr_finder_scalar_group", snapshot, update_iters)
             except BaseException as e:
                 self.bar.finish()
                 if not isinstance(e, KeyboardInterrupt):

@@ -5,3 +5,5 @@ sklearn
 pandas
 progressbar2
 matplotlib
+tensorboard
+tensorboardX
