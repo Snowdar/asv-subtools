@@ -121,7 +121,7 @@ class Reporter():
 
                 real_snapshot = snapshot.pop("real")
                 if self.board_writer is not None:
-                    board_info = {"lr":current_lr}
+                    board_info = {"epoch":float(current_epoch+1), "lr":current_lr}
                     board_info.update(real_snapshot)
                     self.board_writer.add_scalars("base_scalar_group", board_info, update_iters)
 

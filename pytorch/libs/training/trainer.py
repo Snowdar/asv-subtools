@@ -303,7 +303,7 @@ class SimpleTrainer(_BaseTrainer):
                         # It is not convenient to wrap lr_scheduler (doing).
                         if isinstance(lr_scheduler, LRSchedulerWrapper):
                             lr_scheduler.step(**lr_scheduler_params)
-                            if lr_scheduler.name == "reduceP":
+                            if lr_scheduler.name == "reduceP" and utils.is_main_training():
                                 current_lr = self.elements["optimizer"].state_dict()['param_groups'][0]['lr']
                                 if current_lr < last_lr:
                                     last_lr = current_lr
