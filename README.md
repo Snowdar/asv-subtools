@@ -88,8 +88,8 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 - **Front-end**
   + [x] [Convenient Augmentation of Reverb, Noise, Music and Babble](./augmentDataByNoise.sh)
-  + [x] Inverted [Specaugment](https://arxiv.org/pdf/1904.08779.pdf)
-  + [x] [Mixup](https://arxiv.org/pdf/1710.09412.pdf) [For speaker recognition, see this [paper](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/2250.pdf).] ==*new*==
+  + [x] Inverted [Specaugment](https://arxiv.org/pdf/1904.08779.pdf) [Note, it is still not available with multi-gpu and you will not get a better result if do it.] ==*new*==
+  + [x] [Mixup](https://arxiv.org/pdf/1710.09412.pdf) [For speaker recognition, see this [paper](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/2250.pdf).]
 
 - **Model**
   + [x] [Standard X-vector](http://www.danielpovey.com/files/2017_interspeech_embeddings.pdf)
@@ -125,7 +125,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 - **Training Strategy**
   + [x] [AdamW](https://arxiv.org/pdf/1711.05101v1.pdf) + [WarmRestarts](https://arxiv.org/pdf/1608.03983v4.pdf)
-  + [x] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau) ==*new*==
+  + [x] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau)
   + [x] [Training with Magin Decay Strategy](https://arxiv.org/pdf/1904.03479.pdf)
   + [x] [Heated Up Strategy](https://arxiv.org/pdf/1809.04157.pdf)
   + [x] [Multi-task Learning with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was contributed by [Yi Liu](http://yiliu.org.cn/). Thanks.]
@@ -143,6 +143,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 - **Others**
   + [x] [Learning Rate Finder](https://sgugger.github.io/how-do-you-find-a-good-learning-rate.html)
+  + [x] Support [TensorboardX](https://tensorflow.google.cn/tensorboard) in Log System ==*new*==
   + [ ] Plot DET Curve with ```matplotlib``` w.r.t the Format of DETware (Matlab Version) of [NIST's Tools](https://www.nist.gov/itl/iad/mig/tools)
   + [ ] Accumulate Total MACs and Flops of Model Based on ```thop```
 
