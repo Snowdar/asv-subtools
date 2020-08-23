@@ -272,7 +272,7 @@ class SimpleTrainer(_BaseTrainer):
             for this_epoch in range(start_epoch, epochs):
                 # Set random seed w.r.t epoch for distributed training.
                 if isinstance(data.train_loader.sampler, torch.utils.data.distributed.DistributedSampler):
-                    data.train_loader.sampler.set_epoch(epoch)
+                    data.train_loader.sampler.set_epoch(this_epoch)
                 for this_iter, batch in enumerate(data.train_loader, 0):
                     self.training_point = (this_epoch, this_iter, data.num_batch_train) # It is important for reporter.
 
