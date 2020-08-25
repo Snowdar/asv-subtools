@@ -69,12 +69,12 @@ done
 subtools/kaldi/utils/split_scp.pl $scp $split_scps || exit 1;
 
 run.pl JOB=1:$nj $featsdir/log/concat_${feat_type}_$name.JOB.log \
-	awk 'NR==FNR{a[$1]=$2}NR>FNR{
-	printf $1" ";system("concat-feats --binary=false "a[$1"-sp0.9"]" "a[$1]" "a[$1"-sp1.1"]" - 2>/dev/null");
-	}' $spfeats $featsdir/log/wav_${name}.JOB.scp \| \
-	copy-feats --compress=$compress ark:- \
-	  ark,scp:$featsdir/concat_${feat_type}_$name.JOB.ark,$featsdir/concat_${feat_type}_$name.JOB.scp \
-	 || exit 1
+    awk 'NR==FNR{a[$1]=$2}NR>FNR{
+    printf $1" ";system("concat-feats --binary=false "a[$1"-sp0.9"]" "a[$1]" "a[$1"-sp1.1"]" - 2>/dev/null");
+    }' $spfeats $featsdir/log/wav_${name}.JOB.scp \| \
+    copy-feats --compress=$compress ark:- \
+      ark,scp:$featsdir/concat_${feat_type}_$name.JOB.ark,$featsdir/concat_${feat_type}_$name.JOB.scp \
+     || exit 1
 
 for n in $(seq $nj); do
   cat $featsdir/concat_${feat_type}_$name.$n.scp || exit 1;

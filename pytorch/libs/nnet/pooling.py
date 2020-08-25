@@ -374,7 +374,6 @@ class GlobalMultiHeadAttentionPooling(torch.nn.Module):
         # After multi-multipling alpha and inputs for multi-head case, the mean could be got by reshaping back.
         mean = torch.sum(after_mul.reshape(batch_size, -1, chunk_size), dim=2, keepdim=True)
 
-        # The var/stddev is not recommended for attention components.
         return mean
 
     def get_output_dim(self):
@@ -431,7 +430,6 @@ class MultiResolutionMultiHeadAttentionPooling(torch.nn.Module):
         # After multi-multipling alpha and inputs for multi-head case, the mean could be got by reshaping back.
         mean = torch.sum(after_mul.reshape(batch_size, -1, chunk_size), dim=2, keepdim=True)
 
-        # The var/stddev is not recommended for attention components.
         return mean
 
     def get_output_dim(self):

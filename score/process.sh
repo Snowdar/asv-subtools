@@ -198,7 +198,7 @@ function norm(){
 	specifier=ark
 	[ "${infile##*.}" == "scp" ] && specifier=scp
 	
-	ivector-normalize-length $specifier:$infile ark:$outfile || exit 1
+	ivector-normalize-length --scaleup=false $specifier:$infile ark:$outfile || exit 1
 	return 0
 }
 

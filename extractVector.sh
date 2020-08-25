@@ -24,8 +24,8 @@ data=$3
 output=$4
 
 case $vector_type in
-	ivector) subtools/kaldi/sid/extract_ivectors.sh --cmd "run.pl" --nj $nj $model_dir $data $output || exit 1 ;;
-	xvector) subtools/kaldi/sid/nnet3/xvector/extract_xvectors.sh --model $model --split-type $split_type --cache-capacity $cache --extract-config $extract_config --use-gpu $use_gpu --nj $nj $model_dir $data $output || exit 1;;
-	*) echo "Not a valid vector type,just supporting ivector and xvector" && exit 1;;
+    ivector) subtools/kaldi/sid/extract_ivectors.sh --cmd "run.pl" --nj $nj $model_dir $data $output || exit 1 ;;
+    xvector) subtools/kaldi/sid/nnet3/xvector/extract_xvectors.sh --model $model --split-type $split_type --cache-capacity $cache --extract-config $extract_config --use-gpu $use_gpu --nj $nj $model_dir $data $output || exit 1;;
+    *) echo "Not a valid vector type,just supporting ivector and xvector" && exit 1;;
 esac
 

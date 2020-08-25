@@ -22,5 +22,5 @@ echo "$utt $wav_path/$x" >> $outdir/wav.scp
 echo "$utt $utt" >> $outdir/utt2spk
 fi
 done
-subtools/utils/fix_data_dir.sh $outdir
+subtools/kaldi/utils/fix_data_dir.sh $outdir
 echo "done."

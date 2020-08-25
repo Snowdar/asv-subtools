@@ -47,20 +47,20 @@ for iter in $(seq $(echo "$remaining" | wc -l ));do
 echo "iter $iter"
 > $outdir/tmp/$index.scp
 count=1
-	for x in $(echo "$remaining" | awk '{print $2}');do
-		echo -e "$primary\n2 $x" > $outdir/tmp/$index.$count.scp
-		case $mod in
-			lda) subtools/fusionByLda.sh $trials $outdir/tmp/$index.$count.scp $outdir/tmp/$index.$count.score 2>/dev/null 1>/dev/null ;;
-			svm) subtools/fusionBySvm.py --write-weight="$outdir/tmp/$index.$count.mat" $trials $outdir/tmp/$index.$count.scp $outdir/tmp/$index.$count.score 2>/dev/null 1>/dev/null;;
-			equal)score1=$(echo "$primary" | awk '{print $2}')
-			echo "[ 1 1 0 ]" > $outdir/tmp/$index.$count.mat
-			subtools/weightScore.sh --weight1 1 --weight2 1 $score1 $x $outdir/tmp/$index.$count.score 2>/dev/null 1>/dev/null;;
-			*) echo "Do not support this mod $mod" && exit 1;;
-		esac
-		metric=$($metric_function $trials $outdir/tmp/$index.$count.score)
-		echo "$metric $outdir/tmp/$index.$count.score" >> $outdir/tmp/$index.scp
-		count=$[ $count + 1 ]
-	done
+    for x in $(echo "$remaining" | awk '{print $2}');do
+        echo -e "$primary\n2 $x" > $outdir/tmp/$index.$count.scp
+        case $mod in
+            lda) subtools/fusionByLda.sh $trials $outdir/tmp/$index.$count.scp $outdir/tmp/$index.$count.score 2>/dev/null 1>/dev/null ;;
+            svm) subtools/fusionBySvm.py --write-weight="$outdir/tmp/$index.$count.mat" $trials $outdir/tmp/$index.$count.scp $outdir/tmp/$index.$count.score 2>/dev/null 1>/dev/null;;
+            equal)score1=$(echo "$primary" | awk '{print $2}')
+            echo "[ 1 1 0 ]" > $outdir/tmp/$index.$count.mat
+            subtools/weightScore.sh --weight1 1 --weight2 1 $score1 $x $outdir/tmp/$index.$count.score 2>/dev/null 1>/dev/null;;
+            *) echo "Do not support this mod $mod" && exit 1;;
+        esac
+        metric=$($metric_function $trials $outdir/tmp/$index.$count.score)
+        echo "$metric $outdir/tmp/$index.$count.score" >> $outdir/tmp/$index.scp
+        count=$[ $count + 1 ]
+    done
 sort -n -k 1 $outdir/tmp/$index.scp -o $outdir/tmp/$index.scp
 
 oldmetric=$(echo "$primary" | awk '{print $1}')
