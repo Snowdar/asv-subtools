@@ -125,6 +125,20 @@ for position in $positions;do
                     awk '{print $1,$1}' data/$prefix/$cohort_set_from/spk2utt > data/$prefix/$cohort_set/spk2utt && \
                     awk '{print $1,$1}' data/$prefix/$cohort_set_from/spk2utt > data/$prefix/$cohort_set/utt2spk
                 fi
+
+                if [ "$cohort_method" == "sub" ];then
+                    [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
+                    [[ ! -d $obj_dir/$cohort_set ]] && subtools/filterVectorDir.sh $obj_dir/$cohort_set_from/xvector.scp \
+                    data/$prefix/$cohort_set/utt2spk $obj_dir/$cohort_set
+                elif [ "$cohort_method" == "mean" ];then
+                    [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
+                    [[ ! -d $obj_dir/$cohort_set ]] && mkdir -p $obj_dir/$cohort_set && ivector-mean ark:data/$prefix/$cohort_set_from/spk2utt \
+                    scp:$obj_dir/$trainset/xvector.scp ark,scp:$obj_dir/$cohort_set/xvector.ark,$obj_dir/$cohort_set/xvector.scp
+                fi
+            else
+                [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
+                [[ ! -d $obj_dir/$cohort_set ]] && subtools/filterVectorDir.sh $obj_dir/$cohort_set_from/xvector.scp \
+                data/$prefix/$cohort_set/utt2spk $obj_dir/$cohort_set
             fi
 
             [ ! -f data/$prefix/$cohort_set/utt2spk ] && echo "Expected cohort_set to exist." && exit 1
@@ -137,16 +151,6 @@ for position in $positions;do
                                                         data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/$enrollset.cohort.trials
             [ ! -f data/$prefix/$cohort_set/$testset.cohort.trials ] && sh subtools/getTrials.sh 3 data/$prefix/$cohort_set/$testset.list \
                                                         data/$prefix/$cohort_set/utt2spk data/$prefix/$cohort_set/$testset.cohort.trials
-
-            if [ "$cohort_method" == "sub" ];then
-                [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
-                [[ ! -d $obj_dir/$cohort_set ]] && subtools/filterVectorDir.sh $obj_dir/$trainset/xvector.scp \
-                data/$prefix/$cohort_set/utt2spk $obj_dir/$cohort_set
-            elif [ "$cohort_method" == "mean" ];then
-                [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
-                [[ ! -d $obj_dir/$cohort_set ]] && mkdir -p $obj_dir/$cohort_set && ivector-mean ark:data/$prefix/$cohort_set_from/spk2utt \
-                scp:$obj_dir/$trainset/xvector.scp ark,scp:$obj_dir/$cohort_set/xvector.ark,$obj_dir/$cohort_set/xvector.scp
-            fi
 
             enroll_cohort_name="$cohort_set/score/${score}_${enrollset}_${cohort_set}${prenorm_string}${submean_string}${lda_string}_norm${extra_name:+_$extra_name}"
             test_cohort_name="$cohort_set/score/${score}_${testset}_${cohort_set}${prenorm_string}${submean_string}${lda_string}_norm${extra_name:+_$extra_name}"
@@ -183,7 +187,7 @@ for position in $positions;do
                                                         $obj_dir/$output_name.score
 
             [ ! -f "$obj_dir/$output_name.eer" ] && \
-            subtools/computeEER.sh --write-file $obj_dir/$output_name.eer $obj_dir/$output_name.score 3 $trials 3
+            subtools/computeEER.sh --write-file $obj_dir/$output_name.eer $trials $obj_dir/$output_name.score
             
             eer=""
             [ -f "$obj_dir/$output_name.eer" ] && eer=`cat $obj_dir/$output_name.eer`
