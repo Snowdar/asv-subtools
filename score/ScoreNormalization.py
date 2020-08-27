@@ -59,7 +59,7 @@ def get_args():
 
 def load_score(score_path, names, sep=" "):
     logger.info("Load score form {} ...".format(score_path))
-    df = pd.read_csv(score_path, sep=sep, names=names)
+    df = pd.read_csv(score_path, sep=sep, names=names, converters={0:str, 1:str, 2:float})
     return df
 
 def save_score(score, score_path, sep=" "):

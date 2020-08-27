@@ -31,7 +31,7 @@ for x in $trials $scorescp;do
 [[ ! -f $x || ! -s $x ]] && echo "No such file $x or the file $x is empty" && exit 1
 done
 
-[[ "$eval" == "true" && "$mat" == "" ]] && echo "[exit] --test-mod is true but you have not provided a lda-mat" && exit 1
+[[ "$eval" == "true" && "$mat" == "" ]] && echo "[exit] --eval mod is used but you have not provided a transform-mat." && exit 1
 
 [ "$eval" == "true" ] && equal_fusion=false && echo "Now,it's test mod..."
 
@@ -64,7 +64,7 @@ $trials $list $trials | awk -v num=$num '{if(NF==num+3)print $0}' >$dir/$name.ar
 trialsnum=$(wc -l $trials | awk '{print $1}')
 arknum=$(wc -l $dir/$name.ark | awk '{print $1}')
 
-[ $trialsnum != $arknum ] && echo "[exit] Num of trials is not equal to num of score-pairs. Maybe you miss some scores in foo score file and you should provide the intersection-trials with enough score-pairs which should appear in every score file." && exit 1
+[ $trialsnum != $arknum ] && echo "[exit] $trialsnum != $arknum: Num of trials is not equal to num of score-pairs. Maybe you miss some scores in foo score file and you should provide the intersection-trials with enough score-pairs which should appear in every score file." && exit 1
 
 if [ "$eval" == "false" ];then
 [ "$printlog" == "true" ] && echo "Get vector lable for lda matrix training..."
