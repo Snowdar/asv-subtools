@@ -76,6 +76,43 @@ class StatisticsPooling(torch.nn.Module):
 
         # m.total_ops += torch.DoubleTensor([int(total_ops)])
 
+class FreeStatisticsPooling(torch.nn.Module):
+    """ An usual mean [+ stddev] poolling layer"""
+    def __init__(self, stddev=True, unbiased=False, eps=1.0e-10):
+        super(FreeStatisticsPooling, self).__init__()
+
+        self.stddev = stddev
+
+        self.eps = eps
+        # Used for unbiased estimate of stddev
+        self.unbiased = unbiased
+
+    def forward(self, inputs):
+        """
+        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
+        """
+
+        inputs = inputs.reshape(inputs.shape[0], -1, inputs.shape[len(inputs.shape)-1])
+
+        # Get the num of frames
+        counts = inputs.shape[2]
+
+        mean = inputs.sum(dim=2, keepdim=True) / counts
+
+        if self.stddev :
+            if self.unbiased and counts > 1:
+                counts = counts - 1
+
+            # The sqrt (as follows) is deprecated because it results in Nan problem.
+            # std = torch.unsqueeze(torch.sqrt(torch.sum((inputs - mean)**2, dim=2) / counts), dim=2)
+            # There is a eps to solve this problem.
+            # Another method: Var is equal to std in "cat" way, actually. So, just use Var directly.
+
+            var = torch.sum((inputs - mean)**2, dim=2, keepdim=True) / counts
+            std = torch.sqrt(var.clamp(min=self.eps))
+            return torch.cat((mean, std), dim=1)
+        else:
+            return mean
 
 class LDEPooling(torch.nn.Module):
     """A novel learnable dictionary encoding layer.
@@ -266,11 +303,12 @@ class MultiHeadAttentionPooling(torch.nn.Module):
                Recognition.” ArXiv Preprint ArXiv:1906.09890.
     Note, in this paper, affine_layers is default to 1, and final_dim is 1 which means the weights are shared.
     """
-    def __init__(self, input_dim, stddev=True, num_head=4, share=True, affine_layers=1, **options):
+    def __init__(self, input_dim, stddev=True, stddev_attention=True, num_head=4, share=True, affine_layers=1, **options):
         super(MultiHeadAttentionPooling, self).__init__()
 
         self.input_dim = input_dim
         self.stddev = stddev
+        self.stddev_attention = stddev_attention
         self.num_head = num_head
 
         if self.stddev :
@@ -313,8 +351,14 @@ class MultiHeadAttentionPooling(torch.nn.Module):
         mean = torch.sum(after_mul.reshape(batch_size, -1, chunk_size), dim=2, keepdim=True)
 
         if self.stddev :
-            var = torch.mean((inputs - mean)**2, dim=2, keepdim=True)
-            std = torch.sqrt(var.clamp(min=1.0e-10))
+            if self.stddev_attention:
+                after_mul_2 = alpha.reshape(batch_size, self.num_head, -1, chunk_size) * \
+                        inputs.reshape(batch_size, self.num_head, -1, chunk_size)**2
+                var = torch.sum(after_mul_2.reshape(batch_size, -1, chunk_size), dim=2, keepdim=True) - mean**2
+                std = torch.sqrt(var.clamp(min=1.0e-10))
+            else:
+                var = torch.mean((inputs - mean)**2, dim=2, keepdim=True)
+                std = torch.sqrt(var.clamp(min=1.0e-10))
             return torch.cat((mean, std), dim=1)
         else :
             return mean
@@ -330,11 +374,18 @@ class GlobalMultiHeadAttentionPooling(torch.nn.Module):
     It is not equivalent to multi-head attention pooling even when
                input_dim of global multi-head = 1/num_head * input_dim of multi-head.
     """
-    def __init__(self, input_dim, num_head=4, share=True, affine_layers=2, **options):
+    def __init__(self, input_dim, stddev=True, stddev_attention=True, num_head=4, share=True, affine_layers=2, **options):
         super(GlobalMultiHeadAttentionPooling, self).__init__()
 
         self.input_dim = input_dim
         self.num_head = num_head
+        self.stddev = stddev
+        self.stddev_attention = stddev_attention
+
+        if self.stddev :
+            self.output_dim = 2 * input_dim
+        else :
+            self.output_dim = input_dim
 
         if "split_input" in options.keys():
             if options["split_input"]:
@@ -374,10 +425,21 @@ class GlobalMultiHeadAttentionPooling(torch.nn.Module):
         # After multi-multipling alpha and inputs for multi-head case, the mean could be got by reshaping back.
         mean = torch.sum(after_mul.reshape(batch_size, -1, chunk_size), dim=2, keepdim=True)
 
-        return mean
+        if self.stddev :
+            if self.stddev_attention:
+                after_mul_2 = alpha.reshape(batch_size, self.num_head, -1, chunk_size) * \
+                        inputs.reshape(batch_size, 1, -1, chunk_size)**2
+                var = torch.sum(after_mul_2.reshape(batch_size, -1, chunk_size), dim=2, keepdim=True) - mean**2
+                std = torch.sqrt(var.clamp(min=1.0e-10))
+            else:
+                var = torch.mean((inputs - mean)**2, dim=2, keepdim=True)
+                std = torch.sqrt(var.clamp(min=1.0e-10))
+            return torch.cat((mean, std), dim=1)
+        else :
+            return mean
 
     def get_output_dim(self):
-        return self.input_dim * self.num_head
+        return self.output_dim * self.num_head
 
 
 class MultiResolutionMultiHeadAttentionPooling(torch.nn.Module):
@@ -385,11 +447,18 @@ class MultiResolutionMultiHeadAttentionPooling(torch.nn.Module):
     Reference: Zhiming Wang, Kaisheng Yao, Xiaolong Li, Shuo Fang. "MULTI-RESOLUTION MULTI-HEAD 
                ATTENTION IN DEEP SPEAKER EMBEDDING." ICASSP, 2020.
     """
-    def __init__(self, input_dim, num_head=4, share=True, affine_layers=2, **options):
+    def __init__(self, input_dim, stddev=True, stddev_attention=True, num_head=4, share=True, affine_layers=2, **options):
         super(MultiResolutionMultiHeadAttentionPooling, self).__init__()
 
         self.input_dim = input_dim
         self.num_head = num_head
+        self.stddev = stddev
+        self.stddev_attention = stddev_attention
+
+        if self.stddev :
+            self.output_dim = 2 * input_dim
+        else :
+            self.output_dim = input_dim
 
         if "split_input" in options.keys():
             if options["split_input"]:
@@ -430,7 +499,18 @@ class MultiResolutionMultiHeadAttentionPooling(torch.nn.Module):
         # After multi-multipling alpha and inputs for multi-head case, the mean could be got by reshaping back.
         mean = torch.sum(after_mul.reshape(batch_size, -1, chunk_size), dim=2, keepdim=True)
 
-        return mean
+        if self.stddev :
+            if self.stddev_attention:
+                after_mul_2 = alpha.reshape(batch_size, self.num_head, -1, chunk_size) * \
+                        inputs.reshape(batch_size, 1, -1, chunk_size)**2
+                var = torch.sum(after_mul_2.reshape(batch_size, -1, chunk_size), dim=2, keepdim=True) - mean**2
+                std = torch.sqrt(var.clamp(min=1.0e-10))
+            else:
+                var = torch.mean((inputs - mean)**2, dim=2, keepdim=True)
+                std = torch.sqrt(var.clamp(min=1.0e-10))
+            return torch.cat((mean, std), dim=1)
+        else :
+            return mean
 
     def get_output_dim(self):
-        return self.input_dim * self.num_head
+        return self.output_dim * self.num_head
