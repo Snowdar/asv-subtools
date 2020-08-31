@@ -55,7 +55,7 @@ class _BaseTrainer():
         default_params = {"model_dir":"", "model_blueprint":"", "exist_model":"", "start_epoch":0, "epochs":10, 
                           "use_gpu":True, "gpu_id":"", "benchmark":True, "max_change":10.0, 
                           "compute_accuracy":True, "compute_valid_accuracy":True, "compute_one_batch_valid":True,
-                          "suffix":"params", "nan_debug":False, "use_tensorboard":True}
+                          "suffix":"params", "nan_debug":False, "use_tensorboard":True, "ddp_random_epoch":False}
 
         elements, params = package
         self.elements = utils.assign_params_dict(default_elements, elements)
@@ -271,7 +271,8 @@ class SimpleTrainer(_BaseTrainer):
 
             for this_epoch in range(start_epoch, epochs):
                 # Set random seed w.r.t epoch for distributed training.
-                if isinstance(data.train_loader.sampler, torch.utils.data.distributed.DistributedSampler):
+                if isinstance(data.train_loader.sampler, torch.utils.data.distributed.DistributedSampler) and \
+                    self.params["ddp_random_epoch"]:
                     data.train_loader.sampler.set_epoch(this_epoch)
                 for this_iter, batch in enumerate(data.train_loader, 0):
                     self.training_point = (this_epoch, this_iter, data.num_batch_train) # It is important for reporter.
