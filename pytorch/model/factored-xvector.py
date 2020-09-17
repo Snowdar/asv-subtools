@@ -19,6 +19,9 @@ class Xvector(TopVirtualNnet):
         # Var
         self.semi_orth = semi_orth
         self.extracted_embedding = extracted_embedding
+
+        if self.semi_orth:
+            self.use_step = True
         
         # Nnet
         self.aug_dropout = torch.nn.Dropout2d(p=aug_dropout) if aug_dropout > 0 else None

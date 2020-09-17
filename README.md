@@ -96,7 +96,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [Extended X-vector](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8683760)
   + [x] Resnet1d
   + [x] [Resnet2d](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
-  + [ ] [F-TDNN X-vector](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
+  + [x] [F-TDNN X-vector](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf) ==*new*==
 
 - **Component**
   + [x] [Attentive Statistics Pooling](https://arxiv.org/pdf/1803.10963v1.pdf)
@@ -686,6 +686,7 @@ Note, Voxceleb1.dev is used as the trainset of back-end for the Voxceleb1-O* tas
  >
  > --#--Snowdar--2020-06-02--#--
 
+> Use SGD + ReduceP to train Resnet34 with voxceleb2 training set could obtain 1.2% EER (Cosine score without snorm) and 1.1% EER (Cosine score with snorm) for voxceleb-O task now.
 ---
 
 ### [2] AP-OLR Challenge 2020 Baseline Recipe [Language Identification]
