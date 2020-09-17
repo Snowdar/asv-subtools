@@ -148,16 +148,20 @@ class TdnnAffine(torch.nn.Module):
         m.total_ops += torch.DoubleTensor([int(total_ops)])
 
 
-class TdnnfBlock(torch.nn.Module):
+class FTdnnBlock(torch.nn.Module):
     """ Factorized TDNN block w.r.t http://danielpovey.com/files/2018_interspeech_tdnnf.pdf.
     Reference: Povey, D., Cheng, G., Wang, Y., Li, K., Xu, H., Yarmohammadi, M., & Khudanpur, S. (2018). 
                Semi-Orthogonal Low-Rank Matrix Factorization for Deep Neural Networks. Paper presented at the Interspeech.
-    Githup Reference: https://github.com/cvqluu/Factorized-TDNN. Note, it maybe have misunderstanding to F-TDNN and 
-               I have corrected it w.r.t steps/libs/nnet3/xconfig/composite_layers.py of Kaldi.
-
     """
-    def __init__(self, input_dim, output_dim, inner_size, context_size=0, pad=True):
-        super(TdnnfBlock, self).__init__()
+    def __init__(self, input_dim, output_dim, bottleneck_dim, context_size=0, bypass_scale=0.66, pad=True):
+        super(FTdnnBlock, self).__init__()
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.bottleneck_dim = bottleneck_dim
+        self.context_size = context_size
+        self.bypass_scale = bypass_scale
+        self.pad = pad
 
         if context_size > 0:
             context_factor1 = [-context_size, 0]
@@ -165,9 +169,11 @@ class TdnnfBlock(torch.nn.Module):
         else:
             context_factor1 = [0]
             context_factor2 = [0]
-
-        self.factor1 = TdnnAffine(input_dim, inner_size, context_factor1, pad=pad, bias=False)
-        self.factor2 = TdnnAffine(inner_size, output_dim, context_factor2, pad=pad, bias=True)
+        
+        self.factor = TdnnAffine(input_dim, bottleneck_dim, context_factor1, pad=pad, bias=False)
+        self.affine = TdnnAffine(bottleneck_dim, output_dim, context_factor2, pad=pad, bias=True)
+        self.relu = torch.nn.ReLU(inplace=True)
+        self.bn =torch.nn.BatchNorm1d(output_dim, momentum=0.1, affine=True, track_running_stats=True)
 
     def forward(self, inputs):
         """
@@ -176,16 +182,73 @@ class TdnnfBlock(torch.nn.Module):
         assert len(inputs.shape) == 3
         assert inputs.shape[1] == self.input_dim
 
-        return self.factor2(self.factor1(inputs))
+        identity = inputs
 
-    def step(self, epoch, iter):
-        pass
-        # To do.
-        # Updating weight with semi-orthogonal constraint. Note, updating based on backward has no constraint,
-        # so we should add the semi-orthogonal constraint here and extrally updating it in training by ourself.
+        out = self.factor(inputs)
+        out = self.affine(out)
+        out = self.relu(out)
+        out = self.bn(out)
+        if self.bypass_scale != 0:
+            # assert identity.shape[1] == self.output_dim
+            out += self.bypass_scale * identity
 
-        #self.factor1.step_semi_orth()
-        #self.factor2.step_semi_orth()
+        return out
+
+
+    '''
+    Reference: https://github.com/cvqluu/Factorized-TDNN.
+    '''
+    def step_semi_orth(self):
+        with torch.no_grad():
+            M = self.get_semi_orth_weight(self.factor)
+            self.factor.weight.copy_(M)
+
+    @staticmethod
+    def get_semi_orth_weight(conv1dlayer):
+        # updates conv1 weight M using update rule to make it more semi orthogonal
+        # based off ConstrainOrthonormalInternal in nnet-utils.cc in Kaldi src/nnet3
+        # includes the tweaks related to slowing the update speed
+        # only an implementation of the 'floating scale' case
+        with torch.no_grad():
+            update_speed = 0.125
+            orig_shape = conv1dlayer.weight.shape
+            # a conv weight differs slightly from TDNN formulation:
+            # Conv weight: (out_filters, in_filters, kernel_width)
+            # TDNN weight M is of shape: (in_dim, out_dim) or [rows, cols]
+            # the in_dim of the TDNN weight is equivalent to in_filters * kernel_width of the Conv
+            M = conv1dlayer.weight.reshape(
+                orig_shape[0], orig_shape[1]*orig_shape[2]).T
+            # M now has shape (in_dim[rows], out_dim[cols])
+            mshape = M.shape
+            if mshape[0] > mshape[1]:  # semi orthogonal constraint for rows > cols
+                M = M.T
+            P = torch.mm(M, M.T)
+            PP = torch.mm(P, P.T)
+            trace_P = torch.trace(P)
+            trace_PP = torch.trace(PP)
+            ratio = trace_PP * P.shape[0] / (trace_P * trace_P)
+
+            # the following is the tweak to avoid divergence (more info in Kaldi)
+            assert ratio > 0.99
+            if ratio > 1.02:
+                update_speed *= 0.5
+                if ratio > 1.1:
+                    update_speed *= 0.5
+
+            scale2 = trace_PP/trace_P
+            update = P - (torch.matrix_power(P, 0) * scale2)
+            alpha = update_speed / scale2
+            update = (-4.0 * alpha) * torch.mm(update, M)
+            updated = M + update
+            # updated has shape (cols, rows) if rows > cols, else has shape (rows, cols)
+            # Transpose (or not) to shape (cols, rows) (IMPORTANT, s.t. correct dimensions are reshaped)
+            # Then reshape to (cols, in_filters, kernel_width)
+            return updated.reshape(*orig_shape) if mshape[0] > mshape[1] else updated.T.reshape(*orig_shape)
+
+    @staticmethod
+    def get_M_shape(conv_weight):
+        orig_shape = conv_weight.shape
+        return (orig_shape[1]*orig_shape[2], orig_shape[0])
 
 
 class GruAffine(torch.nn.Module):

@@ -2,6 +2,7 @@
 
 # Copyright xmuspeech (Author:Snowdar 2020-01-22)
 
+nj=20
 aug_suffixes="reverb noise music babble"
 
 . subtools/parse_options.sh
@@ -29,7 +30,7 @@ if [ "$vad_conf" != "" ];then
     [ ! -f "$datadir/feats.scp" ] && echo "Expected $datadir/feats.scp to exist." && exit 1
 
     subtools/filterDataDir.sh $datadir $clean_list $datadir/clean
-    subtools/computeVad.sh $datadir/clean $vad_conf
+    subtools/computeVad.sh --nj $nj $datadir/clean $vad_conf
 
     clean_vad=$datadir/clean/vad.scp
 else
