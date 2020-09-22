@@ -163,12 +163,12 @@ cmn = True # Traditional cmn process.
 chunk_size = 200
 limit_utts = 8
 
-sample_type="speaker_balance" # sequential | speaker_balance
+sample_type="sequential" # sequential | speaker_balance
 chunk_num=-1 # -1 means using scale, 0 means using max and >0 means itself.
-overlap=0.1
+overlap=0
 scale=1.5 # Get max / num_spks * scale for every speaker.
 valid_split_type="--total-spk" # --total-spk or --default
-valid_utts = 1024
+valid_utts = 4096
 valid_chunk_num_every_utt = 2
 ##--------------------------------------------------##
 ## Training options
@@ -185,7 +185,7 @@ egs_params = {
 loader_params = {
     "use_fast_loader":True, # It is a queue loader to prefetch batch and storage.
     "max_prefetch":10,
-    "batch_size":512, 
+    "batch_size":128, 
     "shuffle":True, 
     "num_workers":2,
     "pin_memory":False, 
@@ -223,7 +223,7 @@ model_params = {
                           "s":30, "mhe_loss":False, "mhe_w":0.01},
     "use_step":True, 
     "step_params":{"T":None,
-                   "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
+                   "m":True, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
                    "s":False, "s_tuple":(30, 12), "s_list":None,
                    "t":False, "t_tuple":(0.5, 1.2), 
                    "p":False, "p_tuple":(0.5, 0.1)}
