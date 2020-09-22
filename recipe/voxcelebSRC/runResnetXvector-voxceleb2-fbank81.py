@@ -3,14 +3,6 @@
 # Copyright xmuspeech (Author: Snowdar 2020-02-12)
 # Apache 2.0
 
-# Set egs_params.aug:"Specaugment" for InSpecAug
-#
-# Set model_params for AM:
-#    tdnn7_params.nonlinearity:"", tdnn7_params.bn:False, margin_loss:True, 
-#    use_step:True, step_params.m:True
-#
-# Set model_params.extend:True for extended x-vector
-
 import sys, os
 import logging
 import argparse
@@ -186,7 +178,7 @@ gpu_id = args.gpu_id # If NULL, then it will be auto-specified.
 run_lr_finder = args.run_lr_finder
 
 egs_params = {
-    "aug":"specaugment", # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
+    "aug":None, # None or specaugment. If use aug, you should close the aug_dropout which is in model_params.
     "aug_params":{"frequency":0.2, "frame":0.2, "rows":4, "cols":4, "random_rows":True,"random_cols":True}
 }
 
@@ -224,42 +216,49 @@ model_params = {
                       "fixed":True
                       },
     "tdnn6":True, 
-    "tdnn7_params":{"nonlinearity":"default", "bn":True},
+    "tdnn7_params":{"nonlinearity":"", "bn":True},
 
     "margin_loss":True, 
     "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 
                           "s":30, "mhe_loss":False, "mhe_w":0.01},
     "use_step":True, 
     "step_params":{"T":None,
-                   "m":True, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
+                   "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
                    "s":False, "s_tuple":(30, 12), "s_list":None,
                    "t":False, "t_tuple":(0.5, 1.2), 
                    "p":False, "p_tuple":(0.5, 0.1)}
 }
 
 optimizer_params = {
-    "name":"adamW",
-    "learn_rate":0.001,
+    "name":"sgd",
+    "learn_rate":0.01,
     "beta1":0.9,
     "beta2":0.999,
     "beta3":0.999,
-    "weight_decay":3e-1,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
+    "weight_decay":1e-3,  # Should be large for decouped weight decay (adamW) and small for L2 regularization (sgd, adam).
     "lookahead.k":5,
     "lookahead.alpha":0.,  # 0 means not using lookahead and if used, suggest to set it as 0.5.
     "gc":False # If true, use gradient centralization.
 }
 
 lr_scheduler_params = {
-    "name":"warmR",
-    "warmR.lr_decay_step":0, # 0 means decay after every epoch and 1 means every iter. 
-    "warmR.T_max":3,
-    "warmR.T_mult":2,
-    "warmR.factor":1.0,  # The max_lr_decay_factor.
+    "name":"reduceP", # warmR or reduceP
+    "warmR.lr_decay_step":1, # 0 means decay after every epoch and 1 means every iter. 
+    "warmR.T_max":6,
+    "warmR.T_mult":1,
+    "warmR.factor":0.5,  # The max_lr_decay_factor.
     "warmR.eta_min":4e-8,
-    "warmR.log_decay":False
+    "warmR.log_decay":False,
+    "reduceP.metric":'valid_loss',
+    "reduceP.check_interval":10000, # 0 means check metric after every epoch and 1 means every iter. 
+    "reduceP.factor":0.1,  # scale of lr in every times.
+    "reduceP.patience":2, 
+    "reduceP.threshold":0.0001, 
+    "reduceP.cooldown":0, 
+    "reduceP.min_lr":0.000001
 }
 
-epochs = 21 # Total epochs to train. It is important.
+epochs = 6 # Total epochs to train. It is important.
 
 report_times_every_epoch = None
 report_interval_iters = 100 # About validation computation and loss reporting. If report_times_every_epoch is not None, 
@@ -271,11 +270,11 @@ suffix = "params" # Used in saved model file.
 exist_model=""  # Use it in transfer learning.
 ##--------------------------------------------------##
 ## Main params
-traindata="data/mfcc_23_pitch/voxceleb1_train_aug"
-egs_dir="exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
+traindata="data/fbank_81/voxceleb2_train_augx5"
+egs_dir="exp/egs/fbank_81_voxceleb2_train_augx5" + "_" + sample_type
 
-model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
-model_dir="exp/extended_voxceleb1_spec_am"
+model_blueprint="subtools/pytorch/model/resnet-xvector.py"
+model_dir="exp/resnet34_voxceleb2x5_fbank"
 ##--------------------------------------------------##
 ##
 ######################################################### START #########################################################
@@ -365,11 +364,11 @@ if stage <= 3 <= endstage:
 if stage <= 4 <= endstage and utils.is_main_training():
     # There are some params for xvector extracting.
     data_root = "data" # It contains all dataset just like Kaldi recipe.
-    prefix = "mfcc_23_pitch" # For to_extracted_data.
+    prefix = "fbank_81" # For to_extracted_data.
 
     to_extracted_positions = ["far", "near"] # Define this w.r.t extracted_embedding param of model_blueprint.
-    to_extracted_data = ["voxceleb1_train_aug", "voxceleb1_test"] # All dataset should be in data_root/prefix.
-    to_extracted_epochs = ["21"] # It is model's name, such as 10.params or final.params (suffix is w.r.t package).
+    to_extracted_data = ["voxceleb1", "voxceleb1_train", "voxceleb2_train"] # All dataset should be in data_root/prefix.
+    to_extracted_epochs = ["6"] # It is model's name, such as 10.params or final.params (suffix is w.r.t package).
 
     nj = 10
     force = False
@@ -417,6 +416,7 @@ if stage <= 4 <= endstage and utils.is_main_training():
         if not isinstance(e, KeyboardInterrupt):
             traceback.print_exc()
         sys.exit(1)
+
 
 
 

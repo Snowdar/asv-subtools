@@ -686,7 +686,7 @@ Note, Voxceleb1.dev is used as the trainset of back-end for the Voxceleb1-O* tas
  >
  > --#--Snowdar--2020-06-02--#--
 
-> Use SGD + ReduceP to train Resnet34 with voxceleb2 training set could obtain 1.2% EER (Cosine score without snorm) and 1.1% EER (Cosine score with snorm) for voxceleb-O task now.
+> **Use SGD + ReduceP to train Resnet34 with voxceleb2 training set could obtain 1.2% EER (Cosine score without snorm) and 1.1% EER (Cosine score with snorm) for voxceleb-O task now.**
 ---
 
 ### [2] AP-OLR Challenge 2020 Baseline Recipe [Language Identification]
