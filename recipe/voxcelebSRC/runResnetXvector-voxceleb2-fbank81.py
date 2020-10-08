@@ -193,40 +193,57 @@ loader_params = {
 }
 
 # Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
-model_params = {
-    "extend":True, "SE":False, "se_ratio":4, "training":True, "extracted_embedding":"far",
-
-    "aug_dropout":0., "hidden_dropout":0., 
-    "dropout_params":{"type":"default", "start_p":0., "dim":2, "method":"uniform",
-                      "continuous":False, "inplace":True},
-
-    "tdnn_layer_params":{"nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
-                         "bn-relu":False, 
-                         "bn":True, 
-                         "bn_params":{"momentum":0.5, "affine":False, "track_running_stats":True}},
+# Difine model_params by model_blueprint w.r.t your model's __init__(model_params).
+model_params = { 
+    "aug_dropout":0., "tail_dropout":0.,
+    "training":True, "extracted_embedding":"far",
+    "resnet_params":{
+            "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
+            "head_maxpool":False, "head_maxpool_params":{"kernel_size":3, "stride":2, "padding":1},
+            "block":"BasicBlock", # BasicBlock, Bottleneck
+            "layers":[3, 4, 6, 3],
+            "planes":[32, 64, 128, 256],
+            "convXd":2,
+            "norm_layer_params":{"momentum":0.5, "affine":True},
+            "full_pre_activation":False,
+            "zero_init_residual":False},
 
     "pooling":"statistics", # statistics, lde, attentive, multi-head, multi-resolution
-    "pooling_params":{"num_nodes":1500,
-                      "num_head":1,
+    "pooling_params":{"num_head":16,
                       "share":True,
                       "affine_layers":1,
                       "hidden_size":64,
                       "context":[0],
                       "temperature":False, 
-                      "fixed":True
+                      "fixed":True,
+                      "stddev":True
                       },
-    "tdnn6":True, 
-    "tdnn7_params":{"nonlinearity":"", "bn":True},
 
-    "margin_loss":True, 
-    "margin_loss_params":{"method":"am", "m":0.2, "feature_normalize":True, 
-                          "s":30, "mhe_loss":False, "mhe_w":0.01},
-    "use_step":True, 
-    "step_params":{"T":None,
-                   "m":True, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
-                   "s":False, "s_tuple":(30, 12), "s_list":None,
-                   "t":False, "t_tuple":(0.5, 1.2), 
-                   "p":False, "p_tuple":(0.5, 0.1)}
+    "fc1":False,
+    "fc1_params":{
+            "nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
+            "bn-relu":False, 
+            "bn":True, 
+            "bn_params":{"momentum":0.5, "affine":True, "track_running_stats":True}},
+
+    "fc2_params":{
+            "nonlinearity":'relu', "nonlinearity_params":{"inplace":True},
+            "bn-relu":False, 
+            "bn":True, 
+            "bn_params":{"momentum":0.5, "affine":False, "track_running_stats":True}},
+
+    "margin_loss":True,
+    "margin_loss_params":{
+            "method":"am", "m":0.2, "feature_normalize":True, 
+            "s":30, "mhe_loss":False, "mhe_w":0.01},
+
+    "use_step":True,
+    "step_params":{
+            "T":None,
+            "m":True, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
+            "s":False, "s_tuple":(30, 12), "s_list":None,
+            "t":False, "t_tuple":(0.5, 1.2), 
+            "p":False, "p_tuple":(0.5, 0.1)}
 }
 
 optimizer_params = {
