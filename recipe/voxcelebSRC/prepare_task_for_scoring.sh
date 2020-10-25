@@ -3,7 +3,7 @@
 # Copyright xmuspeech (Author: Snowdar 2020-05-03)
 
 
-prefix="mfcc_23_pitch"
+prefix="fbank_81"
 tasks="voxceleb1-O voxceleb1-E voxceleb1-H voxceleb1-O-clean voxceleb1-E-clean voxceleb1-H-clean"
 vectordir=
 
