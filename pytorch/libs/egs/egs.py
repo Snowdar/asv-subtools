@@ -95,8 +95,6 @@ class ChunkEgs(Dataset):
         # Note that, do not use inputs.flags.writeable = True when the version of numpy >= 1.17.
         egs = np.require(egs, requirements=['O', 'W'])
 
-        print(egs)
-        exit(1)
 
         if self.aug is not None:
             return self.aug(egs.T), target
