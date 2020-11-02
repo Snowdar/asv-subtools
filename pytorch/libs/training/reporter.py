@@ -123,7 +123,8 @@ class Reporter():
                 if self.board_writer is not None:
                     board_info = {"epoch":float(current_epoch+1), "lr":current_lr}
                     board_info.update(real_snapshot)
-                    self.board_writer.add_scalars("base_scalar_group", board_info, update_iters)
+                    for key in board_info.keys():
+                        self.board_writer.add_scalar(key, board_info[key], update_iters)
 
                 info_dict = {"epoch":current_epoch+1, "iter":current_iter+1, "position":update_iters, 
                              "lr":"{0:.8f}".format(current_lr)}
