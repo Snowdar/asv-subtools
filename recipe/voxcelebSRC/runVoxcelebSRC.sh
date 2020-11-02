@@ -91,18 +91,33 @@ subtools/computeVad.sh data/$prefix/voxceleb1/ $vad_conf
 
 # [11] Sample egs. It will do cmn and vad firstly and then remove invalid utts. Finally, 
 #                  it samples egs to fixed chunk-size with instance sampling.
-subtools/runPytorchLauncher.sh run-resnet34-fbank-81.py --stage=0 --endstage=2
+subtools/runPytorchLauncher.sh run-resnet34-fbank-81-benchmark.py --stage=0 --endstage=2
 
 # [12] Train a Resnet34 + multi-head-attention model with AM-Softmax loss and 4 GPUs will be used to accelerate training
-subtools/runPytorchLauncher.sh run-resnet34-fbank-81.py --stage=3 --endstage=3 --gpu-id=0,1,2,3
+subtools/runPytorchLauncher.sh run-resnet34-fbank-81-benchmark.py --stage=3 --endstage=3 --gpu-id=0,1,2,3
 
-# [13] Extract xvectors for voxceleb1 and voxceleb2_dev
-subtools/runPytorchLauncher.sh run-resnet34-fbank-81.py --stage=4
+# [13] Extract near xvectors in epoch 6 for voxceleb1 and voxceleb2_dev
+subtools/runPytorchLauncher.sh run-resnet34-fbank-81-benchmark.py --stage=4
 
 ### Back-end scoring
-# [14] Score with Cosine + AS-norm processes
-tasks="voxceleb1_O_clean voxceleb1_O voxceleb1_E_clean voxceleb1_E voxceleb1_H_clean voxceleb1_H"
+# [14] Score with submean + Cosine + AS-Norm processes
+tasks="vox1-O vox1-O-clean vox1-E vox1-E-clean vox1-H vox1-H-clean"
 for task in $tasks;do
-    bash subtools/recipe/voxceleb/gather_results_from_epochs.sh --score cosine --prefix $prefix \
-         --task $task --epochs "6" --postions "near" --score-norm true --cohort-set voxceleb2_dev
+    subtools/recipe/voxcelebSRC/gather_results_from_epochs.sh --prefix $prefix --score cosine  --submean true \
+         --task $task --epochs "6" --postions "near" --score-norm true --score-norm-method true --top-n 100 \
+         --cohort-set voxceleb2_dev
 done
+
+#### Report ####
+# Egs = Voxceleb2_dev(+augx4) + sequential sampling
+# Optimization = [SGD (lr = 0.01) + ReduceLROnPlateau] x 4 GPUs (total batch-size=512)
+# Resnet34 (channels = 32, 64, 128, 256) + Stats-Pooling + FC-ReLU-BN-FC-BN + AM-Softmax (margin = 0.2)
+#
+# Back-end = near + Cosine
+#
+#  EER%       vox1-O   vox1-O-clean   vox1-E   vox1-E-clean   vox1-H   vox1-H-clean
+#  Baseline   1.304    1.159          1.35     1.223          2.357    2.238       
+#  Submean    1.262    1.096          1.338    1.206          2.355    2.223       
+#  AS-Norm    1.161    1.026          -        -              -        -           
+#
+###### Just A Baseline Here #######

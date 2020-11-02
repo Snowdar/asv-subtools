@@ -88,7 +88,7 @@ for position in $positions;do
                                                     data/$prefix/voxceleb1_test/enroll.list
             [[ ! -d data/$prefix/voxceleb1_enroll ]] && subtools/filterDataDir.sh data/$prefix/voxceleb1_test \
                                                     data/$prefix/voxceleb1_test/enroll.list data/$prefix/voxceleb1_enroll
-            [[ ! -d $obj_dir/voxceleb1_enroll ]] && subtools/filterVectorDir.sh $obj_dir/voxceleb1_test/xvector.scp \
+            [[ ! -d $obj_dir/voxceleb1_enroll ]] && subtools/filterVectorDir.sh $obj_dir/voxceleb1_test \
                                                     data/$prefix/voxceleb1_test/enroll.list $obj_dir/voxceleb1_enroll
 
         elif [[ "$testset" == "voxceleb1_O_test" && "$enrollset" == "voxceleb1_O_enroll" ]];then
@@ -128,7 +128,7 @@ for position in $positions;do
 
                 if [ "$cohort_method" == "sub" ];then
                     [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
-                    [[ ! -d $obj_dir/$cohort_set ]] && subtools/filterVectorDir.sh $obj_dir/$cohort_set_from/xvector.scp \
+                    [[ ! -d $obj_dir/$cohort_set ]] && subtools/filterVectorDir.sh $obj_dir/$cohort_set_from \
                     data/$prefix/$cohort_set/utt2spk $obj_dir/$cohort_set
                 elif [ "$cohort_method" == "mean" ];then
                     [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
@@ -137,7 +137,7 @@ for position in $positions;do
                 fi
             else
                 [[ "$force" == "true" ]] && rm -rf $obj_dir/$cohort_set
-                [[ ! -d $obj_dir/$cohort_set ]] && subtools/filterVectorDir.sh $obj_dir/$cohort_set_from/xvector.scp \
+                [[ ! -d $obj_dir/$cohort_set ]] && subtools/filterVectorDir.sh $obj_dir/$cohort_set_from \
                 data/$prefix/$cohort_set/utt2spk $obj_dir/$cohort_set
             fi
 

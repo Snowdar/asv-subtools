@@ -438,275 +438,45 @@ subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_
 
 ![results-2.png](./recipe/voxceleb/results-2.png)
 
-<!--
-<table>
-<tr style="white-space: nowrap;text-align:left;">
-<th>Index</th>
-<th>Features</th>
-<th>Model</th>
-<th>InSpecAug</th>
-<th>AM-Softmax (m=0.2)</th>
-<th>Back-End</th>
-<th>EER%</th>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>9</td>
-<td>mfcc23&pitch</td>
-<td>x-vector</td>
-<td>no</td>
-<td>no</td>
-<td>PLDA</td>
-<td>2.020</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>10</td>
-<td>mfcc23&pitch</td>
-<td>x-vector</td>
-<td>yes</td>
-<td>no</td>
-<td>PLDA</td>
-<td>1.967</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>11</td>
-<td>mfcc23&pitch</td>
-<td>x-vector</td>
-<td>no</td>
-<td>yes</td>
-<td>PLDA</td>
-<td>2.375</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>12</td>
-<td>mfcc23&pitch</td>
-<td>x-vector</td>
-<td>yes</td>
-<td>yes</td>
-<td>PLDA</td>
-<td>2.349</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>13</td>
-<td>mfcc23&pitch</td>
-<td>extended x-vector</td>
-<td>no</td>
-<td>no</td>
-<td>PLDA</td>
-<td>1.972</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>14</td>
-<td>mfcc23&pitch</td>
-<td>extended x-vector</td>
-<td>yes</td>
-<td>no</td>
-<td>PLDA</td>
-<td>2.169</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>15</td>
-<td>mfcc23&pitch</td>
-<td>extended x-vector</td>
-<td>no</td>
-<td>yes</td>
-<td>PLDA</td>
-<td>1.771</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td>Cosine->+AS-Norm</td>
-<td>2.163->2.025</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>16</td>
-<td>mfcc23&pitch</td>
-<td>extended x-vector</td>
-<td>yes</td>
-<td>yes</td>
-<td>PLDA</td>
-<td>1.888</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td>Cosine->+AS-Norm</td>
-<td>1.967->1.729</td>
-</tr>
-</table>
--->
-
 Note, 2000 utterances are selected from no-aug-trainset as the cohort set of AS-Norm, the same below.
 
 ---
 
 **ii. Test Voxceleb1-O/E/H**
 
-It means the trainset could only be sampled from Voxceleb2 with a fixed training condition. The training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh).
+It means the trainset could only be sampled from Voxceleb2 with a fixed training condition.
 
-**Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug1:4 Training (EER%)**
+**Old Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug1:4 Training (EER%)**
 
-![results-3.png](./recipe/voxcelebSRC/results-3.png)
+![results-3.png](./recipe/voxcelebSRC/results-adam.png)
 
-<!--
-<table style="font-size:14px;">
-<tr style="white-space: nowrap;text-align:left;">
-<th>Index</th>
-<th>Features</th>
-<th>Model</th>
-<th>InSpecAug</th>
-<th>AM-Softmax</br>(m=0.2)</th>
-<th>Back-End</th>
-<th>voxceleb1-O*</th>
-<th>voxceleb1-O</th>
-<th>voxceleb1-E</th>
-<th>voxceleb1-H</th>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>1</td>
-<td>mfcc23&pitch</td>
-<td>extended</br>x-vector</td>
-<td>no</td>
-<td>no</td>
-<td>PLDA</td>
-<td>1.622</td>
-<td>2.089</td>
-<td>2.221</td>
-<td>3.842</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>2</td>
-<td>fbank40&pitch</td>
-<td>resnet34-2d</td>
-<td>no</td>
-<td>no</td>
-<td>PLDA</td>
-<td>1.909</td>
-<td>3.065</td>
-<td>2.392</td>
-<td>3.912</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td>Cosine->+AS-Norm</td>
-<td>2.158->-</td>
-<td>2.423->2.344</td>
-<td>2.215->2.01</td>
-<td>4.873->3.734</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>3</td>
-<td>fbank40&pitch</td>
-<td>resnet34-2d</td>
-<td>no</td>
-<td>yes</td>
-<td>PLDA</td>
-<td>1.622</td>
-<td>1.893</td>
-<td>1.962</td>
-<td>3.546</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td>Cosine->+AS-Norm</td>
-<td>1.612->1.543</td>
-<td>1.713->1.591</td>
-<td>1.817->1.747</td>
-<td>3.269->3.119</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>4</td>
-<td>fbank40&pitch</td>
-<td>resnet34-2d</td>
-<td>yes</td>
-<td>yes</td>
-<td>PLDA</td>
-<td>1.495</td>
-<td>1.813</td>
-<td>1.920</td>
-<td>3.465</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td>Cosine->+AS-Norm</td>
-<td>1.601->1.559</td>
-<td>1.676->1.601</td>
-<td>1.817->1.742</td>
-<td>3.233->3.097</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td>5</td>
-<td>fbank80</td>
-<td>resnet34-2d</td>
-<td>no</td>
-<td>yes</td>
-<td>PLDA</td>
-<td>1.511</td>
-<td>1.808</td>
-<td>1.847</td>
-<td>3.251</td>
-</tr>
-<tr style="white-space: nowrap;text-align:left;">
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td>Cosine->+AS-Norm</td>
-<td>1.538->-</td>
-<td>1.628->1.538</td>
-<td>1.767->1.705</td>
-<td>3.111->2.985</td>
-</tr>
-</table>
--->
-
+These models are trained by adam + warmRestarts and they are old (so related scripts was removed).
 Note, Voxceleb1.dev is used as the trainset of back-end for the Voxceleb1-O* task and Voxceleb2.dev for others. 
 
-
- > **These basic models performs good but the results are not the state-of-the-art yet**. I found that training strategies could have an important influence on the final performance, such as the number of epoch, the value of weight decay, the selection of optimizer, and so on. Unfortunately, I have not enough time and GPU to fine-tune so many models, especially training model with a large dataset like Voxceleb2 whose duration is more than 2300h (In this case, it will spend 1~2 days to train one fbank80-based Resnet2d model for 6 epochs with 4 V100 GPUs).
+ > **These basic models performs good but the results are not the state-of-the-art yet**. I found that training strategies could have an important influence on the final performance, such as the number of epoch, the value of weight decay, the selection of optimizer, and so on. Unfortunately, I have not enough time and GPU to fine-tune so many models, especially training model with a large dataset like Voxceleb2 whose duration is more than 2300h (In this case, it will spend 1~2 days to train one fbank81-based Resnet2d model for 6 epochs with 4 V100 GPUs).
  >
  > --#--Snowdar--2020-06-02--#--
 
-> **Use SGD + ReduceP to train Resnet34 with voxceleb2 training set could obtain 1.2% EER (Cosine score without snorm) and 1.1% EER (Cosine score with snorm) for voxceleb-O task now.**
+**New Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug1:4 Training (EER%)**
+Here, this is a resnet34 benchmark model. And the training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh). For more details, see it also. ==new==
+
+|EER%|vox1-O|vox1-O-clean|vox1-E|vox1-E-clean|vox1-H|vox1-H-clean|
+| :--: | :--: | :--: | :--: | :--: | :--: | :--: |
+|Baseline|1.304|1.159|1.35|1.223|2.357|2.238|
+|Submean|1.262|1.096|1.338|1.206|2.355|2.223|
+|AS-Norm|1.161|1.026|-|-|-|-|
 ---
 
 ### [2] AP-OLR Challenge 2020 Baseline Recipe [Language Identification]
 
-AP-OLR Challenge 2020  is opened now, welcome to register by the [home page](http://cslt.riit.tsinghua.edu.cn/mediawiki/index.php/OLR_Challenge_2020). 
+AP-OLR Challenge 2020 is closed now.
 
 **Baseline**: [subtools/recipe/ap-olr2020-baseline](./recipe/ap-olr2020-baseline).  
 > The **top training script of baseline** is available in [subtools/recipe/ap-olr2020-baseline/run.sh](./recipe/ap-olr2020-baseline/run.sh). And the baseline results could be seen in [subtools/recipe/ap-olr2020-baseline/results.txt](./recipe/ap-olr2020-baseline/results.txt).
 
 **Plan**: Zheng Li, Miao Zhao, Qingyang Hong, Lin Li, Zhiyuan Tang, Dong Wang, Liming Song and Cheng Yang: [AP20-OLR Challenge: Three Tasks and Their Baselines](https://arxiv.org/pdf/2006.03473.pdf), submitted to APSIPA ASC 2020.
 
-**Important Dates**:  
-Jun. 1, AP20-OLR training/dev data release.  
-Oct. 1, register deadline.  
-Oct. 20, test data release.  
-Nov. 1, 24:00, Beijing time, submission deadline.  
-Nov. 27, convening of seminar.  
-Dec. 10, results announcement.  
-
-For previous challenges (2016-2019), see http://olr.cslt.org.
+For previous challenges (2016-2020), see http://olr.cslt.org.
 
 ---
 
