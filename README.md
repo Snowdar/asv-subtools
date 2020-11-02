@@ -457,7 +457,7 @@ Note, Voxceleb1.dev is used as the trainset of back-end for the Voxceleb1-O* tas
  >
  > --#--Snowdar--2020-06-02--#--
 
-**New Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug1:4 Training (EER%)**
+**New Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug1:4 Training (EER%)** 
 Here, this is a resnet34 benchmark model. And the training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh). For more details, see it also. ==new==
 
 |EER%|vox1-O|vox1-O-clean|vox1-E|vox1-E-clean|vox1-H|vox1-H-clean|
