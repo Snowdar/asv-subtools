@@ -91,13 +91,13 @@ subtools/computeVad.sh data/$prefix/voxceleb1/ $vad_conf
 
 # [11] Sample egs. It will do cmn and vad firstly and then remove invalid utts. Finally, 
 #                  it samples egs to fixed chunk-size with instance sampling.
-subtools/runPytorchLauncher.sh run-resnet34-fbank-81-benchmark.py --stage=0 --endstage=2
+subtools/recipe/voxcelebSRC/runPytorchLauncher.sh run-resnet34-fbank-81-benchmark.py --stage=0 --endstage=2
 
 # [12] Train a Resnet34 + multi-head-attention model with AM-Softmax loss and 4 GPUs will be used to accelerate training
-subtools/runPytorchLauncher.sh run-resnet34-fbank-81-benchmark.py --stage=3 --endstage=3 --gpu-id=0,1,2,3
+subtools/recipe/voxcelebSRC/runPytorchLauncher.sh run-resnet34-fbank-81-benchmark.py --stage=3 --endstage=3 --gpu-id=0,1,2,3
 
 # [13] Extract near xvectors in epoch 6 for voxceleb1 and voxceleb2_dev
-subtools/runPytorchLauncher.sh run-resnet34-fbank-81-benchmark.py --stage=4
+subtools/recipe/voxcelebSRC/runPytorchLauncher.sh run-resnet34-fbank-81-benchmark.py --stage=4
 
 ### Back-end scoring
 # [14] Score with submean + Cosine + AS-Norm processes
