@@ -20,8 +20,8 @@ factor=1 # The ratio of augmented data with origin data. In this case, 4 means u
 nj=20 # Num-jobs
 force=false
 
-. asv/subtools/parse_options.sh
-. asv/subtools/path.sh
+. subtools/parse_options.sh
+. subtools/path.sh
 
 if [[ $# != 1 && $# != 2 ]];then
 echo "[exit] Num of parameters is not equal to 1 or 2"
@@ -34,9 +34,9 @@ data=$1
 
 [ ! -d "$data" ] && echo "Expected datadir $datadir to be exist" && exit 1
 
-for file in utt2spk wav.scp;done
+for file in utt2spk wav.scp;do
     [ ! -f $data/$file ] && echo "Expected $data/$file to exist." && exit 1
-fi
+done
 
 [ $# -eq 2 ] && aug_data_dir=$2
 
@@ -44,8 +44,8 @@ fi
 echo "[exit] There should be one augmentation type form [reverb|noise|music|babble]" && exit 1
 
 utt_num=$(cat $data/utt2spk | wc -l | awk '{print $1}')
-for file in reco2dur utt2num_frames feats.scp;done
-    num=$(cat $data/$file | wc -l | awk '{print $1}')
+for file in reco2dur utt2num_frames feats.scp;do
+    [ -f $data/$file ] && num=$(cat $data/$file | wc -l | awk '{print $1}') && \
     [ $num -ne $utt_num ] && echo "[Note] The num of $data/$file is not equal to $data/utt2spk ($num/$utt_num), so mv $data/$file to $data/$file.lost." && \
                              mv -f $data/$file $data/$file.lost
 done
@@ -58,7 +58,7 @@ if [ ! -f $data/reco2dur ];then
         feat-to-len scp:$data/feats.scp ark,t:$data/utt2num_frames
         awk -v frame_shift=$frame_shift '{print $1, $2*frame_shift;}' $data/utt2num_frames > $data/reco2dur
     else
-        asv/subtools/kaldi/utils/data/get_reco2dur.sh --nj $nj --frame-shift $frame_shift $data
+        subtools/kaldi/utils/data/get_reco2dur.sh --nj $nj --frame-shift $frame_shift $data
     fi
 fi
 
@@ -84,7 +84,7 @@ if $reverb;then
         rvb_opts+=(--rir-set-parameters "0.5, $rirs_noises/simulated_rirs/smallroom/rir_list")
         rvb_opts+=(--rir-set-parameters "0.5, $rirs_noises/simulated_rirs/mediumroom/rir_list")
     
-        python3 asv/subtools/kaldi/steps/data/reverberate_data_dir.py \
+        python3 subtools/kaldi/steps/data/reverberate_data_dir.py \
                     "${rvb_opts[@]}" \
                     --speech-rvb-probability 1 \
                     --pointsource-noise-addition-probability 0 \
@@ -94,7 +94,7 @@ if $reverb;then
                     ${data} ${sdata}_reverb || exit 1
 
         # Add suffix
-        asv/subtools/kaldi/utils/copy_data_dir.sh --utt-suffix "-reverb" ${sdata}_reverb ${sdata}_reverb.new
+        subtools/kaldi/utils/copy_data_dir.sh --utt-suffix "-reverb" ${sdata}_reverb ${sdata}_reverb.new
         rm -rf ${sdata}_reverb
         mv ${sdata}_reverb.new ${sdata}_reverb
                 top_dir=$(dirname $rirs_noises | sed 's/\//\\\//g')
@@ -113,13 +113,13 @@ if $noise;then
     [ ! -d $musan/noise ] && echo "[check noise] No such dir $musan/noise" && exit 1
     
     if [ ! -d $musan_dir/musan_noise ];then
-        asv/subtools/kaldi/steps/data/make_musan.sh --sampling-rate $sampling_rate $musan $musan_dir || exit 1
+        subtools/kaldi/steps/data/make_musan.sh --sampling-rate $sampling_rate $musan $musan_dir || exit 1
     fi
     
     echo "...add noise..."
     
     if [[ ! -d ${sdata}_noise || $force == "true" ]];then
-        python3 asv/subtools/kaldi/steps/data/augment_data_dir.py --utt-suffix "noise" --fg-interval 1 --fg-snrs "15:10:5:0" --fg-noise-dir "$musan_dir/musan_noise" ${data} ${sdata}_noise || exit 1
+        python3 subtools/kaldi/steps/data/augment_data_dir.py --utt-suffix "noise" --fg-interval 1 --fg-snrs "15:10:5:0" --fg-noise-dir "$musan_dir/musan_noise" ${data} ${sdata}_noise || exit 1
         [ -f $data/vad.scp ] && awk '{print $1"-noise",$2}' $data/vad.scp > ${sdata}_noise/vad.scp
     fi
     
@@ -132,12 +132,12 @@ if $music;then
     [ ! -d $musan/music ] && echo "[check music] No such dir $musan/music" && exit 1
 
     if [ ! -d $musan_dir/musan_music ];then
-        asv/subtools/kaldi/steps/data/make_musan.sh --sampling-rate $sampling_rate $musan $musan_dir || exit 1
+        subtools/kaldi/steps/data/make_musan.sh --sampling-rate $sampling_rate $musan $musan_dir || exit 1
     fi
     
     echo "...add music..."
     if [[ ! -d ${sdata}_music || $force == "true" ]];then
-        python3 asv/subtools/kaldi/steps/data/augment_data_dir.py --utt-suffix "music" --bg-snrs "15:10:8:5" --num-bg-noises "1" --bg-noise-dir "$musan_dir/musan_music" ${data} ${sdata}_music || exit 1
+        python3 subtools/kaldi/steps/data/augment_data_dir.py --utt-suffix "music" --bg-snrs "15:10:8:5" --num-bg-noises "1" --bg-noise-dir "$musan_dir/musan_music" ${data} ${sdata}_music || exit 1
         [ -f $data/vad.scp ] && awk '{print $1"-music",$2}' $data/vad.scp > ${sdata}_music/vad.scp
     fi
 
@@ -150,13 +150,13 @@ if $babble;then
     [ ! -d $musan/speech ] && echo "[check babble] No such dir $musan/speech" && exit 1
 
     if [ ! -d $musan_dir/musan_speech ];then
-        asv/subtools/kaldi/steps/data/make_musan.sh --sampling-rate $sampling_rate $musan $musan_dir || exit 1
+        subtools/kaldi/steps/data/make_musan.sh --sampling-rate $sampling_rate $musan $musan_dir || exit 1
     fi
     
     echo "...add babble/speech..."
 
     if [[ ! -d ${sdata}_babble || $force == "true" ]];then
-        python3 asv/subtools/kaldi/steps/data/augment_data_dir.py --utt-suffix "babble" --bg-snrs "20:17:15:13" --num-bg-noises "3:4:5:6:7" --bg-noise-dir "$musan_dir/musan_speech" ${data} ${sdata}_babble || exit 1
+        python3 subtools/kaldi/steps/data/augment_data_dir.py --utt-suffix "babble" --bg-snrs "20:17:15:13" --num-bg-noises "3:4:5:6:7" --bg-noise-dir "$musan_dir/musan_speech" ${data} ${sdata}_babble || exit 1
         [ -f $data/vad.scp ] && awk '{print $1"-babble",$2}' $data/vad.scp > ${sdata}_babble/vad.scp
     fi
     
@@ -167,7 +167,7 @@ fi
 
 if [ $num -gt 1 ];then
     echo "...combine additive aug data to $additive_aug_data..."
-    [[ ! -d $additive_aug_data || $force == "true" ]] && asv/subtools/kaldi/utils/combine_data.sh $additive_aug_data $all_data
+    [[ ! -d $additive_aug_data || $force == "true" ]] && subtools/kaldi/utils/combine_data.sh $additive_aug_data $all_data
 fi
 
 num_origin_utts=$(wc -l $data/reco2dur | awk '{print $1}')
@@ -183,13 +183,13 @@ if [ $# -eq 2 ];then
 
     if [ $factor -ne $num ];then
             echo "...get subset from $additive_aug_data to ${additive_aug_data}_$num_additive_utts..."
-            [ ! -d ${additive_aug_data}_$num_additive_utts ] && asv/subtools/kaldi/utils/subset_data_dir.sh \
+            [ ! -d ${additive_aug_data}_$num_additive_utts ] && subtools/kaldi/utils/subset_data_dir.sh \
                 $additive_aug_data $num_additive_utts ${additive_aug_data}_$num_additive_utts
             subset_data=${additive_aug_data}_$num_additive_utts
     fi
 
     echo "...generate augmented data to $aug_data_dir..."
-    [ ! -d $aug_data_dir ] && asv/subtools/kaldi/utils/combine_data.sh $aug_data_dir $data $subset_data
+    [ ! -d $aug_data_dir ] && subtools/kaldi/utils/combine_data.sh $aug_data_dir $data $subset_data
 fi
 
 echo "All done."
