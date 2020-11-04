@@ -90,7 +90,7 @@ for position in $positions;do
         # voxceleb -> voxceleb1-O/E/H[-clean]_enroll/test
         if [ "$split" == "true" ];then
             subtools/split_enroll_test_by_trials.sh --force $force --outname $task_name --vectordir $obj_dir/$srcdata \
-                                      data/$prefix/$srcdata $prepare_trials
+                                      data/$prefix/$srcdata $prepare_trials || exit 1
         fi
 
         [[ "$force" == "true" || ! -f $obj_dir/$name.eer ]] && \

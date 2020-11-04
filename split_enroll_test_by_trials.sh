@@ -21,8 +21,8 @@ check_params 2 "[--vectordir ""] <data-dir> <trials>"
 datadir=$1
 trials=$2
 
-[ ! -d $datadir ] && "Expected $datadir to exist" && exit 1
-[ ! -f $trials ] && "Expected $trials to exist" && exit 1
+[ ! -d $datadir ] && echo "Expected $datadir to exist" && exit 1
+[ ! -f $trials ] && echo "Expected $trials to exist" && exit 1
 
 datadir=$(dirname $datadir)/$(basename $datadir)
 
