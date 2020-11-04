@@ -59,16 +59,16 @@ if [ "$vectordir" != "" ];then
     dataset_name=$(basename $outname)
 
     echo "[6] Generate $vectordir_dir/${dataset_name}_enroll ..."
-    force_for "subtools/filterVectorDir.sh --scp-type $scp_type $vectordir $datadir/enroll.list $vectordir_dir/${dataset_name}_enroll" \
+    force_for "subtools/filterVectorDir.sh --scp-type $scp_type $vectordir $datadir/$enroll_list $vectordir_dir/${dataset_name}_enroll" \
               d:$vectordir_dir/${dataset_name}_enroll
 
     echo "[7] Generate $vectordir_dir/${dataset_name}_test ..."
-    force_for "subtools/filterVectorDir.sh --scp-type $scp_type $vectordir $datadir/test.list $vectordir_dir/${dataset_name}_test" \
+    force_for "subtools/filterVectorDir.sh --scp-type $scp_type $vectordir $datadir/$test_list $vectordir_dir/${dataset_name}_test" \
               d:$vectordir_dir/${dataset_name}_test
 fi
 
 if [ "$clear" == "true" ];then
-    rm -f $datadir/enroll.list $datadir/test.list
+    rm -f $datadir/$enroll_list $datadir/$test_list
 fi
 
 echo "## Split done ##"
