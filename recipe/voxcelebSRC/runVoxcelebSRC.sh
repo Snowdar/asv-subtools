@@ -104,8 +104,8 @@ subtools/runPytorchLauncher.sh subtools/recipe/voxcelebSRC/run-resnet34-fbank-81
 tasks="vox1-O vox1-O-clean vox1-E vox1-E-clean vox1-H vox1-H-clean"
 for task in $tasks;do
     subtools/recipe/voxcelebSRC/gather_results_from_epochs.sh --prefix $prefix --score cosine  --submean true \
-         --task $task --epochs "6" --postions "near" --score-norm true --score-norm-method true --top-n 100 \
-         --cohort-set voxceleb2_dev
+         --vectordir "exp/resnet34_fbank_81_benchmark" --task $task --epochs "6" --postions "near" \
+         --score-norm true --score-norm-method true --top-n 100 --cohort-set voxceleb2_dev
 done
 
 #### Report ####
