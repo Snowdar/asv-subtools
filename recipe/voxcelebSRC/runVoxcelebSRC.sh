@@ -102,10 +102,13 @@ subtools/runPytorchLauncher.sh subtools/recipe/voxcelebSRC/run-resnet34-fbank-81
 ### Back-end scoring
 # [14] Score with submean + Cosine + AS-Norm processes
 tasks="vox1-O vox1-O-clean vox1-E vox1-E-clean vox1-H vox1-H-clean"
+score_norm=false
 for task in $tasks;do
+    [ "$task" == "vox1-O" ] && score_norm=true
+    [ "$task" == "vox1-O-clean" ] && score_norm=true
     subtools/recipe/voxcelebSRC/gather_results_from_epochs.sh --prefix $prefix --score cosine  --submean true \
          --vectordir "exp/resnet34_fbank_81_benchmark" --task $task --epochs "6" --postions "near" \
-         --score-norm true --score-norm-method true --top-n 100 --cohort-set voxceleb2_dev
+         --score-norm $score_norm --score-norm-method "asnorm" --top-n 100 --cohort-set voxceleb2_dev
 done
 
 #### Report ####
