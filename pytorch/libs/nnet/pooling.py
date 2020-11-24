@@ -192,6 +192,9 @@ class AttentionAlphaComponent(torch.nn.Module):
         if share:
             # weight: [input_dim, 1] or [input_dim, hidden_size] -> [hidden_size, 1]
             final_dim = 1
+        elif split_input:
+            # weight: [input_dim, input_dim // num_head] or [input_dim, hidden_size] -> [hidden_size, input_dim // num_head]
+            final_dim = input_dim // num_head
         else:
             # weight: [input_dim, input_dim] or [input_dim, hidden_size] -> [hidden_size, input_dim]
             final_dim = input_dim

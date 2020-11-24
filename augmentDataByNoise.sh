@@ -172,7 +172,7 @@ fi
 
 num_origin_utts=$(wc -l $data/reco2dur | awk '{print $1}')
 # Use awk to replace bc to compute float value.
-status=$(echo $fator $num | awk '{if($1-$2>0){print 1}else{print 0}}')
+status=$(echo $factor $num | awk '{if($1-$2>0){print 1}else{print 0}}')
 [ $status -eq 1 ] && factor=$num # Get min
 num_additive_utts=$(echo $num_origin_utts $factor | awk '{print int($1*$2)}')
 

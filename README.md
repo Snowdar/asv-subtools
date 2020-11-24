@@ -126,7 +126,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 - **Training Strategy**
   + [x] [AdamW](https://arxiv.org/pdf/1711.05101v1.pdf) + [WarmRestarts](https://arxiv.org/pdf/1608.03983v4.pdf)
   + [x] SGD + [ReduceLROnPlateau](https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau)
-  + [x] [Training with Magin Decay Strategy](https://arxiv.org/pdf/1904.03479.pdf)
+  + [x] [Training with Magin Warmup Strategy](https://arxiv.org/pdf/1904.03479.pdf)
   + [x] [Heated Up Strategy](https://arxiv.org/pdf/1809.04157.pdf)
   + [x] [Multi-task Learning with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was contributed by [Yi Liu](http://yiliu.org.cn/). Thanks.]
   + [ ] Multi-task Learning with Phonetic Information (Pytorch)
