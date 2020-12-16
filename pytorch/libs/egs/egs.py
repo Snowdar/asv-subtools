@@ -134,8 +134,6 @@ class BaseBunch():
         if multi_gpu:
             # If use DistributedSampler, the shuffle of DataLoader should be set False.
             shuffle = False
-            if not utils.is_main_training():
-                valid = None
 
         if use_fast_loader:
             self.train_loader = DataLoaderFast(max_prefetch, trainset, batch_size = batch_size, shuffle=shuffle, 
