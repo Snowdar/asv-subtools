@@ -6,7 +6,8 @@ The 'sub' of 'subtools' means that there are many modular tools and the parts co
 > Copyright: [XMU Speech Lab](https://speech.xmu.edu.cn/) (Xiamen University, China)  
 > Apache 2.0
 >
-> Author   : Miao Zhao (Snowdar), Jianfeng Zhou, Zheng Li, Hao Lu  
+> Author   : Miao Zhao (Snowdar), Jianfeng Zhou, Zheng Li, Hao Lu, Fuchuan Tong  
+> Current Maintainer: Fuchuan Tong  
 > Co-author: Lin Li, Qingyang Hong
 
 ---
@@ -97,6 +98,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] Resnet1d
   + [x] [Resnet2d](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
   + [x] [F-TDNN X-vector](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf) ==*new*==
+  + [x] [ECAPA X-vector](https://arxiv.org/abs/2005.07143) [[Source codes](https://github.com/lawlict/ECAPA-TDNN) ] ==*new*==
 
 - **Component**
   + [x] [Attentive Statistics Pooling](https://arxiv.org/pdf/1803.10963v1.pdf)
@@ -146,6 +148,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] Support [TensorboardX](https://tensorflow.google.cn/tensorboard) in Log System ==*new*==
   + [ ] Plot DET Curve with ```matplotlib``` w.r.t the Format of DETware (Matlab Version) of [NIST's Tools](https://www.nist.gov/itl/iad/mig/tools)
   + [ ] Accumulate Total MACs and Flops of Model Based on ```thop```
+  + [ ] Training with AMP (apex or torch1.9)
 
 ## Ready to Start  
 ### 1. Install Kaldi  
@@ -459,7 +462,7 @@ Note, Voxceleb1.dev is used as the trainset of back-end for the Voxceleb1-O* tas
 
 **New Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug1:4 Training (EER%)**
 
-Here, this is a resnet34 benchmark model. And the training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh). For more details, see it also. ==new==
+Here, this is a resnet34 benchmark model. And the training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh). For more details, see it also. (by Snowdar)
 
 |EER%|vox1-O|vox1-O-clean|vox1-E|vox1-E-clean|vox1-H|vox1-H-clean|
 | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
@@ -467,6 +470,14 @@ Here, this is a resnet34 benchmark model. And the training script is available i
 |Submean|1.262|1.096|1.338|1.206|2.355|2.223|
 |AS-Norm|1.161|1.026|-|-|-|-|
 ---
+**New Results of Voxceleb1-O/E/H with Voxceleb2.dev.aug.speed1:4:2 Training (EER%)**
+Here, this is an ECAPA benchmark model. And the training script is available in [subtools/pytorch/launcher/runEcapaXvector.py](./pytorch/launcher/runEcapaXvector.py). For more details, see it also. (by Fuchuan Tong) ==new==
+
+|EER%|vox1-O|vox1-O-clean|vox1-E|vox1-E-clean|vox1-H|vox1-H-clean|
+| :--: | :--: | :--: | :--: | :--: | :--: | :--: |
+|Baseline|1.506|1.393|1.583|1.462|2.811|2.683|
+|Submean|1.225|1.112|1.515|1.394|2.781|2.652|
+|AS-Norm|1.140|0.963|-|-|-|-|
 
 ### [2] AP-OLR Challenge 2020 Baseline Recipe [Language Identification]
 
@@ -483,7 +494,7 @@ For previous challenges (2016-2020), see http://olr.cslt.org.
 
 ## Feedback
 + If you find bugs or have some questions, please create a github issue in this repository to let everyone knows it, so that a good solution could be contributed.
-+ If you want to ask me any questions, you can also send e-mail to snowdar@stu.xmu.edu.cn and I will reply in my free time.
++ If you want to ask me any questions, you can also send e-mail to snowdar@stu.xmu.edu.cn (about SRE) or xmulizheng@stu.xmu.edu.cn (about LID) and we will reply you in our free time.
 
 ## Acknowledgement
 + Thanks to everyone who contribute their time, ideas and codes to ASV-Subtools.
