@@ -19,11 +19,11 @@ feat_conf=conf/sre-mfcc-20.conf
 vad_conf=conf/vad-5.0.conf
 
 pitch=true
+suffix=sp
 
 . subtools/parse_options.sh
 . subtools/path.sh
 
-suffix=sp
 [ $volume == "true" ] && suffix=volume_$suffix
 
 for data in $datasets ;do

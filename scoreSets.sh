@@ -164,9 +164,9 @@ lda_data_config="$trainset[$trainset $enrollset $testset]"
 submean_data_config="$trainset[$trainset $enrollset $testset]"
 whiten_data_config="$trainset[$trainset $enrollset $testset]"
 else
-[ "$lda_data_config" == "" ] && lda_data_config=$trainset[$trainset $enrollset $testset] && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for lda, if used."
-[ "$submean_data_config" == "" ] && submean_data_config=$trainset[$trainset $enrollset $testset] && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for submean, if used."
-[ "$whiten_data_config" == "" ] && whiten_data_config=$trainset[$trainset $enrollset $testset] && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for whiten, if used."
+[ "$lda_data_config" == "" ] && lda_data_config="$trainset[$trainset $enrollset $testset]" && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for lda, if used."
+[ "$submean_data_config" == "" ] && submean_data_config="$trainset[$trainset $enrollset $testset]" && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for submean, if used."
+[ "$whiten_data_config" == "" ] && whiten_data_config="$trainset[$trainset $enrollset $testset]" && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for whiten, if used."
 fi
 
 [ "$lda" != "true" ] && lda_data_config=""
