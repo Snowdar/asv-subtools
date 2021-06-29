@@ -7,6 +7,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+import pandas as pd
+
 from libs.support.utils import to_device
 from .components import *
 
@@ -114,6 +116,49 @@ class SoftmaxLoss(TopVirtualLoss):
         return self.loss_function(outputs/self.t, targets)
 
 
+class SoftmaxLoss_frame_phone_fix(TopVirtualLoss):
+    #Zheng Li 2021-06-08
+    """ An usual log-softmax loss with affine component.
+    """
+    def init(self, input_dim, num_targets, t=1, reduction='mean', special_init=False):
+        self.affine = TdnnAffine(input_dim, num_targets)
+        self.t = t # temperature
+        self.num_phones = num_targets - 1
+        # CrossEntropyLoss() has included the LogSoftmax, so do not add this function extra.
+        self.loss_function = torch.nn.CrossEntropyLoss(reduction=reduction)
+
+        # The special_init is not recommended in this loss component
+        if special_init :
+            torch.nn.init.xavier_uniform_(self.affine.weight, gain=torch.nn.init.calculate_gain('sigmoid'))
+
+    def forward(self, inputs, targets):
+        """Final outputs should be a (N, C) matrix and targets is a (1,N) matrix where there are 
+        N targets-indexes (index value belongs to 0~9 when target-class C = 10) for N examples rather than 
+        using one-hot format directly.
+        One example, one target.
+        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
+        """
+        posterior = self.affine(inputs)
+        self.posterior = posterior.detach()
+        outputs = torch.squeeze(posterior, dim=2)
+        targets = targets.long()
+        t = torch.squeeze(targets, dim=1)
+        o = torch.squeeze(outputs, dim=2)
+
+        t_max = torch.max(t).item()
+        t_min = torch.min(t).item()
+        num_phones = self.num_phones
+        if t_max > num_phones or t_min < 0:
+            zero = torch.zeros_like(t)
+            t = torch.where(t > num_phones, zero, t)
+            t = torch.where(t < 0, zero, t)
+            loss = self.loss_function(o/self.t, t)
+        else:
+            loss = self.loss_function(o/self.t, t)
+
+        return loss
+
+
 class FocalLoss(TopVirtualLoss):
     """Implement focal loss according to [Lin, T.-Y., Goyal, P., Girshick, R., He, K., & Dollár, P. 
     "Focal loss for dense object detection", IEEE international conference on computer vision, 2017.]
@@ -171,7 +216,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
             [7] Zhou, S., Chen, C., Han, G., & Hou, X. (2020). Double Additive Margin Softmax Loss for Face Recognition. 
                 Applied Sciences, 10(1), 60. 
     """
-    def init(self, input_dim, num_targets,
+    def init(self, input_dim, num_targets, 
              m=0.2, s=30., t=1.,
              feature_normalize=True,
              method="am",
@@ -189,7 +234,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         self.m = m # margin
         self.t = t # temperature
         self.feature_normalize = feature_normalize
-        self.method = method # am | aam | sm1 | sm2 | sm3
+        self.method = method # am | aam | sm1 | sm2 | sm3 
         self.double = double
         self.feature_normalize = feature_normalize
         self.mhe_loss = mhe_loss
@@ -230,8 +275,8 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         assert inputs.shape[2] == 1
 
         ## Normalize
-        normalized_x = F.normalize(inputs.squeeze(dim=2), dim=1)
-        normalized_weight = F.normalize(self.weight.squeeze(dim=2), dim=1)
+        normalized_x = F.normalize(inputs.squeeze(dim=2), dim=1) # [512, 512] [batch_size, output_dim]
+        normalized_weight = F.normalize(self.weight.squeeze(dim=2), dim=1) # [1000, 512] [target_num, output_dim]
         cosine_theta = F.linear(normalized_x, normalized_weight) # Y = W*X
 
         if not self.feature_normalize :
