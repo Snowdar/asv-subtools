@@ -12,14 +12,17 @@ The 'sub' of 'subtools' means that there are many modular tools and the parts co
 
 
 Citation: 
-> @inproceedings{tong2021asv,
->   title={{ASV-Subtools}: {Open} Source Toolkit for Automatic Speaker Verification},
->   author={Tong, Fuchuan and Zhao, Miao and Zhou, Jianfeng and Lu, Hao and Li, Zheng and Li, Lin and Hong, Qingyang},
->   booktitle={ICASSP 2021-2021 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
->   pages={6184--6188},
->   year={2021},
->   organization={IEEE}
-> }
+
+```
+@inproceedings{tong2021asv,
+  title={{ASV-Subtools}: {Open} Source Toolkit for Automatic Speaker Verification},
+  author={Tong, Fuchuan and Zhao, Miao and Zhou, Jianfeng and Lu, Hao and Li, Zheng and Li, Lin and Hong, Qingyang},
+  booktitle={ICASSP 2021-2021 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  pages={6184--6188},
+  year={2021},
+  organization={IEEE}
+}
+```
 
 
 ---
