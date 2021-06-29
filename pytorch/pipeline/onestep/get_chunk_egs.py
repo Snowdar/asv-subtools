@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 
 # Copyright xmuspeech (Author: Snowdar 2020-01-05)
+# Update Multi-task learning. Author: Zheng Li 2020-10
 
 
 import sys
@@ -12,8 +13,8 @@ import traceback
 sys.path.insert(0, 'subtools/pytorch')
 
 import libs.support.kaldi_common as kaldi_common
-from libs.egs.kaldi_dataset import KaldiDataset
-from libs.egs.samples import ChunkSamples
+from libs.egs.kaldi_dataset import KaldiDataset, KaldiDatasetMultiTask
+from libs.egs.samples import ChunkSamples, ChunkSamplesMultiTask
 
 """Get chunk egs for sre and lid ... which use the xvector framework.
 """
@@ -76,6 +77,11 @@ def get_args():
     parser.add_argument("--valid-scale", type=float, default=1.5,
                     help="The scale for --valid-chunk-num:-1.")
 
+    #Zheng Li 2020-10
+    parser.add_argument("--multi-task-learning", type=str, 
+                    default=False, choices=["true", "false"],
+                    help="For multi-task learning or not.")
+
     # Main
     parser.add_argument("data_dir", metavar="data-dir", type=str, help="A kaldi datadir.")
     parser.add_argument("save_dir", metavar="save-dir", type=str, help="The save dir of mapping file of chunk-egs.")
@@ -88,8 +94,13 @@ def get_args():
 
 
 def get_chunk_egs(args):
+    #Zheng Li 2020-10
+    multi_task_learning = args.multi_task_learning
     logger.info("Load kaldi datadir {0}".format(args.data_dir))
-    dataset = KaldiDataset.load_data_dir(args.data_dir)
+    if multi_task_learning:
+        dataset = KaldiDatasetMultiTask.load_data_dir(args.data_dir)
+    else:
+        dataset = KaldiDataset.load_data_dir(args.data_dir)
     dataset.generate("utt2spk_int")
 
     if args.valid_sample:
@@ -100,12 +111,28 @@ def get_chunk_egs(args):
     else:
         trainset = dataset
 
+    #Zheng Li 2020-10
+    if multi_task_learning:
+        with open("{0}/phones".format(args.data_dir),'r') as reader:
+            phones = reader.read()
+        with open("{0}/info/num_phones".format(args.save_dir),'w') as writer:
+            writer.write(str(phones))
+
     logger.info("Generate chunk egs with chunk-size={0}.".format(args.chunk_size))
-    trainset_samples = ChunkSamples(trainset, args.chunk_size, chunk_type=args.sample_type,
+
+    if multi_task_learning:
+        trainset_samples = ChunkSamplesMultiTask(trainset, args.chunk_size, chunk_type=args.sample_type,
+                            chunk_num_selection=args.chunk_num, scale=args.scale, overlap=args.overlap, drop_last=args.drop_last)
+    else:
+        trainset_samples = ChunkSamples(trainset, args.chunk_size, chunk_type=args.sample_type,
                             chunk_num_selection=args.chunk_num, scale=args.scale, overlap=args.overlap, drop_last=args.drop_last)
 
     if args.valid_sample:
-        valid_sample = ChunkSamples(valid, args.chunk_size, chunk_type=args.valid_sample_type, 
+        if multi_task_learning:
+            valid_sample = ChunkSamplesMultiTask(valid, args.chunk_size, chunk_type=args.valid_sample_type, 
+                            chunk_num_selection=args.valid_chunk_num, scale=args.valid_scale, overlap=args.overlap, drop_last=args.drop_last)
+        else:
+            valid_sample = ChunkSamples(valid, args.chunk_size, chunk_type=args.valid_sample_type, 
                             chunk_num_selection=args.valid_chunk_num, scale=args.valid_scale, overlap=args.overlap, drop_last=args.drop_last)
 
     logger.info("Save mapping file of chunk egs to {0}".format(args.save_dir))
@@ -127,6 +154,7 @@ def get_chunk_egs(args):
         writer.write(str(trainset.num_spks))
 
     logger.info("Generate egs from {0} done.".format(args.data_dir))
+
 
 def main():
     args = get_args()

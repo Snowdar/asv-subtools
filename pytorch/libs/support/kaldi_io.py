@@ -4,6 +4,7 @@
 # Licensed under the Apache License, Version 2.0 (the "License")
 
 # Snowdar: add chunk parameter for random reading.
+# Zheng Li: add chunk parameter for ali reading, 2021-06-08.
 
 from __future__ import print_function
 from __future__ import division
@@ -165,13 +166,16 @@ def read_key(fd):
 #################################################
 # Integer vectors (alignments, ...),
 
-def read_ali_ark(file_or_fd):
+def read_ali_ark(file_or_fd, chunk=None):
+    #Zheng Li 2021-06-08
     """ Alias to 'read_vec_int_ark()' """
-    return read_vec_int_ark(file_or_fd)
+    mat = read_vec_int_ark(file_or_fd, chunk=chunk)
+    return mat
 
-def read_vec_int_ark(file_or_fd):
-    """ generator(key,vec) = read_vec_int_ark(file_or_fd)
-     Create generator of (key,vector<int>) tuples, which reads from the ark file/stream.
+def read_vec_int_ark(file_or_fd, chunk=None):
+    #Zheng Li 2021-06-08
+    """ [mat] = read_vec_int_ark(file_or_fd)
+     Create numpy matrix of (vector<int>) tuples, which reads from the ark file/stream.
      file_or_fd : ark, gzipped ark, pipe or opened file descriptor.
 
      Read ark to a 'dictionary':
@@ -179,38 +183,54 @@ def read_vec_int_ark(file_or_fd):
     """
     fd = open_or_fd(file_or_fd)
     try:
-        key = read_key(fd)
-        while key:
-            ali = read_vec_int(fd)
-            yield key, ali
-            key = read_key(fd)
+        mat = read_vec_int(fd, chunk=chunk)
     finally:
         if fd is not file_or_fd: fd.close()
+    return mat
 
-def read_vec_int(file_or_fd):
+def read_vec_int(file_or_fd, chunk=None):
+    #Zheng Li 2021-06-08
     """ [int-vec] = read_vec_int(file_or_fd)
      Read kaldi integer vector, ascii or binary input,
     """
     fd = open_or_fd(file_or_fd)
-    binary = fd.read(2).decode()
+    binary = fd.read(2).decode()  
     if binary == '\0B': # binary flag
         assert(fd.read(1).decode() == '\4'); # int-size
         vec_size = np.frombuffer(fd.read(4), dtype='int32', count=1)[0] # vector dim
         if vec_size == 0:
             return np.array([], dtype='int32')
-        # Elements from int32 vector are sored in tuples: (sizeof(int32), value),
-        vec = np.frombuffer(fd.read(vec_size*5), dtype=[('size','int8'),('value','int32')], count=vec_size)
-        assert(vec[0]['size'] == 4) # int32 size,
-        ans = vec[:]['value'] # values are in 2nd column,
+
+        start_index = 0
+        end_index = vec_size - 1 # 0-based
+
+        if chunk is not None:
+            start_index = int(chunk[0])
+            end_index = int(chunk[1])
+
+        cols = end_index - start_index + 1
+
+        if start_index > 0: 
+            fd.seek(start_index * 5, 1) # Seek from current position, '5' is the byte size of int, by Passionlee
+
+        # Elements from int32 vector are sored,
+        vec = np.frombuffer(fd.read(vec_size*5), dtype=[('size','int8'),('value','int32')], count=cols)
+        vec = vec[:]['value'] # values are in 2nd column,
+
+        return vec
+
     else: # ascii,
+        print('ascii')
         arr = (binary + fd.readline().decode()).strip().split()
         try:
             arr.remove('['); arr.remove(']') # optionally
         except ValueError:
             pass
-        ans = np.array(arr, dtype=int)
+        #ans = np.array(arr, dtype=int)
+        mat = np.vstack(arr)
+        return mat
+
     if fd is not file_or_fd : fd.close() # cleanup
-    return ans
 
 # Writing,
 def write_vec_int(file_or_fd, v, key=''):
