@@ -7,8 +7,23 @@ The 'sub' of 'subtools' means that there are many modular tools and the parts co
 > Apache 2.0
 >
 > Author   : Miao Zhao (Snowdar), Jianfeng Zhou, Zheng Li, Hao Lu, Fuchuan Tong  
-> Current Maintainer: Fuchuan Tong  
+> Current Maintainer: Fuchuan Tong (Emali 1017549629@qq.com)  
 > Co-author: Lin Li, Qingyang Hong
+
+
+Citation: 
+
+```
+@inproceedings{tong2021asv,
+  title={{ASV-Subtools}: {Open} Source Toolkit for Automatic Speaker Verification},
+  author={Tong, Fuchuan and Zhao, Miao and Zhou, Jianfeng and Lu, Hao and Li, Zheng and Li, Lin and Hong, Qingyang},
+  booktitle={ICASSP 2021-2021 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  pages={6184--6188},
+  year={2021},
+  organization={IEEE}
+}
+```
+
 
 ---
 - **Content**
@@ -494,7 +509,7 @@ For previous challenges (2016-2020), see http://olr.cslt.org.
 
 ## Feedback
 + If you find bugs or have some questions, please create a github issue in this repository to let everyone knows it, so that a good solution could be contributed.
-+ If you want to ask me any questions, you can also send e-mail to snowdar@stu.xmu.edu.cn (about SRE) or xmulizheng@stu.xmu.edu.cn (about LID) and we will reply you in our free time.
++ If you want to ask some questions, just send e-mail to 1017549629@qq.com (Fuchuan Tong) or snowdar@qq.com (Snowdar) for SRE answers and xmulizheng@stu.xmu.edu.cn for LID answers. In general, we will reply you in our free time.
 
 ## Acknowledgement
 + Thanks to everyone who contribute their time, ideas and codes to ASV-Subtools.
