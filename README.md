@@ -127,7 +127,6 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] Softmax Loss (Affine + Softmax + Cross-Entropy)
   + [x] [AM-Softmax Loss](https://arxiv.org/pdf/1801.05599.pdf)
   + [x] [AAM-Softmax Loss](https://arxiv.org/pdf/1801.07698v1.pdf)
-  + [x] [Double AM-Softmax Loss](https://www.mdpi.com/2076-3417/10/1/60)
   + [x] [Ring Loss](https://arxiv.org/pdf/1803.00130.pdf)
 
   <!--+ [x] [Curricular Margin Softmax Loss](https://arxiv.org/pdf/2004.00288.pdf)-->
