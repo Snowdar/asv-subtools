@@ -45,7 +45,8 @@ Citation:
   * [Training Model](#training-model)
   * [Recipe](#recipe)
     + [[1] Voxceleb Recipe [Speaker Recognition]](#1-voxceleb-recipe-speaker-recognition)
-    + [[2] AP-OLR Challenge 2020 Baseline Recipe [Language Identification]](#2-ap-olr-challenge-2020-baseline-recipe-language-identification)
+    + [[2] OLR Challenge 2020 Baseline Recipe [Language Identification]](#2-olr-challenge-2020-baseline-recipe-language-identification)
+    + [[3] OLR Challenge 2021 Baseline Recipe [Language Identification]](#3-olr-challenge-2021-baseline-recipe-language-identification)
   * [Feedback](#feedback)
   * [Acknowledgement](#acknowledgement)
 
@@ -493,9 +494,9 @@ Here, this is an ECAPA benchmark model. And the training script is available in 
 |Submean|1.225|1.112|1.515|1.394|2.781|2.652|
 |AS-Norm|1.140|0.963|-|-|-|-|
 
-### [2] AP-OLR Challenge 2020 Baseline Recipe [Language Identification]
+### [2] OLR Challenge 2020 Baseline Recipe [Language Identification]
 
-AP-OLR Challenge 2020 is closed now.
+OLR Challenge 2020 is closed now.
 
 **Baseline**: [subtools/recipe/ap-olr2020-baseline](./recipe/ap-olr2020-baseline).  
 > The **top training script of baseline** is available in [subtools/recipe/ap-olr2020-baseline/run.sh](./recipe/ap-olr2020-baseline/run.sh). And the baseline results could be seen in [subtools/recipe/ap-olr2020-baseline/results.txt](./recipe/ap-olr2020-baseline/results.txt).
