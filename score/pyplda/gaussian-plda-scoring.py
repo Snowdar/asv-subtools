@@ -20,11 +20,11 @@ c = (( Σ_{wc} +2Σ_{ac})^{−1} −Σ^{−1}_{tot})μ
 k = log|Σtot|−1/2log|Σ_{wc} +2Σ_{ac}|−1/2log|Σ_{wc}|+μ^T(Σ^{−1}_{tot} −(Σ_{wc} +2Σ_{ac})^{−1})μ. 
 '''
 
-def PLDAScoring(enroll_ivector,test_ivector,Gamma,Lambda,c,k):
+def PLDAScoring(enroll_xvector,test_xvector,Gamma,Lambda,c,k):
 
-    score = np.matmul(np.matmul(enroll_ivector.T,Lambda),test_ivector) + np.matmul(np.matmul(test_ivector.T,Lambda),enroll_ivector) \
-        + np.matmul(np.matmul(enroll_ivector.T,Gamma),enroll_ivector) + np.matmul(np.matmul(test_ivector.T,Gamma),test_ivector) \
-        + np.matmul((enroll_ivector + test_ivector).T,c) + k
+    score = np.matmul(np.matmul(enroll_xvector.T,Lambda),test_xvector) + np.matmul(np.matmul(test_xvector.T,Lambda),enroll_xvector) \
+        + np.matmul(np.matmul(enroll_xvector.T,Gamma),enroll_xvector) + np.matmul(np.matmul(test_xvector.T,Gamma),test_xvector) \
+        + np.matmul((enroll_xvector + test_xvector).T,c) + k
     
     return score[0][0]
 
@@ -50,7 +50,7 @@ def CalculateVar(between_var,within_var,mean):
     return Gamma,Lambda,c,k
 
 
-def main(plda,train_ivector,test_ivector,trials,scores):
+def main(plda,enroll_xvector,test_xvector,trials,scores):
 
     with kaldi_io.open_or_fd(plda,'rb') as f:
         for key,vec in kaldi_io.read_vec_flt_ark(f):
@@ -68,11 +68,11 @@ def main(plda,train_ivector,test_ivector,trials,scores):
 
     f_writer = open(scores,'w')
     enrollutt2vector = {}
-    for key,vector in kaldi_io.read_vec(train_ivector):
+    for key,vector in kaldi_io.read_vec(enroll_xvector):
         enrollutt2vector[key] = vector
 
     testutt2vector = {}
-    for key,vector in kaldi_io.read_vec(test_ivector):
+    for key,vector in kaldi_io.read_vec(test_xvector):
         testutt2vector[key] = vector 
 
     with open(trials,'r') as f:
@@ -88,14 +88,14 @@ def main(plda,train_ivector,test_ivector,trials,scores):
 if __name__ == "__main__":
   
     if len(sys.argv) != 6:
-        print("Usage: "+sys.argv[0]+" <plda> <train-ivector-rspecifier> <test-ivector-rspecifier> <trials-rxfilename> <scores-wxfilename>")
-        print("e.g.: "+sys.argv[0]+" --num-utts=ark:exp/train/num_utts.ark plda ark:exp/train/spk_ivectors.ark ark:exp/test/ivectors.ark trials scores")
+        print("Usage: "+sys.argv[0]+" <plda> <enroll-xvector-rspecifier> <test-xvector-rspecifier> <trials-rxfilename> <scores-wxfilename>")
+        print("e.g.: "+sys.argv[0]+" --num-utts=ark:exp/enroll/num_utts.ark plda ark:exp/enroll/spk_xvectors.ark ark:exp/test/xvectors.ark trials scores")
         exit(1)
 
     plda = sys.argv[1]
-    train_ivector = sys.argv[2]
-    test_ivector = sys.argv[3]
+    enroll_xvector = sys.argv[2]
+    test_xvector = sys.argv[3]
     trials = sys.argv[4]
     scores = sys.argv[5]
 
-    main(plda,train_ivector,test_ivector,trials,scores)
+    main(plda,enroll_xvector,test_xvector,trials,scores)
