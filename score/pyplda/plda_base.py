@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 
 # Copyright xmuspeech (Author: JFZhou 2019-11-18)
+# Updata xmuspeech (Author: Fuchuan Tong 2020-12-31)
 
 import scipy
 import numpy as np
@@ -190,13 +191,18 @@ class PLDA(object):
         // within_var_ becomes unit.
         // between_var_proj is between_var after projecting with transform1.
         '''
-        between_var_proj =np.matmul(np.matmul(transform1 , self.between_var),transform1.T) 
+        between_var_proj =transform1.dot(self.between_var).dot(transform1.T) 
         '''
         // Do symmetric eigenvalue decomposition between_var_proj = U diag(s) U^T,
         // where U is orthogonal.
         '''
         s, U = np.linalg.eig(between_var_proj)
-        assert s.min()>0
+        # Sorting the feature values from small to large
+        sorted_indices = np.argsort(s)
+        U = U[:,sorted_indices[:-len(sorted_indices)-1:-1]]
+        s = s[sorted_indices[:-len(sorted_indices)-1:-1]]
+
+        assert s.min()>0 #For safe 
         '''
         // The transform U^T will make between_var_proj diagonal with value s
         // (i.e. U^T U diag(s) U U^T = diag(s)).  The final transform that
