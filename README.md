@@ -502,6 +502,13 @@ AP-OLR Challenge 2020 is closed now.
 
 **Plan**: Zheng Li, Miao Zhao, Qingyang Hong, Lin Li, Zhiyuan Tang, Dong Wang, Liming Song and Cheng Yang: [AP20-OLR Challenge: Three Tasks and Their Baselines](https://arxiv.org/pdf/2006.03473.pdf), submitted to APSIPA ASC 2020.
 
+### [3] OLR Challenge 2021 Baseline Recipe [Language Identification]
+
+**Baseline**: [subtools/recipe/olr2021-baseline](./recipe/olr2021-baseline).  
+> The **top training script of baseline** is available in [subtools/recipe/olr2021-baseline/run.sh](./recipe/olr2021-baseline/run.sh). 
+
+**Plan**: Binling Wang, Wenxuan Hu, Jing Li, Yiming Zhi, Zheng Li, Qingyang Hong, Lin Li, Dong Wang, Liming Song and Cheng Yang: [OLR 2021 Challenge: Datasets, Rules and Baselines](http://cslt.riit.tsinghua.edu.cn/mediawiki/images/a/a8/OLR_2021_Plan.pdf), submitted to APSIPA ASC 2021.
+
 For previous challenges (2016-2020), see http://olr.cslt.org.
 
 ---
@@ -509,8 +516,10 @@ For previous challenges (2016-2020), see http://olr.cslt.org.
 ## Feedback
 + If you find bugs or have some questions, please create a github issue in this repository to let everyone knows it, so that a good solution could be contributed.
 + If you want to ask some questions, just send e-mail to 1017549629@qq.com (Fuchuan Tong) or snowdar@qq.com (Snowdar) for SRE answers and xmulizheng@stu.xmu.edu.cn for LID answers. In general, we will reply you in our free time.
++ If you want to join the WeChat group of asv-subtools, please pay attention to the official accounts, XMUSPEECH, and reply "join group" + your institution/university + your name.
 
 ## Acknowledgement
 + Thanks to everyone who contribute their time, ideas and codes to ASV-Subtools.
 + Thanks to [XMU Speech Lab](https://speech.xmu.edu.cn/) providing machine and GPU.
 + Thanks to the excelent projects: [Kaldi](http://www.kaldi-asr.org/), [Pytorch](https://pytorch.org/), [Kaldi I/O](https://github.com/vesis84/kaldi-io-for-python), [Numpy](https://numpy.org/), [Pandas](https://pandas.pydata.org/), [Horovod](https://github.com/horovod/horovod), [Progressbar2](https://github.com/WoLpH/python-progressbar), [Matplotlib](https://matplotlib.org/index.html), [Prefetch Generator](https://github.com/justheuristic/prefetch_generator), [Thop](https://github.com/Lyken17/pytorch-OpCounter), [GPU Manager](https://github.com/QuantumLiu/tf_gpu_manager), etc.
+
