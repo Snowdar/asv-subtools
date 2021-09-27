@@ -516,7 +516,7 @@ For previous challenges (2016-2020), see http://olr.cslt.org.
 
 ## Feedback
 + If you find bugs or have some questions, please create a github issue in this repository to let everyone knows it, so that a good solution could be contributed.
-+ If you want to ask some questions, just send e-mail to 1017549629@qq.com (Fuchuan Tong) or snowdar@qq.com (Snowdar) for SRE answers and xmulizheng@stu.xmu.edu.cn for LID answers. In general, we will reply you in our free time.
++ If you want to ask some questions, just send e-mail to 1017549629@qq.com (Fuchuan Tong) or snowdar@stu.xmu.edu.cn (Snowdar) for SRE answers and xmulizheng@stu.xmu.edu.cn for LID answers. In general, we will reply you in our free time.
 + If you want to join the WeChat group of asv-subtools, please pay attention to the official accounts, XMUSPEECH, and reply "join group" + your institution/university + your name.
 
 ## Acknowledgement
