@@ -148,6 +148,60 @@ class LDEPooling(torch.nn.Module):
     def get_output_dim(self):
         return self.output_dim
 
+## Xi-vector pooling (softplus_prec)
+class xivec_stdinit_softplus2_prec_pooling(torch.nn.Module):
+
+    def __init__(self, input_dim, hidden_size=256, context=[0], stddev=False, train_mean=True, train_prec=True):
+        super(xivec_stdinit_softplus2_prec_pooling, self).__init__()
+ 
+        self.input_dim = input_dim
+        self.stddev = stddev
+
+        if self.stddev:
+            self.output_dim = 2 * input_dim
+        else:
+            self.output_dim = input_dim        
+
+        self.prior_mean = torch.nn.Parameter(torch.zeros(1, input_dim), requires_grad=train_mean)
+        self.prior_logprec = torch.nn.Parameter(torch.zeros(1, input_dim), requires_grad=train_prec)
+        self.softmax = torch.nn.Softmax(dim=2)
+   
+        # Log-precision estimator
+        self.lin1_relu_bn = ReluBatchNormTdnnLayer(input_dim, hidden_size, context)
+        self.lin2 = TdnnAffine(hidden_size, input_dim, context=context)
+        self.softplus2 = torch.nn.Softplus(beta=1, threshold=20)
+
+    def forward(self, inputs):
+        """
+        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
+        """
+        assert len(inputs.shape) == 3
+        assert inputs.shape[1] == self.input_dim
+
+        feat = inputs
+
+        # Log-precision estimator
+        logprec = self.softplus2(self.lin2(self.lin1_relu_bn(feat)))   # frame precision estimate
+        logprec = 2.0*torch.log(logprec)                               # Square and take log before softmax                           
+
+        ### Gaussian Posterior Inference
+        ### Option 1: a_o (prior_mean-phi) included in variance
+        weight_attn = self.softmax(torch.cat((logprec, self.prior_logprec.repeat(logprec.shape[0], 1).unsqueeze(dim=2)), 2))
+        # Posterior precision
+        # Ls = torch.sum(torch.exp(torch.cat((logprec, self.prior_logprec.repeat(logprec.shape[0], 1).unsqueeze(dim=2)), 2)), dim=2)
+        # Posterior mean
+        phi = torch.sum(torch.cat((feat, self.prior_mean.repeat(feat.shape[0], 1).unsqueeze(dim=2)), 2) * weight_attn, dim=2)
+
+        if self.stddev:
+            sigma2 = torch.sum(torch.cat((feat, self.prior_mean.repeat(feat.shape[0], 1).unsqueeze(dim=2)), 2).pow(2) * weight_attn, dim=2)
+            sigma = torch.sqrt(torch.clamp(sigma2 - phi ** 2, min=1.0e-10)) 
+            return torch.cat((phi, sigma), dim=1).unsqueeze(dim=2)
+        else: 
+            return phi.unsqueeze(dim=2)
+
+    def get_output_dim(self):
+        return self.output_dim
+
 
 # Attention-based
 class AttentionAlphaComponent(torch.nn.Module):
@@ -169,6 +223,7 @@ class AttentionAlphaComponent(torch.nn.Module):
         if num_head > 1:
             if split_input:
                 # Make sure fatures/planes with input_dim dims could be splited to num_head parts.
+                print("input_dim:",input_dim)
                 assert input_dim % num_head == 0
             if temperature:
                 if fixed:
