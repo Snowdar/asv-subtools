@@ -271,6 +271,7 @@ class ECAPA_TDNN(TopVirtualNnet):
         x = self.bn_stats(self.stats(out))
         if len(x.shape) !=3:
             x = x.unsqueeze(dim=2)
+        x = self.auto(self.mixup, x)
         x = self.auto(self.fc1, x)
         x = self.fc2(x)
         x = self.auto(self.tail_dropout, x)

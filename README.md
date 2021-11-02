@@ -123,7 +123,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [Global Multi-Head Attention Pooling](https://www.researchgate.net/publication/341085045_Multi-Resolution_Multi-Head_Attention_in_Deep_Speaker_Embedding)
   + [x] [Multi-Resolution Multi-Head Attention Pooling](https://www.researchgate.net/publication/341085045_Multi-Resolution_Multi-Head_Attention_in_Deep_Speaker_Embedding)
   + [x] [Sequeze and Excitation (SE)](https://arxiv.org/pdf/1709.01507.pdf) [A resnet1d-based SE example of speaker recognition could be found in this [paper](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1704.pdf), by Jianfeng Zhou.]
-  + [x] [Xi-vector Pooling](https://ieeexplore.ieee.org/document/9463712), [by [Dr. Kong Aik Lee](https://ieeexplore.ieee.org/author/37293718000).]
+  + [x] [Xi-vector embedding](https://ieeexplore.ieee.org/document/9463712), [by [Dr. Kong Aik Lee](https://ieeexplore.ieee.org/author/37293718000).]
 
 - **Loss Function**
   + [x] Softmax Loss (Affine + Softmax + Cross-Entropy)
@@ -496,12 +496,12 @@ Here, this is an ECAPA benchmark model. And the training script is available in 
 |AS-Norm|1.140|0.963|-|-|-|-|
 ---
 **New Results of Voxceleb1-O/E/H with original Voxceleb2.dev (without data augmentation) Training (EER%)**
-Here, this is an statistical pooling and Xi-vector pooling benchmark model (implement on TDNN). And the training script is available in [subtools/pytorch/launcher/runSnowdar_Xivector.py](./pytorch/launcher/runSnowdar_Xivector.py). We would like to thank Dr. Kong Aik Lee for providing codes and useful discussion. (experiments conducted by Fuchuan Tong) ==2021-10-30==
+Here, this is an statistical pooling and Xi-vector embedding benchmark model (implement on TDNN). And the training script is available in [subtools/pytorch/launcher/runSnowdar_Xivector.py](./pytorch/launcher/runSnowdar_Xivector.py). We would like to thank Dr. Kong Aik Lee for providing codes and useful discussion. (experiments conducted by Fuchuan Tong) ==2021-10-30==
 |EER%|vox1-O|vox1-E|vox1-H|
 | :--: | :--: | :--: | :--: |
 |Statistical Pooling|1.85|2.01|3.57|
 |Multi-head|1.76|2.00|3.54|
-|Xi-Vector($\Theta$, $\sigma$)|1.59|1.90|3.38|
+|Xi-Vector(∅,𝜎)|1.59|1.90|3.38|
 ---
 ### [2] OLR Challenge 2020 Baseline Recipe [Language Identification]
 
