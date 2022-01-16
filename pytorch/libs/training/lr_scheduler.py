@@ -19,13 +19,38 @@ class LRSchedulerWrapper():
         #                         1e-1 for decouped weight decay (sgdw, adamw, radam, ralamb, adamod etc.)
         default_params = {
             "name":"warmR",
+
+            "cyclic.max_lr":1e-3,
+            "cyclic.base_lr":1e-8,
+            "cyclic.step_size_up":2e4,
+            "cyclic.step_size_down":None,
+            "cyclic.mode":'triangular2', 
+            "cyclic.gamma":1.0, 
+            "cyclic.scale_fn":None, 
+            "cyclic.scale_mode":'cycle', 
+            "cyclic.cycle_momentum":False, 
+            "cyclic.base_momentum":0.8, 
+            "cyclic.max_momentum":0.9,
+
             "1cycle.learn_rate":0.001,
+            "1cycle.total_steps":None,
+            "1cycle.epochs":None,
+            "1cycle.steps_per_epoch":None,
+            "1cycle.pct_start":0.3,
+            "1cycle.anneal_strategy":'linear',
+            "1cycle.cycle_momentum":False,
+            "1cycle.base_momentum":0.85,
+            "1cycle.max_momentum":0.95,
+            "1cycle.div_factor":25.0,
+            "1cycle.final_div_factor":10000.0,
+
             "warmR.T_max":10,
             "warmR.T_mult":1,
             "warmR.factor":1.0,
             "warmR.eta_min":4e-8,
             "warmR.log_decay":False,
             "warmR.lr_decay_step":1,
+
             "reduceP.metric":'valid_acc',
             "reduceP.check_interval":0, 
             "reduceP.factor":0.5, 
@@ -44,9 +69,13 @@ class LRSchedulerWrapper():
             base_optimizer = optimizer
 
         self.name = split_params["public"]["name"]
-        if self.name == "1cycle":
-            # To do.
-            self.lr_scheduler = optim.lr_scheduler.OneCycleLR(base_optimizer, **split_params["1cycle"])
+        if self.name == "cyclic":
+            base_lr = split_params["cyclic"].pop("base_lr")
+            max_lr = split_params["cyclic"].pop("max_lr")
+            self.lr_scheduler = torch.optim.lr_scheduler.CyclicLR(base_optimizer, base_lr, max_lr, **split_params["cyclic"])
+        elif self.name == "1cycle":
+            max_lr = split_params["1cycle"].pop("learn_rate")
+            self.lr_scheduler = optim.lr_scheduler.OneCycleLR(base_optimizer, max_lr, **split_params["1cycle"])
         elif self.name == "warmR":
             T_max = split_params["warmR"].pop("T_max")
             self.lr_decay_step = split_params["warmR"].pop("lr_decay_step")
@@ -54,6 +83,7 @@ class LRSchedulerWrapper():
         elif self.name == "reduceP":
             self.check_interval = split_params["reduceP"].pop("check_interval")
             self.metric = split_params["reduceP"].pop("metric")
+            self.min_lr = split_params["reduceP"]["min_lr"]
             if self.metric == "valid_acc":
                 mode = "max"
             elif self.metric == "valid_loss":
@@ -82,34 +112,14 @@ class LRSchedulerWrapper():
                 self.lr_scheduler.step(training_point[0]+training_point[1]/training_point[2])
             elif self.lr_decay_step == 0:
                 self.lr_scheduler.step(training_point[0])
+        elif self.name == "cyclic":
+            self.lr_scheduler.step(training_point[0] * training_point[2] + training_point[1] + 1)
         elif self.name == "1cycle":
-            self.lr_scheduler.step()
+            self.lr_scheduler.step(training_point[0] * training_point[2] + training_point[1] + 1)
         elif self.name == "reduceP":
             # Sample a point in which the metrics of valid are computed and adjust learning rate at this point.
             if self.is_reduce_point(training_point):
-                # Do not support horovod now.
-                if utils.use_ddp():
-                    # Multi-gpu case.
-                    # In this case, we do not compute valid set for all processes but just computing it in main process
-                    # and broadcast the metrics to other processes.
-                    if not self.init:
-                        device = utils.get_device_from_optimizer(self.lr_scheduler.optimizer)
-                        # Create a must tentor to prepare to broadcast with torch.distributed.broadcast fuction.
-                        self.broadcast_metric = torch.randn(2, device=device) 
-                        # New a group to broadcast the special metric tensor. It is important.
-                        self.group = torch.distributed.new_group(ranks=list(range(torch.distributed.get_world_size())), 
-                                                                 backend="nccl")
-                        self.init = True
-                    if utils.is_main_training():
-                        # Gather the new value of metric.
-                        self.broadcast_metric = torch.tensor([valid_metric[0], valid_metric[1]], device=self.broadcast_metric.device)
-                    # Broadcast
-                    torch.distributed.broadcast(self.broadcast_metric, 0, group=self.group)
-                    metric = self.broadcast_metric[0] if self.metric == "valid_loss" else self.broadcast_metric[1]
-                else:
-                    # Single-GPU case.
-                    metric = valid_metric[0] if self.metric == "valid_loss" else valid_metric[1]
-
+                metric = valid_metric[0] if self.metric == "valid_loss" else valid_metric[1]
                 self.lr_scheduler.step(metric)
 
 ## Learn rate scheduler ✿

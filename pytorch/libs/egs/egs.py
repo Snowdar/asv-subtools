@@ -5,6 +5,7 @@
 import os
 import logging
 import pandas as pd
+import numpy as np
 
 import torch
 from torch.utils.data import Dataset
@@ -22,6 +23,7 @@ from .augmentation import *
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
+
 # Relation: features -> chunk-egs-mapping-file -> chunk-egs -> bunch(dataloader+bunch) => trainer
 class ChunkEgs(Dataset):
     """Prepare chunk-egs for time-context-input-nnet (such as xvector which transforms egs form chunk-frames level to 
@@ -30,24 +32,40 @@ class ChunkEgs(Dataset):
     The acoustic feature based egs are not [frames, feature-dim] matrix format any more and it should be seen as 
     a [feature-dim, frames] tensor after transposing.
     """
-    def __init__(self, egs_csv, io_status=True, aug=None, aug_params={}):
+    def __init__(self, egs_csv, egs_type="chunk", io_status=True, aug=None, aug_params={}):
         """
         @egs_csv:
-            utt-id:str  chunk_feats_path:offset:str chunk-start:int  chunk-end:int  [label]xn
+            utt-id:str  ark-path:str  start-position:int  end-position:int  class-lable:int
 
         Other option
         @io_status: if false, do not read data from disk and return zero, which is useful for saving i/o resource 
         when kipping seed index.
         """
+        assert egs_type is "chunk" or egs_type is "vector"
+        assert egs_csv != "" and egs_csv is not None
+        head = pd.read_csv(egs_csv, sep=" ", nrows=0).columns
+
+        assert "ark-path" in head
+        assert "class-label" in head
+
+        if egs_type is "chunk":
+            if "start-position" in head and "end-position" in head:
+                self.chunk_position = pd.read_csv(egs_csv, sep=" ", usecols=["start-position", "end-position"]).values
+            elif "start-position" not in head and "end-position" not in head:
+                self.chunk_position = None
+            else:
+                raise TypeError("Expected both start-position and end-position are exist in {}.".format(egs_csv))
+
+        # It is important that using .astype(np.string_) for string object to avoid memeory leak 
+        # when multi-threads dataloader are used.
+        self.ark_path = pd.read_csv(egs_csv, sep=" ", usecols = ["ark-path"]).values.astype(np.string_)
+        self.label = pd.read_csv(egs_csv, sep=" ", usecols = ["class-label"]).values
+
         self.io_status = io_status
+        self.egs_type = egs_type
 
         # Augmentation.
         self.aug = get_augmentation(aug, aug_params)
-
-        assert egs_csv != "" and egs_csv is not None
-        self.data_frame = pd.read_csv(egs_csv, sep=" ").values
-        # For multi-label.
-        self.num_target_types = self.data_frame.shape[1] - 4 # Except utt-id, path, chunk-start and chunk-end.
 
     def set_io_status(self, io_status):
         self.io_status = io_status
@@ -56,77 +74,35 @@ class ChunkEgs(Dataset):
         if not self.io_status :
             return 0., 0.
 
-        chunk = [int(self.data_frame[index][2]), int(self.data_frame[index][3])]
+        # Decode string from bytes after using astype(np.string_).
+        egs_path = str(self.ark_path[index][0], encoding='utf-8')
 
-        egs = kaldi_io.read_mat(self.data_frame[index][1], chunk=chunk)
-
-        if self.num_target_types == 1:
-            target = self.data_frame[index][4]
+        if self.chunk_position is not None:
+            chunk = [self.chunk_position[index][0], self.chunk_position[index][1]]
         else:
-            target = self.data_frame[index][4:]
+            chunk = None
 
-        # Note, egs read from kaldi_io is read-only and 
+        if self.egs_type is "chunk":
+            egs = kaldi_io.read_mat(egs_path, chunk=chunk)
+        else:
+            egs = kaldi_io.read_vec_flt(egs_path)
+
+        target = self.label[index][0]
+
+        # Note, egs which is read from kaldi_io is read-only and 
         # use egs = np.require(egs, requirements=['O', 'W']) to make it writeable.
         # It avoids the problem "ValueError: assignment destination is read-only".
         # Note that, do not use inputs.flags.writeable = True when the version of numpy >= 1.17.
         egs = np.require(egs, requirements=['O', 'W'])
 
+
         if self.aug is not None:
             return self.aug(egs.T), target
         else:
             return egs.T, target
 
     def __len__(self):
-        return len(self.data_frame)
-
-
-
-class VectorEgs(Dataset):
-    """It is used for vector of Kaldi format rather than feats matrix.
-    """
-    def __init__(self, egs_csv, io_status=True, aug=None, aug_params={}):
-        """
-        @egs_csv:
-            utt-id:str  chunk_feats_path:offset:str  [label]xn
-
-        Other option
-        @io_status: if false, do not read data from disk and return zero, which is useful for saving i/o resource 
-        when kipping seed index.
-        """
-        self.io_status = io_status
-
-        # Augmentation.
-        self.aug = get_augmentation(aug, aug_params)
-
-        assert egs_csv != "" and egs_csv is not None
-        self.data_frame = pd.read_csv(egs_csv, sep=" ").values
-        # For multi-label.
-        self.num_target_types = self.data_frame.shape[1] - 2 # Except utt-id and path.
-
-    def set_io_status(self, io_status):
-        self.io_status = io_status
-
-    def __getitem__(self, index):
-        if not self.io_status :
-            return 0., 0.
-
-        egs = np.require(kaldi_io.read_vec_flt(self.data_frame[index][1]), requirements=['O', 'W'])
-
-        if self.num_target_types == 1:
-            target = self.data_frame[index][2]
-        else:
-            target = self.data_frame[index][2:]
-
-        if self.aug is not None:
-            # Note, egs from kaldi_io is read-only and 
-            # use egs = np.require(egs, requirements=['O', 'W']) to make it writeable if needed in augmentation method.
-            return self.aug(egs.T), target
-        else:
-            return egs.T, target
-
-    def __len__(self):
-        return len(self.data_frame)
-
+        return len(self.ark_path)
 
 
 class BaseBunch():
@@ -158,8 +134,6 @@ class BaseBunch():
         if multi_gpu:
             # If use DistributedSampler, the shuffle of DataLoader should be set False.
             shuffle = False
-            if not utils.is_main_training():
-                valid = None
 
         if use_fast_loader:
             self.train_loader = DataLoaderFast(max_prefetch, trainset, batch_size = batch_size, shuffle=shuffle, 
@@ -196,22 +170,19 @@ class BaseBunch():
 
     @classmethod
     def get_bunch_from_csv(self, trainset_csv:str, valid_csv:str=None, egs_params:dict={}, data_loader_params_dict:dict={}):
-        Egs = ChunkEgs
+        egs_type = "chunk"
         if "egs_type" in egs_params.keys():
             egs_type = egs_params.pop("egs_type")
-            if egs_type == "chunk":
-                pass
-            elif egs_type == "vector":
-                Egs = VectorEgs
-            else:
+            if egs_type != "chunk" and egs_type != "vector":
                 raise TypeError("Do not support {} egs now. Select one from [chunk, vector].".format(egs_type))
 
-        trainset = Egs(trainset_csv, **egs_params)
+        trainset = ChunkEgs(trainset_csv, **egs_params, egs_type=egs_type)
+
         # For multi-GPU training.
         if not utils.is_main_training():
             valid = None
         if valid_csv != "" and valid_csv is not None:
-            valid = Egs(valid_csv)
+            valid = ChunkEgs(valid_csv, egs_type=egs_type)
         else:
             valid = None
         return self(trainset, valid, **data_loader_params_dict)
@@ -228,7 +199,17 @@ class BaseBunch():
 
     @classmethod
     def get_bunch_from_egsdir(self, egsdir:str, egs_params:dict={}, data_loader_params_dict:dict={}):
-        feat_dim, num_targets, train_csv, valid_csv = get_info_from_egsdir(egsdir)
+        train_csv_name = None
+        valid_csv_name = None
+
+        if "train_csv_name" in egs_params.keys():
+            train_csv_name = egs_params.pop("train_csv_name")
+
+        if "valid_csv_name" in egs_params.keys():
+            valid_csv_name = egs_params.pop("valid_csv_name")
+
+        feat_dim, num_targets, train_csv, valid_csv = get_info_from_egsdir(egsdir, 
+                                                         train_csv_name=train_csv_name, valid_csv_name=valid_csv_name)
         info = {"feat_dim":feat_dim, "num_targets":num_targets}
         bunch = self.get_bunch_from_csv(train_csv, valid_csv, egs_params, data_loader_params_dict)
         return bunch, info
@@ -246,16 +227,21 @@ class DataLoaderFast(DataLoader):
         return BackgroundGenerator(super(DataLoaderFast, self).__iter__(), self.max_prefetch)
 
 ## Function
-def get_info_from_egsdir(egsdir):
+def get_info_from_egsdir(egsdir, train_csv_name=None, valid_csv_name=None):
     if os.path.exists(egsdir+"/info"):
         feat_dim = int(utils.read_file_to_list(egsdir+"/info/feat_dim")[0])
         num_targets = int(utils.read_file_to_list(egsdir+"/info/num_targets")[0])
-        train_csv = egsdir + "/train.egs.csv"
-        valid_csv = egsdir + "/valid.egs.csv"
+
+        train_csv_name = train_csv_name if train_csv_name is not None else "train.egs.csv"
+        valid_csv_name = valid_csv_name if valid_csv_name is not None else "valid.egs.csv"
+
+        train_csv = egsdir + "/" + train_csv_name
+        valid_csv = egsdir + "/" + valid_csv_name
+
         if not os.path.exists(valid_csv):
             valid_csv = None
+
         return feat_dim, num_targets, train_csv, valid_csv
     else:
         raise ValueError("Expected dir {0} to exist.".format(egsdir+"/info"))
-
 

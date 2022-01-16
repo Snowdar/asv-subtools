@@ -32,10 +32,23 @@ fi
 
 data=$1
 
+[ ! -d "$data" ] && echo "Expected datadir $datadir to be exist" && exit 1
+
+for file in utt2spk wav.scp;do
+    [ ! -f $data/$file ] && echo "Expected $data/$file to exist." && exit 1
+done
+
 [ $# -eq 2 ] && aug_data_dir=$2
 
 [[ "$reverb" != "true" && "$noise" != "true" && "$music" != "true" && "$babble" != "true" ]] && \
 echo "[exit] There should be one augmentation type form [reverb|noise|music|babble]" && exit 1
+
+utt_num=$(cat $data/utt2spk | wc -l | awk '{print $1}')
+for file in reco2dur utt2num_frames feats.scp;do
+    [ -f $data/$file ] && num=$(cat $data/$file | wc -l | awk '{print $1}') && \
+    [ $num -ne $utt_num ] && echo "[Note] The num of $data/$file is not equal to $data/utt2spk ($num/$utt_num), so mv $data/$file to $data/$file.lost." && \
+                             mv -f $data/$file $data/$file.lost
+done
 
 if [ ! -f $data/reco2dur ];then
     echo "...$data/reco2dur is not exist, so get it automatically..."
@@ -72,13 +85,13 @@ if $reverb;then
         rvb_opts+=(--rir-set-parameters "0.5, $rirs_noises/simulated_rirs/mediumroom/rir_list")
     
         python3 subtools/kaldi/steps/data/reverberate_data_dir.py \
-        "${rvb_opts[@]}" \
-        --speech-rvb-probability 1 \
-        --pointsource-noise-addition-probability 0 \
-        --isotropic-noise-addition-probability 0 \
-        --num-replications 1 \
-        --source-sampling-rate $sampling_rate \
-        ${data} ${sdata}_reverb || exit 1
+                    "${rvb_opts[@]}" \
+                    --speech-rvb-probability 1 \
+                    --pointsource-noise-addition-probability 0 \
+                    --isotropic-noise-addition-probability 0 \
+                    --num-replications 1 \
+                    --source-sampling-rate $sampling_rate \
+                    ${data} ${sdata}_reverb || exit 1
 
         # Add suffix
         subtools/kaldi/utils/copy_data_dir.sh --utt-suffix "-reverb" ${sdata}_reverb ${sdata}_reverb.new
@@ -107,8 +120,8 @@ if $noise;then
     
     if [[ ! -d ${sdata}_noise || $force == "true" ]];then
         python3 subtools/kaldi/steps/data/augment_data_dir.py --utt-suffix "noise" --fg-interval 1 --fg-snrs "15:10:5:0" --fg-noise-dir "$musan_dir/musan_noise" ${data} ${sdata}_noise || exit 1
-    [ -f $data/vad.scp ] && awk '{print $1"-noise",$2}' $data/vad.scp > ${sdata}_noise/vad.scp
-        fi
+        [ -f $data/vad.scp ] && awk '{print $1"-noise",$2}' $data/vad.scp > ${sdata}_noise/vad.scp
+    fi
     
     all_data="$all_data ${sdata}_noise"
     additive_aug_data="${additive_aug_data}"_noise
@@ -154,14 +167,14 @@ fi
 
 if [ $num -gt 1 ];then
     echo "...combine additive aug data to $additive_aug_data..."
-    [ ! -d $additive_aug_data ] && subtools/kaldi/utils/combine_data.sh $additive_aug_data $all_data
+    [[ ! -d $additive_aug_data || $force == "true" ]] && subtools/kaldi/utils/combine_data.sh $additive_aug_data $all_data
 fi
 
 num_origin_utts=$(wc -l $data/reco2dur | awk '{print $1}')
 # Use awk to replace bc to compute float value.
-status=$(echo $fator $num | awk '{if($1-$2>0){print 1}else{print 0}}')
+status=$(echo $factor $num | awk '{if($1-$2>0){print 1}else{print 0}}')
 [ $status -eq 1 ] && factor=$num # Get min
-num_additive_utts=$(echo $num_origin_utts $factor | awk '{int($1*$2)}'})
+num_additive_utts=$(echo $num_origin_utts $factor | awk '{print int($1*$2)}')
 
 [ $num_additive_utts -eq 0 ] && "[exit] The factor $factor is too small" && exit 1
 

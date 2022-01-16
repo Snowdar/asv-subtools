@@ -1,0 +1,15 @@
+/tsdata/OLR2021/OLR2021_train/OLR2019/dev/task_2/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2019/dev/task_3/enroll/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2019/dev/task_3/test/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2019/test/task_2/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2019/test/task_3/enroll/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2019/test/task_3/test/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2019/test/task_1/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2016-OLR2017/test/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2016-OLR2017/train/dev_all/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2016-OLR2017/train/train/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2018/test/task_2/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2018/test/task_3/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2018/test/task_1/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2020/test/wav.scp
+/tsdata/OLR2021/OLR2021_train/OLR2020/dialect/wav.scp

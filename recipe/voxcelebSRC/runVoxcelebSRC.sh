@@ -10,7 +10,7 @@
 ##  Data downloading: http://www.robots.ox.ac.uk/~vgg/data/voxceleb/
 
 ### Dataset info (The voxceleb2.test is not used here and the avg length of utterances in both trainset and testset is about 8s.)
-##  Only trainset: voxceleb2_train = voxceleb2.dev (num_utts: 1092009, num_speakers: 5994, duration: >2300h)
+##  Only trainset: voxceleb2_dev = voxceleb2.dev (num_utts: 1092009, num_speakers: 5994, duration: >2300h)
 ##
 ##  Only testset: voxceleb1 = voxceleb1.dev + voxceleb1.test (num_utts: 153516, num_speakers: 1251)
 
@@ -39,70 +39,88 @@
 
 
 ### Start 
-# Prepare the data/voxceleb1_train, data/voxceleb1_test and data/voxceleb2_train.
+# [1] Prepare the data/voxceleb1_dev, data/voxceleb1_test and data/voxceleb2_dev.
 # ==> Make sure the audio datasets (voxceleb1, voxceleb2, RIRS and Musan) have been downloaded by yourself.
 voxceleb1_path=/data/voxceleb1
 voxceleb2_path=/data/voxceleb2
 rirs_path=/data/RIRS_NOISES/
 musan_path=/data/musan
 
-subtools/recipe/voxceleb/prepare/make_voxceleb1_v2.pl $voxceleb1_path dev data/voxceleb1_train
+subtools/recipe/voxceleb/prepare/make_voxceleb1_v2.pl $voxceleb1_path dev data/voxceleb1_dev
 subtools/recipe/voxceleb/prepare/make_voxceleb1_v2.pl $voxceleb1_path test data/voxceleb1_test
-subtools/recipe/voxceleb/prepare/make_voxceleb2.pl $voxceleb2_path dev data/voxceleb2_train
+subtools/recipe/voxceleb/prepare/make_voxceleb2.pl $voxceleb2_path dev data/voxceleb2_dev
 
-# Combine testset voxceleb1 = voxceleb1_train + voxceleb1_test
-subtools/kaldi/utils/combine_data.sh data/voxceleb1 data/voxceleb1_train data/voxceleb1_test
+# [2] Combine testset voxceleb1 = voxceleb1_dev + voxceleb1_test
+subtools/kaldi/utils/combine_data.sh data/voxceleb1 data/voxceleb1_dev data/voxceleb1_test
 
-# Get trials
+# [3] Get trials
 # ==> Make sure all trials are in data/voxceleb1.
 subtools/recipe/voxceleb/prepare/get_trials.sh --dir data/voxceleb1 --tasks "voxceleb1-O voxceleb1-E voxceleb1-H \
-                                                                             voxceleb1-O-clean voxceleb1-E-clean voxceleb1-H-clean"
+                                                          voxceleb1-O-clean voxceleb1-E-clean voxceleb1-H-clean"
 
-# Get the copies of dataset which is labeled by a prefix like mfcc_23_pitch or fbank_40_pitch etc.
-subtools/newCopyData.sh mfcc_23_pitch "voxceleb2_train voxceleb1"
+# [4] Get the copies of dataset which is labeled by a prefix like fbank_81 or mfcc_23_pitch etc.
+prefix=fbank_81
+subtools/newCopyData.sh $prefix "voxceleb2_dev voxceleb1"
 
-# Augment trainset by clean:aug=1:4 with Kaldi augmentation (total 5 copies).
+# [5] Augment trainset by clean:aug=1:4 with Kaldi augmentation (total 5 copies).
 subtools/augmentDataByNoise.sh --rirs-noises $rirs_path --musan $musan_path --factor 4 \
-                                data/mfcc_23_pitch/voxceleb2_train/ data/mfcc_23_pitch/voxceleb2_train_augx5
-# Make features for trainset
-subtools/makeFeatures.sh --pitch true --pitch-config subtools/conf/pitch.conf data/mfcc_23_pitch/voxceleb2_train_augx5/ mfcc \
-                                subtools/conf/sre-mfcc-23.conf
+                                data/$prefix/voxceleb2_dev/ data/$prefix/voxceleb2_dev_plus_augx4
+# [6] Make features for trainset
+feat_type=fbank
+feat_conf=subtools/conf/sre-fbank-81.conf
+subtools/makeFeatures.sh --nj 30 data/$prefix/voxceleb2_dev_plus_augx4/ $feat_type $feat_conf
 
-# Compute VAD for augmented trainset
-subtools/computeAugmentedVad.sh data/mfcc_23_pitch/voxceleb2_train_augx5 data/mfcc_23_pitch/voxceleb2_train/utt2spk \
-                                subtools/conf/vad-5.5.conf
+# [7] Compute VAD for augmented trainset
+vad_conf=subtools/conf/vad-5.5.conf
+subtools/computeAugmentedVad.sh data/$prefix/voxceleb2_dev_plus_augx4 data/$prefix/voxceleb2_dev/utt2spk \
+                                $vad_conf
 
-# Get a clean copy of voxceleb2_train by spliting from voxceleb2_train_augx5
-subtools/filterDataDir.sh --split-aug false data/mfcc_23_pitch/voxceleb2_train_augx5/ data/voxceleb2_train/utt2spk \
-                                data/mfcc_23_pitch/voxceleb2_train
+# [8] Get a clean subset of voxceleb2_dev from voxceleb2_dev_plus_augx4 to prepare a cohort set for asnorm
+subtools/filterDataDir.sh --split-aug false data/$prefix/voxceleb2_dev_plus_augx4/ data/voxceleb2_dev/utt2spk \
+                                            data/$prefix/voxceleb2_dev
 
-# Make features for testset
-subtools/makeFeatures.sh --pitch true --pitch-config subtools/conf/pitch.conf data/mfcc_23_pitch/voxceleb1/ mfcc \
-                                subtools/conf/sre-mfcc-23.conf
+# [9] Make features for testset
+subtools/makeFeatures.sh data/$prefix/voxceleb1/ $feat_type $feat_conf
 
-# Compute VAD for testset which is clean
-subtools/computeVad.sh data/mfcc_23_pitch/voxceleb1/ subtools/conf/vad-5.5.conf
-
+# [10] Compute VAD for testset which is clean
+subtools/computeVad.sh data/$prefix/voxceleb1/ $vad_conf
 
 ### Training (preprocess -> get_egs -> training -> extract_xvectors)
-# The launcher is a python script which is the main pipeline for it is independent with the data preparing and the scoring.
-# The launcher just train an extended x-vector baseline system and other methods like multi-gpu training,
-# AM-softmax loss etc. could be set by yourself. 
-subtools/runPytorchLauncher.sh runExtendedXvector-voxceleb2-mfcc.py --stage=0
+# Note that, the launcher is a python script which is the main pipeline for it is independent with the 
+# data preparing and back-end scoring. Here, we run every step one by one to show how it works.
+
+# [11] Sample egs. It will do cmn and vad firstly and then remove invalid utts. Finally, 
+#                  it samples egs to fixed chunk-size with instance sampling.
+subtools/runPytorchLauncher.sh subtools/recipe/voxcelebSRC/run-resnet34-fbank-81-benchmark.py --stage=0 --endstage=2
+
+# [12] Train a thin Resnet34 model with AM-Softmax loss and 4 GPUs will be used to accelerate training
+subtools/runPytorchLauncher.sh subtools/recipe/voxcelebSRC/run-resnet34-fbank-81-benchmark.py --stage=3 --endstage=3 --gpu-id=0,1,2,3
+
+# [13] Extract near xvectors in epoch 6 for voxceleb1 and voxceleb2_dev
+subtools/runPytorchLauncher.sh subtools/recipe/voxcelebSRC/run-resnet34-fbank-81-benchmark.py --stage=4
 
 ### Back-end scoring
-# Scoring with only voxceleb1_train_aug trainig.
-# extended_voxceleb2x5_mfcc is the model dir which is set in runExtendedXvector-voxceleb2-mfcc.py.
-
-for task in voxceleb1_O voxceleb1_E voxceleb1_H voxceleb1_O_clean voxceleb1_E_clean voxceleb1_H_clean;do
-    # Cosine: lda128 -> norm -> cosine -> AS-norm (Near emdedding is better)
-    # If use AM-softmax, replace lda with submean (--lda false --submean true) could have better performace based on cosine scoring.
-    subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_voxceleb2x5_mfcc  \
-                                                        --epochs "15" --score cosine --enrollset ${task}_enroll --testset ${task}_test \
-                                                        --trainset voxceleb2_train --score-norm true
-
-    # PLDA: lda256 -> norm -> PLDA
-    subtools/recipe/voxceleb/gather_results_from_epochs.sh --vectordir exp/extended_voxceleb2x5_mfcc  \
-                                                        --epochs "15" --score plda --enrollset ${task}_enroll --testset ${task}_test \
-                                                        --trainset voxceleb2_train --score-norm false
+# [14] Score with submean + Cosine + AS-Norm processes
+tasks="vox1-O vox1-O-clean vox1-E vox1-E-clean vox1-H vox1-H-clean"
+score_norm=false
+for task in $tasks;do
+    [ "$task" == "vox1-O" ] && score_norm=true
+    [ "$task" == "vox1-O-clean" ] && score_norm=true
+    subtools/recipe/voxcelebSRC/gather_results_from_epochs.sh --prefix $prefix --score cosine  --submean true \
+         --vectordir "exp/resnet34_fbank_81_benchmark" --task $task --epochs "6" --postions "near" \
+         --score-norm $score_norm --score-norm-method "asnorm" --top-n 100 --cohort-set voxceleb2_dev
 done
+
+#### Report ####
+# Egs = Voxceleb2_dev(+augx4) + sequential sampling
+# Optimization = [SGD (lr = 0.01) + ReduceLROnPlateau] x 4 GPUs (total batch-size=512)
+# Resnet34 (channels = 32, 64, 128, 256) + Stats-Pooling + FC-ReLU-BN-FC-BN + AM-Softmax (margin = 0.2)
+#
+# Back-end = near + Cosine
+#
+#  EER%       vox1-O   vox1-O-clean   vox1-E   vox1-E-clean   vox1-H   vox1-H-clean
+#  Baseline   1.304    1.159          1.35     1.223          2.357    2.238       
+#  Submean    1.262    1.096          1.338    1.206          2.355    2.223       
+#  AS-Norm    1.161    1.026          -        -              -        -           
+#
+###### Just A Baseline Here #######

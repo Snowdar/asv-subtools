@@ -74,6 +74,7 @@ fi
 # Split this two stage to free GPU memory of model by an exit-python way 
 # and use these GPU memory to extract x-vectors.
 if [[ "$stage" -le 3 && "$endstage" -ge "$stage" ]];then
+    [ $endstage -ge 3 ] && endstage=3
     $train_cmd $launcher $launcher_options --stage=$stage --endstage=$endstage || exit 1 
 fi
 

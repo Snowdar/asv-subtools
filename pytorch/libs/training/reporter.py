@@ -121,9 +121,21 @@ class Reporter():
 
                 real_snapshot = snapshot.pop("real")
                 if self.board_writer is not None:
-                    board_info = {"epoch":float(current_epoch+1), "lr":current_lr}
-                    board_info.update(real_snapshot)
-                    self.board_writer.add_scalars("base_scalar_group", board_info, update_iters)
+                    self.board_writer.add_scalar("epoch", float(current_epoch+1), update_iters)
+                    self.board_writer.add_scalar("lr", current_lr, update_iters)
+
+                    loss_dict = {}
+                    acc_dict = {}
+                    for key in real_snapshot.keys():
+                        if "loss" in key:
+                            loss_dict[key] = real_snapshot[key]
+                        elif "acc" in key:
+                            acc_dict[key] = real_snapshot[key]
+                        else:
+                            self.board_writer.add_scalar(key, real_snapshot[key], update_iters)
+
+                    self.board_writer.add_scalars("scalar_acc", acc_dict, update_iters)
+                    self.board_writer.add_scalars("scalar_loss", loss_dict, update_iters)
 
                 info_dict = {"epoch":current_epoch+1, "iter":current_iter+1, "position":update_iters, 
                              "lr":"{0:.8f}".format(current_lr)}

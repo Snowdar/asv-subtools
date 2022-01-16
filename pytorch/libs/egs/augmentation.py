@@ -49,7 +49,7 @@ class SpecAugment():
         """
         @inputs: a 2-dimensional tensor (a matrix), including [frenquency, time]
         """
-        if self.p_f > 0. or self.p_t > 0.:
+        if self.p_f > 0. and self.p_t > 0.:
             if isinstance(inputs, np.ndarray):
                     numpy_tensor = True
             elif isinstance(inputs, torch.Tensor):
@@ -105,7 +105,6 @@ class SpecAugment():
         return inputs
 
 
-# To do.
 class Cutout():
     """Cutout for CNN training like CV. 
     It is different to SpecAugment for it does not mask whole time or frequency axis instead of a rectangle area.
@@ -117,11 +116,59 @@ class Cutout():
            [2] Zhong, Z., Zheng, L., Kang, G., Li, S., & Yang, Y. (2017). Random erasing data augmentation. 
                arXiv preprint arXiv:1708.04896.
     """
-    def __init__(self):
-        raise NotImplementedError
+    def __init__(self, frequency=0.25, frame=0.025, num_cut=1, random_cut=False):
+        assert 0. < frequency < 1.
+        assert 0. < frame < 1. # a.k.a time axis.
 
-    def __call__(self):
-        pass
+        self.p_f = frequency
+        self.p_t = frame
+
+        # Multi-mask.
+        self.num_cut = num_cut
+        self.random_cut = random_cut
+
+        self.init = False
+
+    def __call__(self, inputs):
+        """
+        @inputs: a 2-dimensional tensor (a matrix), including [frenquency, time]
+        """
+        if isinstance(inputs, np.ndarray):
+                numpy_tensor = True
+        elif isinstance(inputs, torch.Tensor):
+                numpy_tensor = False
+        else:
+            raise TypeError("Expected np.ndarray or torch.Tensor, but got {}".format(type(inputs).__name__))
+
+        if not self.init:
+            input_size = inputs.shape
+            assert len(input_size) == 2
+            if self.p_f > 0.:
+                self.num_f = input_size[0] # Total channels.
+                self.F = int(self.num_f * self.p_f) # Max channels to drop.
+            if self.p_t > 0.:
+                self.num_t = input_size[1] # Total frames. It requires all egs with the same frames.
+                self.T = int(self.num_t * self.p_t) # Max frames to drop.
+            self.init = True
+
+        if self.random_cut:
+            multi = np.random.randint(1, self.num_cut+1)
+        else:
+            multi = self.num_cut
+
+        for i in range(multi):
+            f = np.random.randint(0, self.F + 1)
+            f_0 = np.random.randint(0, self.num_f - f + 1)
+
+            t = np.random.randint(0, self.T + 1)
+            t_0 = np.random.randint(0, self.num_t - t + 1)
+
+            if numpy_tensor:
+                inputs[f_0:f_0+f, t_0:t_0+t].fill(0.)
+            else:
+                inputs[f_0:f_0+f, t_0:t_0+t].fill_(0.)
+
+        return inputs
 
 ### Wrapper
 def get_augmentation(aug=None, aug_params={}):
@@ -131,7 +178,9 @@ def get_augmentation(aug=None, aug_params={}):
         "rows":1, 
         "cols":0,
         "random_rows":False, 
-        "random_cols":False
+        "random_cols":False,
+        "num_cut":1,
+        "random_cut":False
     }
 
     aug_params = utils.assign_params_dict(default_aug_params, aug_params)
@@ -143,7 +192,8 @@ def get_augmentation(aug=None, aug_params={}):
                                 rows=aug_params["rows"], cols=aug_params["cols"],
                                 random_rows=aug_params["random_rows"], random_cols=aug_params["random_cols"])
     elif aug == "cutout":
-        raise NotImplementedError
+        return Cutout(frequency=aug_params["frequency"], frame=aug_params["frame"], 
+                     num_cut=aug_params["num_cut"], random_cut=aug_params["random_cut"])
     else:
         raise TypeError("Do not support {} augmentation.".format(aug))
 
@@ -164,5 +214,10 @@ if __name__ == "__main__":
     tensor = torch.randn(8,8)
     aug_all =SpecAugment(frequency=0.5, frame=0.5, rows=2, cols=2)
     print(aug_all(tensor))
+
+    print("Test cutout with torch tensor...")
+    tensor = torch.randn(8,8)
+    cutout =Cutout(frequency=0.5, frame=0.5)
+    print(cutout(tensor))
 
     print("Test done.")

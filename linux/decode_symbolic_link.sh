@@ -6,6 +6,7 @@
 
 cmd=false # If true, decode symbolic link for cmd.
 details=false # If true, print any symbolic link.
+parse_top_dir=true
 
 . subtools/parse_options.sh
 
@@ -26,19 +27,29 @@ fi
 object=$(dirname $object)/$(basename $object)
 
 origin=$object
+[ -d $object ] && cd $object && object=$(pwd) && cd - 1>/dev/null
 
 while true;do
     if [ -L $object ];then
         [ "$details" == "true" ] && echo $object
-        next=$(file $object | awk '{print substr($5,2,length($5)-2)}')
-        if [ $(dirname $next) == "." ];then
+        next=$(readlink $object)
+        if [[ $(dirname $next) != "/"* ]];then
             object=$(dirname $object)/$next
         else
             object=$next
         fi
     elif [[ -f "$object" || -d "$object" ]];then
-        echo $object
-        exit 0
+        dir=$(dirname $object)
+        tar=$(basename $object)
+
+        option=""
+        [ "$parse_top_dir" == "true" ] && option="-P"
+
+        cd $dir
+        dir=$(pwd $option)
+
+        echo $dir/$tar
+        break
     else
         if [ "$origin" == "$object" ];then
             echo "[exit] Expected $object is exist."

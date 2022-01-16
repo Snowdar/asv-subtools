@@ -137,10 +137,10 @@ score_force_clear=true
 # check and generate config #
 ################################################################################
 check "$enroll_process" "lda submean whiten norm mean" enroll_process
-check "$test_process" "lda submean whiten norm" test_process
+check "$test_process" "lda submean whiten norm mean" test_process
 
 check "$lda_process" "submean whiten norm trainlda" lda_process
-check "$submean_process" "lda whiten norm getmean" submean_process
+check "$submean_process" "mean lda whiten norm getmean" submean_process
 check "$whiten_process" "lda norm submean trainwhiten trainpcawhiten" whiten_process
 
 check "$svm_process" "lda submean whiten norm" svm_process
@@ -152,8 +152,8 @@ check "$aplda_process" "lda submean whiten norm trainaplda" aplda_process
 check "$score" "cosine svm plda aplda gmm lr" score
 check "$metric" "eer Cavg" metric
 
-[ -f $vectordir/$enrollset/xvector.scp ] && vectortype=xvector && echo -e "[Auto find] Your vectortype is xvector\n"
-[ -f $vectordir/$enrollset/ivector.scp ] && vectortype=ivector && echo -e "[Auto find] Your vectortype is ivector\n"
+[ -f $vectordir/$enrollset/xvector.scp ] && vectortype=xvector && echo -e "$0: [Auto find] Your vectortype is xvector\n"
+[ -f $vectordir/$enrollset/ivector.scp ] && vectortype=ivector && echo -e "$0: [Auto find] Your vectortype is ivector\n"
 [ "$vectortype" == "" ] && echo "Don't find xvector or ivector type in $vectordir/$enrollset and please specify your own vectortype" && exit 1
 
 [ "$trainset" == "" ] && trainset=$enrollset
@@ -164,9 +164,9 @@ lda_data_config="$trainset[$trainset $enrollset $testset]"
 submean_data_config="$trainset[$trainset $enrollset $testset]"
 whiten_data_config="$trainset[$trainset $enrollset $testset]"
 else
-[ "$lda_data_config" == "" ] && lda_data_config=$trainset[$trainset $enrollset $testset] && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for lda, if used."
-[ "$submean_data_config" == "" ] && submean_data_config=$trainset[$trainset $enrollset $testset] && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for submean, if used."
-[ "$whiten_data_config" == "" ] && whiten_data_config=$trainset[$trainset $enrollset $testset] && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for whiten, if used."
+[ "$lda_data_config" == "" ] && lda_data_config="$trainset[$trainset $enrollset $testset]" && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for lda, if used."
+[ "$submean_data_config" == "" ] && submean_data_config="$trainset[$trainset $enrollset $testset]" && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for submean, if used."
+[ "$whiten_data_config" == "" ] && whiten_data_config="$trainset[$trainset $enrollset $testset]" && echo "[Notice] It will set the default config $trainset[$trainset $enrollset $testset] for whiten, if used."
 fi
 
 [ "$lda" != "true" ] && lda_data_config=""

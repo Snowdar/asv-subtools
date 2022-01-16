@@ -126,6 +126,10 @@ class Xvector(TopVirtualNnet):
             self.stats = MultiHeadAttentionPooling(num_nodes, stddev=stddev, **pooling_params)
         elif pooling == "multi-resolution":
             self.stats = MultiResolutionMultiHeadAttentionPooling(num_nodes, **pooling_params)
+        elif pooling == "xi-postmean-softplus2":
+            self.stats = xivec_stdinit_softplus2_prec_pooling(num_nodes, hidden_size=pooling_params["hidden_size"], stddev=False)
+        elif pooling == "xi-postdist-softplus2":
+            self.stats = xivec_stdinit_softplus2_prec_pooling(num_nodes, hidden_size=pooling_params["hidden_size"], stddev=True)
         else:
             self.stats = StatisticsPooling(num_nodes, stddev=stddev)
 
