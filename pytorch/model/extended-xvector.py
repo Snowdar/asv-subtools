@@ -12,13 +12,13 @@ from libs.nnet import *
 
 class ExtendedXvector(TopVirtualNnet):
     """ An entended x-vector framework """
-    
+
     def init(self, inputs_dim, num_targets, extend=True, nonlinearity="relu", 
              aug_dropout=0.2, training=True, extracted_embedding="far"):
 
         # Var
         self.extracted_embedding = extracted_embedding
-        
+
         # Nnet
         self.aug_dropout = torch.nn.Dropout2d(p=aug_dropout) if aug_dropout > 0 else None
 

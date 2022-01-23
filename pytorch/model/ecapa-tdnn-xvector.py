@@ -328,7 +328,7 @@ class ECAPA_TDNN(TopVirtualNnet):
             raise TypeError("Expected far or near position, but got {}".format(self.extracted_embedding))
         return xvector
 
-    def get_warmR_T(T_0, T_mult, epoch):
+    def get_warmR_T(self,T_0, T_mult, epoch):
         n = int(math.log(max(0.05, (epoch / T_0 * (T_mult - 1) + 1)), T_mult))
         T_cur = epoch - T_0 * (T_mult ** n - 1) / (T_mult - 1)
         T_i = T_0 * T_mult ** (n)
@@ -349,7 +349,7 @@ class ECAPA_TDNN(TopVirtualNnet):
                 self.loss.step(lambda_factor)
 
             if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
-                T_cur, T_i = get_warmR_T(*self.step_params["T"], epoch)
+                T_cur, T_i = self.get_warmR_T(*self.step_params["T"], epoch)
                 T_cur = T_cur*epoch_batchs + this_iter
                 T_i = T_i * epoch_batchs
 
