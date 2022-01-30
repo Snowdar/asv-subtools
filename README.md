@@ -6,7 +6,7 @@ The 'sub' of 'subtools' means that there are many modular tools and the parts co
 > Copyright: [XMU Speech Lab](https://speech.xmu.edu.cn/) (Xiamen University, China)  
 > Apache 2.0
 >
-> Author   : Miao Zhao (Email: snowdar@stu.xmu.edu.cn), Jianfeng Zhou, Zheng Li, Hao Lu, Fuchuan Tong  
+> Author   : Miao Zhao (Email: snowdar@stu.xmu.edu.cn), Jianfeng Zhou, Zheng Li, Hao Lu, Fuchuan Tong, Tao Jiang  
 > Current Maintainer: Fuchuan Tong (Email: 1017549629@qq.com)  
 > Co-author: Lin Li, Qingyang Hong
 
