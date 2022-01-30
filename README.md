@@ -530,6 +530,7 @@ For previous challenges (2016-2020), see http://olr.cslt.org.
 **Plan**: Dong Wang, Qingyang Hong, Liantian Li, Hui Bu: [CNSRC 2022 Evaluation Plan](http://aishell-jiaofu.oss-cn-hangzhou.aliyuncs.com/cnsrc.pdf).
 
 For more informations, see http://cnceleb.org.
+For any Challenge questions please contact lilt@cslt.org and for any baseline questions contact sssyousen@163.com.
 
 ---
 
