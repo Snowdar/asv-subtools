@@ -47,6 +47,7 @@ Citation:
     + [[1] Voxceleb Recipe [Speaker Recognition]](#1-voxceleb-recipe-speaker-recognition)
     + [[2] OLR Challenge 2020 Baseline Recipe [Language Identification]](#2-olr-challenge-2020-baseline-recipe-language-identification)
     + [[3] OLR Challenge 2021 Baseline Recipe [Language Identification]](#3-olr-challenge-2021-baseline-recipe-language-identification)
+    + [[4] CNSRC 2022 Baseline Recipe [Speaker Recognitiopn]](#4-cnsrc-2022-baseline-recipe-speaker-recognition)
   * [Feedback](#feedback)
   * [Acknowledgement](#acknowledgement)
 
@@ -520,6 +521,15 @@ OLR Challenge 2020 is closed now.
 **Plan**: Binling Wang, Wenxuan Hu, Jing Li, Yiming Zhi, Zheng Li, Qingyang Hong, Lin Li, Dong Wang, Liming Song and Cheng Yang: [OLR 2021 Challenge: Datasets, Rules and Baselines](http://cslt.riit.tsinghua.edu.cn/mediawiki/images/a/a8/OLR_2021_Plan.pdf), submitted to APSIPA ASC 2021.
 
 For previous challenges (2016-2020), see http://olr.cslt.org.
+
+### [4] CNSRC 2022 Baseline Recipe [Speaker Recognition]
+
+**Baseline**: [subtools/recipe/cnsrc](./recipe/cnsrc).  
+> The **top training script of baseline** is available in [subtools/recipe/cnsrc/sv/run-cnsrc_sv.sh](./recipe/cnsrc/sv/run-cnsrc_sv.sh) and [subtools/recipe/cnsrc/sr/run-cnsrc_sr.sh](./recipe/cnsrc/sr/run-cnsrc_sr.sh).
+
+**Plan**: Dong Wang, Qingyang Hong, Liantian Li, Hui Bu: [CNSRC 2022 Evaluation Plan](http://aishell-jiaofu.oss-cn-hangzhou.aliyuncs.com/cnsrc.pdf).
+
+For more informations, see http://cnceleb.org.
 
 ---
 
