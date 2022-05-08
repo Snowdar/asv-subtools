@@ -500,7 +500,7 @@ Here, this is an ECAPA benchmark model. And the training script is available in 
 Here, this is an statistical pooling and Xi-vector embedding benchmark model (implement on TDNN). And the training script is available in [subtools/pytorch/launcher/runSnowdar_Xivector.py](./pytorch/launcher/runSnowdar_Xivector.py). We would like to thank Dr. Kong Aik Lee for providing codes and useful discussion. (experiments conducted by Fuchuan Tong) ==2021-10-30==
 |EER%|vox1-O|vox1-E|vox1-H|
 | :--: | :--: | :--: | :--: |
-|Statistical Pooling|1.85|2.01|3.57|
+|Statistics Pooling|1.85|2.01|3.57|
 |Multi-head|1.76|2.00|3.54|
 |Xi-Vector(∅,𝜎)|1.59|1.90|3.38|
 ---
