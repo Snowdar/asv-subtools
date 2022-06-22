@@ -149,6 +149,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [Heated Up Strategy](https://arxiv.org/pdf/1809.04157.pdf)
   + [x] [Multi-task Learning with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was contributed by [Yi Liu](http://yiliu.org.cn/). Thanks.]
   + [x] [Multi-task Learning with Phonetic Information (Pytorch)](./recipe/ap-olr/runMultiTaskXvector.py) [developed by Zheng Li] ==*new*==
+  + [x] [Feature Decomposition and Cosine Similar Adversarial Learning (FD-AL)](./pytorch/launcher/runEtdnn-FD-AL-trainer.py) [[Reference] (https://doi.org/10.48550/arXiv.2205.14294)] [developed by Fuchuan Tong] ==*new*==
   + [ ] Generative Adversarial Networks (GAN)
 
 - **Back-End**
