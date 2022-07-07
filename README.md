@@ -149,6 +149,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [Heated Up Strategy](https://arxiv.org/pdf/1809.04157.pdf)
   + [x] [Multi-task Learning with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was contributed by [Yi Liu](http://yiliu.org.cn/). Thanks.]
   + [x] [Multi-task Learning with Phonetic Information (Pytorch)](./recipe/ap-olr/runMultiTaskXvector.py) [developed by Zheng Li] ==*new*==
+  + [x] [Feature Decomposition and Cosine Similar Adversarial Learning (FD-AL)](./pytorch/launcher/runEtdnn-FD-AL-trainer.py) [[Reference] (https://doi.org/10.48550/arXiv.2205.14294)] [developed by Fuchuan Tong] ==*new*==
   + [ ] Generative Adversarial Networks (GAN)
 
 - **Back-End**
@@ -500,7 +501,7 @@ Here, this is an ECAPA benchmark model. And the training script is available in 
 Here, this is an statistical pooling and Xi-vector embedding benchmark model (implement on TDNN). And the training script is available in [subtools/pytorch/launcher/runSnowdar_Xivector.py](./pytorch/launcher/runSnowdar_Xivector.py). We would like to thank Dr. Kong Aik Lee for providing codes and useful discussion. (experiments conducted by Fuchuan Tong) ==2021-10-30==
 |EER%|vox1-O|vox1-E|vox1-H|
 | :--: | :--: | :--: | :--: |
-|Statistical Pooling|1.85|2.01|3.57|
+|Statistics Pooling|1.85|2.01|3.57|
 |Multi-head|1.76|2.00|3.54|
 |Xi-Vector(∅,𝜎)|1.59|1.90|3.38|
 ---
