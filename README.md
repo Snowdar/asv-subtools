@@ -232,9 +232,19 @@ git clone https://github.com/Snowdar/asv-subtools.git subtools
 ```
 
 ### 4. Install Python Requirements  
-+ Pytorch>=1.2: ```pip3 install torch```
++ Pytorch>=1.10: 
+  ```shell
+  conda create -n subtools python=3.8
+  conda activate subtools
+  conda install pytorch=1.10.0 torchaudio=0.10.0 cudatoolkit=11.1 -c pytorch -c conda-forge
+  ```
 + Other requirements: numpy, thop, pandas, progressbar2, matplotlib, scipy (option), sklearn (option)  
-  ```pip3 install -r requirements.txt```
+    ```shell
+  # progressbar2 needs to install progeressbar first  
+  pip3 install progressbar
+  pip3 install progressbar2
+  pip3 install -r subtools/requirements.txt
+  ```
 
 ### 5. Support Multi-GPU Training  
 ASV-Subtools provide both **DDP (recommended)** and Horovod solutions to support multi-GPU training.
