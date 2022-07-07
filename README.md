@@ -124,7 +124,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [Resnet2d](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
   + [x] [F-TDNN X-vector](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
   + [x] [ECAPA X-vector](https://arxiv.org/abs/2005.07143) [[Source codes](https://github.com/lawlict/ECAPA-TDNN) ]
-  + [x] [RepVGG]() 
+  + [x] [RepVGG](https://arxiv.org/pdf/2101.03697.pdf) 
 
 - **Component**
   + [x] [Attentive Statistics Pooling](https://arxiv.org/pdf/1803.10963v1.pdf)
