@@ -61,9 +61,10 @@ if [ $num_gpu -gt 1 ];then
         export OMP_NUM_THREADS=$omp_num_threads
         if [ "$port" == "0" ];then
             port=$(python3 subtools/pytorch/launcher/multi_gpu/get_free_port.py)
-            launcher_options="$launcher_options --port $port"
+            # launcher_options="$launcher_options --port $port"
         fi
-        train_cmd="python3 -m torch.distributed.launch --nproc_per_node=$num_gpu"
+        train_cmd="python3 -m torch.distributed.launch --nproc_per_node=$num_gpu --master_port=$port"
+		# train_cmd="torchrun --nproc_per_node=$num_gpu"
     else
         echo "[exit] Do not support $multi_gpu_solution solution for multi-GPU training." && exit 1
     fi

@@ -34,6 +34,7 @@ class KaldiDataset():
         self.wav_scp: dict{str:str}
         self.utt2dur: dict{str:float}
         self.utt2spk_int: dict{str:int}
+        self.utt2chuk: dict{str:str}
 
     == Variables ==
         self.data_dir: str
@@ -51,6 +52,8 @@ class KaldiDataset():
             ("feats_scp", "feats.scp", "str", False),
             ("utt2num_frames", "utt2num_frames", "int", False),
             ("utt2dur", "utt2dur", "float", False),
+            ("utt2chunk", "utt2chunk", "str", False),
+            ("utt2sr", "utt2sr", "int", False),             
             ("vad_scp", "vad.scp", "str", False),
             ("text", "text", "str", True)]
 
@@ -79,6 +82,7 @@ class KaldiDataset():
     def load_data_dir(self, data_dir:str, expected_files:list=["utt2spk", "spk2utt", "feats.scp", "utt2num_frames"]):
         return self(data_dir, expected_files)
 
+
     def load_data_(self):
         if not os.path.exists(self.data_dir):
             raise ValueError("The datadir {0} is not exist.".format(self.data_dir))
@@ -103,6 +107,23 @@ class KaldiDataset():
                 else:
                     raise ValueError("The file {0} is not exist.".format(file_path))
 
+
+    def save_data_dir(self, save_dir:str):
+        os.makedirs(save_dir,exist_ok=True)
+        logger.info("Save data to {}".format(save_dir))
+        for attr, file_name, value_type, vector in self.utt_first_files + self.spk_first_files:
+            file_path = os.path.join(save_dir, file_name)
+
+            if attr in self.loaded_attr:
+                attr_dict = getattr(self,attr)
+                with open(file_path,"w") as fout:
+                    for k,v in attr_dict.items():
+                        if vector:
+                            v = ' '.join(map(str,v))
+                        print(k,v,file=fout)
+
+
+
     def get_base_attribute_(self):
         ## Base attribute
         # Total utts
@@ -119,6 +140,14 @@ class KaldiDataset():
         else:
             self.num_frames = None
 
+        # Total duration  (Leo 2121-08-31)
+        if "utt2dur" in self.loaded_attr:
+            self.dur = 0.
+            for utt, dur in self.utt2dur.items():
+                self.dur += dur
+            self.dur/=3600
+        else:
+            self.dur = None
         # Feature dim
         self.feat_dim = kaldi_io.read_mat(
             self.feats_scp[list(self.feats_scp.keys())[0]]).shape[1] if "feats_scp" in self.loaded_attr else None
@@ -338,6 +367,10 @@ def read_str_first_ark(file_path:str, value_type="str", vector=False, every_byte
 
     return this_dict
 
+
+
+
+
 ### Class
 class KaldiDatasetMultiTask():
     #Zheng Li 2020-10
@@ -404,6 +437,9 @@ class KaldiDatasetMultiTask():
     def load_data_dir(self, data_dir:str, expected_files:list=["utt2spk", "spk2utt", "feats.scp", "utt2num_frames", "ali.scp"]):  #Zheng Li 2020-10
         return self(data_dir, expected_files)
 
+
+
+
     def load_data_(self):
         if not os.path.exists(self.data_dir):
             raise ValueError("The datadir {0} is not exist.".format(self.data_dir))
@@ -428,6 +464,7 @@ class KaldiDatasetMultiTask():
                 else:
                     raise ValueError("The file {0} is not exist.".format(file_path))
 
+
     def get_base_attribute_(self):
         ## Base attribute
         # Total utts
@@ -443,7 +480,6 @@ class KaldiDatasetMultiTask():
                 self.num_frames += num_frames
         else:
             self.num_frames = None
-
         # Feature dim
         self.feat_dim = kaldi_io.read_mat(
             self.feats_scp[list(self.feats_scp.keys())[0]]).shape[1] if "feats_scp" in self.loaded_attr else None
@@ -519,13 +555,13 @@ class KaldiDatasetMultiTask():
                         setattr(kaldi_dataset, attr, new_file_dict)
                     else:
                         raise ValueError("Do not support file {0} w.r.t spk2utt only.".format(attr))
-            
+
             if len(kaldi_dataset.utt_first_files) > 0:
                 if "spk2utt" in kaldi_dataset.loaded_attr:
                     utt_id_list = [] 
                     for spk, utts in kaldi_dataset.spk2utt.items():
                         utt_id_list.append(utts)
-                    
+
                     for attr, file_name, value_type, vector in kaldi_dataset.utt_first_files:
                         if attr in kaldi_dataset.loaded_attr:
                             this_file_dict = getattr(kaldi_dataset, attr)
@@ -538,7 +574,7 @@ class KaldiDatasetMultiTask():
                     raise ValueError("Expected spk2utt to exist to filter utt_first_files.")
         else:
             raise ValueError("Do not support id_type {0} with utt or spk only.".format(id_type))
-        
+
         kaldi_dataset.get_base_attribute_()
 
         return kaldi_dataset
@@ -635,3 +671,7 @@ class KaldiDatasetMultiTask():
         return "<class KaldiDataset>\n[ data_dir = {0}, loaded = {1} ]\n"\
                "[ num_utts = {2}, num_spks = {3}, num_frames = {4}, feat_dim= {5} ]\n"\
                "".format(self.data_dir, self.loaded_attr, self.num_utts, self.num_spks, self.num_frames, self.feat_dim) 
+
+
+
+ 

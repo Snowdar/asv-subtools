@@ -10,3 +10,4 @@ from .components import *
 from .pooling import *
 from .transformer import *
 from .loss import *
+from .repvgg import *

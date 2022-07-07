@@ -1,10 +1,13 @@
-torch
 numpy
+pyyaml
 thop
 scipy
 sklearn
 pandas
-progressbar2
+packaging
 matplotlib
 tensorboard
 tensorboardX
+tqdm>=4.42.0
+# progressbar
+# progressbar2
