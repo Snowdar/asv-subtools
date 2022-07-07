@@ -566,7 +566,7 @@ For any Challenge questions please contact lilt@cslt.org and for any baseline qu
 + If you want to join the WeChat group of asv-subtools, you can scan the QR code on the left to follow XMUSPEECH and reply "join group" + your institution/university + your name. In addtion, you can also scan the QR code on the right and the guy will invite you to the chat group.
 | | |
 |：--：|：--：|
-![]()./doc/xmuspeech.jpg | ![](./doc/sssyousen_wechat_qr.jpg)
+|![](./doc/xmuspeech.jpg) | ![](./doc/sssyousen_wechat_qr.jpg)|
 
 
 ## Acknowledgement
