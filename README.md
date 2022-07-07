@@ -105,6 +105,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + Supporting mixed precision training.
   + Runtime module for exporting jit model.
   + Updating some models.
+  + Feature Decomposition and Cosine Similar Adversarial Learning (FD-AL)
 ### Support List
 
 - **Multi-GPU Training Solution**
@@ -115,7 +116,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [Convenient Augmentation of Reverb, Noise, Music and Babble](./augmentDataByNoise.sh)
   + [x] Inverted [Specaugment](https://arxiv.org/pdf/1904.08779.pdf) [Note, it is still not available with multi-gpu and you will not get a better result if do it.]
   + [x] [Mixup](https://arxiv.org/pdf/1710.09412.pdf) [For speaker recognition, see this [paper](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/2250.pdf).]
-  + [x] [Online Datasets] [Including online feature extracting, online VAD, online augmentation and online xvector extracting, developed by Dexin Liao] 
+  + [x] Online Datasets [Including online feature extracting, online VAD, online augmentation and online xvector extracting, developed by Dexin Liao] 
 
 - **Model**
   + [x] [Standard X-vector](http://www.danielpovey.com/files/2017_interspeech_embeddings.pdf)
