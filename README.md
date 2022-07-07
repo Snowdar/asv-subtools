@@ -518,9 +518,18 @@ Here, this is an statistical pooling and Xi-vector embedding benchmark model (im
 ---
 
 **New Results of Voxceleb1-O/E/H with Voxceleb2.dev (online random augmentation) Training(EER%)**
-ere, this is a resnet34 benchmark model. And the training script is available in [subtools/recipe/voxcelebSRC/runVoxcelebSRC.sh](./recipe/voxcelebSRC/runVoxcelebSRC.sh). For more details, see it also. (by Snowdar)
+Here, this is a resnet34 benchmark model. And the training script is available in [subtools/pytorch/launcher/runResnetXvector_online.py](./pytorch/launcher/runResnetXvector_online.py). For more details, see it also. (experiments conducted by Dexin Liao) ==2022-07-07==
+|EER%|vox1-O|vox1-O-clean|vox1-E|vox1-E-clean|vox1-H|vox1-H-clean|
+| :--: | :--: | :--: | :--: | :--: | :--: | :--: |
+|Submean|1.071|0.920|1.257|1.135|2.205|2.072|
+|AS-Norm|0.970|0.819|-|-|-|-|
 
-
+Here, this is a ECAPA benchmark model. And the training script is available in [subtools/pytorch/launcher/runEcapaXvector_online.py](./pytorch/launcher/runEcapaXvector_online.py). For more details, see it also. (experiments conducted by Dexin Liao) ==2022-07-07==
+|EER%|vox1-O|vox1-O-clean|vox1-E|vox1-E-clean|vox1-H|vox1-H-clean|
+| :--: | :--: | :--: | :--: | :--: | :--: | :--: |
+|Submean|1.045|0.904|1.330|1.211|2.430|2.303|
+|AS-Norm|0.991|0.856|-|-|-|-|
+---
 ### [2] OLR Challenge 2020 Baseline Recipe [Language Identification]
 
 OLR Challenge 2020 is closed now.
@@ -553,7 +562,7 @@ For any Challenge questions please contact lilt@cslt.org and for any baseline qu
 
 ## Feedback
 + If you find bugs or have some questions, please create a github issue in this repository to let everyone knows it, so that a good solution could be contributed.
-+ If you want to ask some questions, just send e-mail to 1017549629@qq.com (Fuchuan Tong) or snowdar@stu.xmu.edu.cn (Snowdar) for SRE answers and xmulizheng@stu.xmu.edu.cn for LID answers. In general, we will reply you in our free time.
++ If you want to ask some questions, just send e-mail to sssyousen@163.com (Tao Jiang) or snowdar@stu.xmu.edu.cn (Snowdar) for SRE answers and xmulizheng@stu.xmu.edu.cn for LID answers. In general, we will reply you in our free time.
 + If you want to join the WeChat group of asv-subtools, please pay attention to the official accounts, XMUSPEECH, and reply "join group" + your institution/university + your name.
 
 ## Acknowledgement
