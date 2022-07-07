@@ -266,7 +266,7 @@ exist_model=""  # Use it in transfer learning.
 traindata="data/mfcc_20_5.0/train_aug"
 egs_dir="exp/egs/train" + "_" + sample_type + "_max"
 
-model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
+model_blueprint="subtools/pytorch/model/snowdar_xvector.py"
 model_dir="exp/pytorch_xvector"
 ##--------------------------------------------------##
 ##

@@ -268,7 +268,7 @@ exist_model=""  # Use it in transfer learning.
 traindata="data/mfcc_20_5.0/ap19_task_1_train_aug"
 egs_dir="exp/ap19_task_1_train_aug/egs" + "_" + sample_type + "_max"
 
-model_blueprint = "subtools/pytorch/model/multi-task-xvector-fix.py"
+model_blueprint = "subtools/pytorch/model/multi_task_xvector_fix.py"
 model_dir = "exp/multi_task_olr_mfcc"
 
 ali_dir="/work/kaldi/egs/thchs30/s5/exp/tri4b/ali_thchs30_ap19_task_1_train"  # the direction of alignment files, Zheng Li 2021-06-08
