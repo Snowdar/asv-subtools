@@ -1,0 +1,69 @@
+# Copyright xmuspeech (Author: Leo 2022-01-23)
+feat_dim: 80 # the num_mel_bins of fbank and the num_ceps of mfcc
+data_type: 'shard'  # shard or raw
+# feature extraction
+dataset_conf:
+    # random_chunk
+    random_chunk: false
+    random_chunk_size: 2.015
+    # resample
+    resample: false
+    resample_conf: 
+        resample_rate: 16000
+    # waveform true config
+    speech_aug: true
+    speech_aug_conf: subtools/conf/speech_aug_random.yaml
+    csv_aug_folder: ''
+    # It seems exit some bug, DO NOT set dither and use_energy together.
+    feature_extraction_conf:
+        # feature_type: 'mfcc'
+        # kaldi_featset:
+        #     num_ceps: 23
+        #     num_mel_bins: 23
+        #     frame_shift: 10
+        #     frame_length: 25
+        #     low_freq: 40.0
+        #     high_freq: -200
+        #     energy_floor: 0.0
+        #     dither: 0.0  # conflicted with use_energy=true.
+        #     use_energy: true  # if you want use energy-based vad, set it true.
+
+        feature_type: 'fbank'
+        kaldi_featset:
+            num_mel_bins: 80
+            frame_shift: 10
+            frame_length: 25
+            low_freq: 40
+            high_freq: -200
+            energy_floor: 0.0
+            use_energy: false
+
+        mean_var_conf:
+            mean_norm: true
+            std_norm: false
+
+    # spec level config
+    spec_aug: false
+    spec_aug_conf:
+        aug: specaugment # None or specaugment
+        aug_params:
+            frequency: 0.2
+            frame: 0.2
+            rows: 4
+            cols: 4
+            random_rows: true
+            random_cols: true
+
+
+    shuffle: true
+    shuffle_conf:
+        shuffle_size: 3500
+    batch_conf:
+        batch_type: 'static' # static or dynamic
+        batch_size: 128
+
+# attention: Do not specify batch size in dataloader.
+data_loader_conf:
+    num_workers: 4
+    pin_memory: false
+    prefetch_factor: 50 # pf(400) * bs(16) is about 2 shards which has 3000 samples each.
