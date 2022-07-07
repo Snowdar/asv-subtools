@@ -33,6 +33,7 @@ def get_optimizer(model, params:dict={}):
         "beta2":0.999,
         "beta3":0.999,
         "weight_decay":1e-4,
+        "nesterov": False,
         "lookahead.k":5,
         "lookahead.alpha":0.,
         "gc":False
@@ -48,7 +49,7 @@ def get_optimizer(model, params:dict={}):
     beta3 = used_params["beta3"]
     weight_decay = used_params["weight_decay"]
     gc = used_params["gc"]
-
+    nesterov = used_params['nesterov']
     extra_params = {}
 
     # Gradient centralization: 
@@ -67,9 +68,9 @@ def get_optimizer(model, params:dict={}):
 
     # Select optimizer
     if name == "sgd":
-        base_optimizer = optim.SGD(model.parameters(), lr=learn_rate, momentum=beta1, weight_decay=weight_decay)
+        base_optimizer = optim.SGD(model.parameters(), lr=learn_rate, momentum=beta1, weight_decay=weight_decay,nesterov=nesterov)
     elif name == "sgdW":
-        base_optimizer = SGDW(model.parameters(), lr=learn_rate, momentum=beta1, weight_decay=weight_decay)
+        base_optimizer = SGDW(model.parameters(), lr=learn_rate, momentum=beta1, weight_decay=weight_decay,nesterov=nesterov)
     elif name == "adam":
         base_optimizer = optim.Adam(model.parameters(), lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
     elif name == "adamW":

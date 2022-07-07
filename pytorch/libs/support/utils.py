@@ -10,6 +10,9 @@ import shutil
 import copy
 import numpy as np
 import pandas as pd
+import platform
+import csv
+import time
 import torch
 import torch.distributed as dist
 
@@ -201,20 +204,22 @@ def create_model_dir(model_dir:str, model_blueprint:str, stage=-1):
     # Just change the path of blueprint so that use the copy of blueprint which is in the config directory and it could 
     # avoid unkonw influence from the original blueprint which could be changed possibly before some processes needing 
     # this blueprint, such as pipeline/onestep/extracting_embedings.py
-    config_model_blueprint = "{0}/config/{1}".format(model_dir, os.path.basename(model_blueprint))
+    config_model_blueprint = "{0}/config/{1}".format(
+        model_dir, os.path.basename(model_blueprint))
 
     if not os.path.exists("{0}/log".format(model_dir)):
-            os.makedirs("{0}/log".format(model_dir), exist_ok=True)
+        os.makedirs("{0}/log".format(model_dir), exist_ok=True)
 
     if not os.path.exists("{0}/config".format(model_dir)):
         os.makedirs("{0}/config".format(model_dir), exist_ok=True)
-
+    os.makedirs("{0}/checkpoint_info".format(model_dir), exist_ok=True)
     if is_main_training():
         if stage < 0 and model_blueprint != config_model_blueprint:
             shutil.copy(model_blueprint, config_model_blueprint)
     else:
         while(True):
-            if os.path.exists(config_model_blueprint): break
+            if os.path.exists(config_model_blueprint):
+                break
 
     return config_model_blueprint
 
@@ -383,12 +388,12 @@ def read_log_csv(csv_path:str):
 
 
 ### Multi-GPU training [Two solutions: Horovod or DDP]
-def init_multi_gpu_training(gpu_id="", solution="ddp", port=29500):
+def init_multi_gpu_training(gpu_id="", solution="ddp"):
     num_gpu = len(parse_gpu_id_option(gpu_id))
     if num_gpu > 1:
         # The DistributedDataParallel (DDP) solution is suggested.
         if solution == "ddp":
-            init_ddp(port)
+            init_ddp()
             if is_main_training(): logger.info("DDP has been initialized.")
         elif solution == "horovod":
             init_horovod()
@@ -439,18 +444,15 @@ def use_horovod():
     return os.getenv("USE_HOROVOD") == "true"
 
 ## DDP
-def init_ddp(port=29500):
+def init_ddp():
     if not torch.distributed.is_nccl_available():
         raise RuntimeError("NCCL is not available.")
 
     # Just plan to support NCCL for GPU-Training with single machine, but it is easy to extend by yourself.
     # Init_method is defaulted to 'env://' (environment) and The IP is 127.0.0.1 (localhost).
-    # Based on this init_method, world_size and rank will be set automatically with DDP, 
     # so do not give these two params to init_process_group.
     # The port will be always defaulted to 29500 by torch that will result in init_process_group failed
-    # when number of training task > 1. So, use subtools/pytorch/launcher/multi_gpu/get_free_port.py to get a 
-    # free port firstly, then give this port to launcher by --port. All of these have been auto-set by runLauncher.sh.
-    os.environ["MASTER_PORT"] = str(port)
+    # when number of training task > 1. Use runLauncher.sh, a free port will be auto-setted.
     torch.distributed.init_process_group(backend="nccl")
 
 def use_ddp():
@@ -458,6 +460,19 @@ def use_ddp():
 
 def cleanup_ddp():
     torch.distributed.destroy_process_group()
+
+
+# reduce stop signal across ddp progresses, controled by main rank. (Leo 2022-06-20)
+def check_exit_ddp(stop_flag=0):
+    if use_ddp():
+        flag_tensor = torch.zeros(1).to(torch.cuda.current_device())
+        if is_main_training():
+            flag_tensor +=stop_flag
+        dist.all_reduce(flag_tensor,op=dist.ReduceOp.SUM)
+        dist.barrier()
+        stop_flag = flag_tensor
+    return stop_flag
+
 
 def get_free_port(ip="127.0.0.1"):
     import socket
@@ -467,3 +482,166 @@ def get_free_port(ip="127.0.0.1"):
         # Set port as 0, socket will auto-select a free port. And then fetch this port.
         s.bind((ip, 0))
         return s.getsockname()[1]
+
+# https://github.com/speechbrain/speechbrain/blob/develop/speechbrain/utils/data_utils.py
+def batch_pad_right(tensors: list, mode="constant", value=0):
+    """Given a list of torch tensors it batches them together by padding to the right
+    on each dimension in order to get same length for all.
+
+    Parameters
+    ----------
+    tensors : list
+        List of tensor we wish to pad together.
+    mode : str
+        Padding mode see torch.nn.functional.pad documentation.
+    value : float
+        Padding value see torch.nn.functional.pad documentation.
+
+    Returns
+    -------
+    tensor : torch.Tensor
+        Padded tensor.
+    valid_vals : list
+        List containing proportion for each dimension of original, non-padded values.
+
+    """
+
+    if not len(tensors):
+        raise IndexError("Tensors list must not be empty")
+    # tensors = list(map(list,tensors))
+
+    if len(tensors) == 1:
+        # if there is only one tensor in the batch we simply unsqueeze it.
+        return tensors[0].unsqueeze(0), torch.tensor([1.0])
+
+    if not (
+        any(
+            [tensors[i].ndim == tensors[0].ndim for i in range(
+                1, len(tensors))]
+        )
+    ):
+        raise IndexError("All tensors must have same number of dimensions")
+
+    # FIXME we limit the support here: we allow padding of only the last dimension
+    # need to remove this when feat extraction is updated to handle multichannel.
+    max_shape = []
+    for dim in range(tensors[0].ndim):
+        if dim != (tensors[0].ndim - 1):
+            if not all(
+                [x.shape[dim] == tensors[0].shape[dim] for x in tensors[1:]]
+            ):
+                raise EnvironmentError(
+                    "Tensors should have same dimensions except for last one"
+                )
+        max_shape.append(max([x.shape[dim] for x in tensors]))
+
+    batched = []
+    valid = []
+    for t in tensors:
+        # for each tensor we apply pad_right_to
+        padded, valid_percent = pad_right_to(
+            t, max_shape, mode=mode, value=value
+        )
+        batched.append(padded)
+        valid.append(valid_percent[0])
+
+    batched = torch.stack(batched)
+
+    return batched, torch.tensor(valid)
+
+
+def pad_right_to(
+    tensor: torch.Tensor, target_shape: (list, tuple), mode="constant", value=0,
+):
+    """
+    This function takes a torch tensor of arbitrary shape and pads it to target
+    shape by appending values on the right.
+
+    Parameters
+    ----------
+    tensor : input torch tensor
+        Input tensor whose dimension we need to pad.
+    target_shape : (list, tuple)
+        Target shape we want for the target tensor its len must be equal to tensor.ndim
+    mode : str
+        Pad mode, please refer to torch.nn.functional.pad documentation.
+    value : float
+        Pad value, please refer to torch.nn.functional.pad documentation.
+
+    Returns
+    -------
+    tensor : torch.Tensor
+        Padded tensor.
+    valid_vals : list
+        List containing proportion for each dimension of original, non-padded values.
+    """
+    assert len(target_shape) == tensor.ndim
+    # this contains the abs length of the padding for each dimension.
+    pads = []
+    valid_vals = []  # thic contains the relative lengths for each dimension.
+    i = len(target_shape) - 1  # iterating over target_shape ndims
+    j = 0
+    while i >= 0:
+        assert (
+            target_shape[i] >= tensor.shape[i]
+        ), "Target shape must be >= original shape for every dim"
+        pads.extend([0, target_shape[i] - tensor.shape[i]])
+        valid_vals.append(tensor.shape[j] / target_shape[j])
+        i -= 1
+        j += 1
+
+    tensor = torch.nn.functional.pad(tensor, pads, mode=mode, value=value)
+
+    return tensor, valid_vals
+
+class Timer(object):
+    def __init__(self) -> None:
+        super().__init__()
+        self.start_time=time.time()
+    def reset(self):
+        self.start_time=time.time()
+    def elapse(self):
+        return time.time()-self.start_time
+
+def csv_to_list(file):
+    lists=[]
+    with open(file, newline="") as csvfile:
+        reader = csv.DictReader(csvfile,delimiter=' ',skipinitialspace=True)
+        for rows in reader:
+            lists.append(rows)
+    return lists
+
+
+
+def read_wav_list(wav_file):
+    wav_list = []
+    with open(wav_file, 'r', encoding='utf8') as fin:
+        for line in fin:
+            arr = line.strip().split()
+            assert len(arr) == 2
+            item={}
+            utt=arr[0]
+            wav_path=arr[1]
+            item['eg-id']=utt
+            item['wav-path']=wav_path
+            item['class-label']=0
+            wav_list.append(item)
+    return  wav_list
+
+
+
+def get_torchaudio_backend():
+    """Get the backend for torchaudio between soundfile and sox_io according to the os.
+
+    Allow users to use soundfile or sox_io according to their os.
+
+    Returns
+    -------
+    str
+        The torchaudio backend to use.
+    """
+    current_system = platform.system()
+    if current_system == "Windows":
+        return "soundfile"
+    else:
+        return "sox_io"
