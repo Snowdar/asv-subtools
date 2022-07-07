@@ -178,7 +178,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] Support [TensorboardX](https://tensorflow.google.cn/tensorboard) in Log System ==*new*==
   + [ ] Plot DET Curve with ```matplotlib``` w.r.t the Format of DETware (Matlab Version) of [NIST's Tools](https://www.nist.gov/itl/iad/mig/tools)
   + [ ] Accumulate Total MACs and Flops of Model Based on ```thop```
-  + [x] Training with AMP (apex or torch1.9)
+  + [x] Training with AMP
 
 ## Ready to Start  
 ### 1. Install Kaldi  
