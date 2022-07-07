@@ -292,7 +292,7 @@ exist_model = " "  # Use it in transfer learning.
 traindata="data/fbank_81/train"
 egs_dir="exp/egs/train" + "_" + sample_type
 
-model_blueprint = "subtools/recipe/model/resnet-se-xvector.py"
+model_blueprint = "subtools/recipe/model/resnet_se_xvector.py"
 model_dir = "exp/SEResnet34_am_train_fbank81"
 ##--------------------------------------------------##
 ##

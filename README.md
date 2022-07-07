@@ -3,11 +3,11 @@
 ASV-Subtools is developed based on [Pytorch](https://pytorch.org/) and [Kaldi](http://www.kaldi-asr.org/) for the task of speaker recognition, language identification, etc.  
 The 'sub' of 'subtools' means that there are many modular tools and the parts constitute the whole. 
 
-> Copyright: [XMU Speech Lab](https://speech.xmu.edu.cn/) (Xiamen University, China)  
+> Copyright: [TalentedSoft-XMU Speech Lab] [XMU Speech Lab](https://speech.xmu.edu.cn/) (Xiamen University, China) [TalentedSoft](http://www.talentedsoft.com/) (TalentedSoft, China)
 > Apache 2.0
 >
-> Author   : Miao Zhao (Email: snowdar@stu.xmu.edu.cn), Jianfeng Zhou, Zheng Li, Hao Lu, Fuchuan Tong, Tao Jiang  
-> Current Maintainer: Fuchuan Tong (Email: 1017549629@qq.com)  
+> Author   : Miao Zhao (Email: snowdar@stu.xmu.edu.cn), Jianfeng Zhou, Zheng Li, Hao Lu, Fuchuan Tong, Dexin Liao, Tao Jiang  
+> Current Maintainer: Tao Jiang (Email: sssyousen@163.com)  
 > Co-author: Lin Li, Qingyang Hong
 
 
@@ -31,6 +31,7 @@ Citation:
     + [Project Structure](#project-structure)
     + [Training Framework](#training-framework)
     + [Data Pipeline](#data-pipeline)
+    + [Update Pipeline](#update-pipeline)
     + [Support List](#support-list)
   * [Ready to Start](#ready-to-start)
     + [1. Install Kaldi](#1-install-kaldi)
@@ -98,6 +99,13 @@ Of course, this data pipeline could be also followed to know the basic principle
 <center><img src="./doc/pytorch-data-pipeline.png" width="600"/></center>
 </br>
 
+### Update Pipeline
+- **20220707**
+  + Online Datasets is implemented (Including online feature extracting, online VAD, online augmentation and online x-vector extracting)
+  + Supporting mixed precision training.
+  + Runtime module for exporting jit model.
+  + Updating some models.
+  + Feature Decomposition and Cosine Similar Adversarial Learning (FD-AL)
 ### Support List
 
 - **Multi-GPU Training Solution**
@@ -106,16 +114,18 @@ Of course, this data pipeline could be also followed to know the basic principle
 
 - **Front-end**
   + [x] [Convenient Augmentation of Reverb, Noise, Music and Babble](./augmentDataByNoise.sh)
-  + [x] Inverted [Specaugment](https://arxiv.org/pdf/1904.08779.pdf) [Note, it is still not available with multi-gpu and you will not get a better result if do it.] ==*new*==
+  + [x] Inverted [Specaugment](https://arxiv.org/pdf/1904.08779.pdf) [Note, it is still not available with multi-gpu and you will not get a better result if do it.]
   + [x] [Mixup](https://arxiv.org/pdf/1710.09412.pdf) [For speaker recognition, see this [paper](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/2250.pdf).]
+  + [x] Online Datasets [Including online feature extracting, online VAD, online augmentation and online xvector extracting, developed by Dexin Liao] 
 
 - **Model**
   + [x] [Standard X-vector](http://www.danielpovey.com/files/2017_interspeech_embeddings.pdf)
   + [x] [Extended X-vector](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8683760)
   + [x] Resnet1d
   + [x] [Resnet2d](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
-  + [x] [F-TDNN X-vector](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf) ==*new*==
-  + [x] [ECAPA X-vector](https://arxiv.org/abs/2005.07143) [[Source codes](https://github.com/lawlict/ECAPA-TDNN) ] ==*new*==
+  + [x] [F-TDNN X-vector](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
+  + [x] [ECAPA X-vector](https://arxiv.org/abs/2005.07143) [[Source codes](https://github.com/lawlict/ECAPA-TDNN) ]
+  + [x] [RepVGG](https://arxiv.org/pdf/2101.03697.pdf) 
 
 - **Component**
   + [x] [Attentive Statistics Pooling](https://arxiv.org/pdf/1803.10963v1.pdf)
@@ -123,7 +133,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [Multi-Head Attention Pooling](https://upcommons.upc.edu/bitstream/handle/2117/178623/2616.pdf?sequence=1&isAllowed=y) [The codes could be found [here](./pytorch/libs/nnet/pooling.py), by Snowdar.]
   + [x] [Global Multi-Head Attention Pooling](https://www.researchgate.net/publication/341085045_Multi-Resolution_Multi-Head_Attention_in_Deep_Speaker_Embedding)
   + [x] [Multi-Resolution Multi-Head Attention Pooling](https://www.researchgate.net/publication/341085045_Multi-Resolution_Multi-Head_Attention_in_Deep_Speaker_Embedding)
-  + [x] [Sequeze and Excitation (SE)](https://arxiv.org/pdf/1709.01507.pdf) [A resnet1d-based SE example of speaker recognition could be found in this [paper](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1704.pdf), by Jianfeng Zhou.]
+  + [x] [Sequeze and Excitation (SE)](https://arxiv.org/pdf/1709.01507.pdf) [A resnet1d-based SE example of speaker recognition could be found in this [paper](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1704.pdf), by Jianfeng Zhou.] [Updating resnet2d-based SE]
   + [x] [Xi-vector embedding](https://ieeexplore.ieee.org/document/9463712), [by [Dr. Kong Aik Lee](https://ieeexplore.ieee.org/author/37293718000).]
 
 - **Loss Function**
@@ -148,9 +158,8 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [Training with Magin Warmup Strategy](https://arxiv.org/pdf/1904.03479.pdf)
   + [x] [Heated Up Strategy](https://arxiv.org/pdf/1809.04157.pdf)
   + [x] [Multi-task Learning with Phonetic Information](http://yiliu.org.cn/papers/Speaker_Embedding_Extraction_with_Phonetic_Information.pdf) (Kaldi) [[Source codes](https://github.com/mycrazycracy/speaker-embedding-with-phonetic-information) was contributed by [Yi Liu](http://yiliu.org.cn/). Thanks.]
-  + [x] [Multi-task Learning with Phonetic Information (Pytorch)](./recipe/ap-olr/runMultiTaskXvector.py) [developed by Zheng Li] ==*new*==
-  + [x] [Feature Decomposition and Cosine Similar Adversarial Learning (FD-AL)](./pytorch/launcher/runEtdnn-FD-AL-trainer.py) [[Reference] (https://doi.org/10.48550/arXiv.2205.14294)] [developed by Fuchuan Tong] ==*new*==
-  + [ ] Generative Adversarial Networks (GAN)
+  + [x] [Multi-task Learning with Phonetic Information (Pytorch)](./recipe/ap-olr/runMultiTaskXvector.py) [developed by Zheng Li]
+  + [x] [Feature Decomposition and Cosine Similar Adversarial Learning (FD-AL)](./pytorch/launcher/runEtdnn-FD-AL-trainer.py) [[Reference] (https://doi.org/10.48550/arXiv.2205.14294)] [developed by Fuchuan Tong] 
 
 - **Back-End**
   + [x] LDA, Submean, Whiten (ZCA), Vector Length Normalization
@@ -161,12 +170,15 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [ ] Calibration
   + [x] Metric: EER, Cavg, minDCF
 
+- **Runtime**
+  + [x] export jit model.(./pytorch/pytorch/pipeline/export_jit_model.sh)
+
 - **Others**
   + [x] [Learning Rate Finder](https://sgugger.github.io/how-do-you-find-a-good-learning-rate.html)
   + [x] Support [TensorboardX](https://tensorflow.google.cn/tensorboard) in Log System ==*new*==
   + [ ] Plot DET Curve with ```matplotlib``` w.r.t the Format of DETware (Matlab Version) of [NIST's Tools](https://www.nist.gov/itl/iad/mig/tools)
   + [ ] Accumulate Total MACs and Flops of Model Based on ```thop```
-  + [ ] Training with AMP (apex or torch1.9)
+  + [x] Training with AMP
 
 ## Ready to Start  
 ### 1. Install Kaldi  
@@ -221,9 +233,19 @@ git clone https://github.com/Snowdar/asv-subtools.git subtools
 ```
 
 ### 4. Install Python Requirements  
-+ Pytorch>=1.2: ```pip3 install torch```
++ Pytorch>=1.10: 
+  ```shell
+  conda create -n subtools python=3.8
+  conda activate subtools
+  conda install pytorch=1.10.0 torchaudio=0.10.0 cudatoolkit=11.1 -c pytorch -c conda-forge
+  ```
 + Other requirements: numpy, thop, pandas, progressbar2, matplotlib, scipy (option), sklearn (option)  
-  ```pip3 install -r requirements.txt```
+    ```shell
+  # progressbar2 needs to install progeressbar first  
+  pip3 install progressbar
+  pip3 install progressbar2
+  pip3 install -r subtools/requirements.txt
+  ```
 
 ### 5. Support Multi-GPU Training  
 ASV-Subtools provide both **DDP (recommended)** and Horovod solutions to support multi-GPU training.
@@ -505,6 +527,20 @@ Here, this is an statistical pooling and Xi-vector embedding benchmark model (im
 |Multi-head|1.76|2.00|3.54|
 |Xi-Vector(∅,𝜎)|1.59|1.90|3.38|
 ---
+
+**New Results of Voxceleb1-O/E/H with Voxceleb2.dev (online random augmentation) Training(EER%)**
+Here, this is a resnet34 benchmark model. And the training script is available in [subtools/pytorch/launcher/runResnetXvector_online.py](./pytorch/launcher/runResnetXvector_online.py). For more details, see it also. (experiments conducted by Dexin Liao) ==2022-07-07==
+|EER%|vox1-O|vox1-O-clean|vox1-E|vox1-E-clean|vox1-H|vox1-H-clean|
+| :--: | :--: | :--: | :--: | :--: | :--: | :--: |
+|Submean|1.071|0.920|1.257|1.135|2.205|2.072|
+|AS-Norm|0.970|0.819|-|-|-|-|
+
+Here, this is a ECAPA benchmark model. And the training script is available in [subtools/pytorch/launcher/runEcapaXvector_online.py](./pytorch/launcher/runEcapaXvector_online.py). For more details, see it also. (experiments conducted by Dexin Liao) ==2022-07-07==
+|EER%|vox1-O|vox1-O-clean|vox1-E|vox1-E-clean|vox1-H|vox1-H-clean|
+| :--: | :--: | :--: | :--: | :--: | :--: | :--: |
+|Submean|1.045|0.904|1.330|1.211|2.430|2.303|
+|AS-Norm|0.991|0.856|-|-|-|-|
+---
 ### [2] OLR Challenge 2020 Baseline Recipe [Language Identification]
 
 OLR Challenge 2020 is closed now.
@@ -532,13 +568,18 @@ For previous challenges (2016-2020), see http://olr.cslt.org.
 
 For more informations, see http://cnceleb.org.
 For any Challenge questions please contact lilt@cslt.org and for any baseline questions contact sssyousen@163.com.
+|Tasks|Trainging|Evaluation|Metrics|
+| :--: | :--: | :--: | :--: |
+|Task1 SV|CN-Celeb.T|CN-Celeb.E|minDCF:0.463 EER:9.141%|
+|Task2 SR|CN-Celeb.T|SR.eval|mAP:0.242|
 
 ---
 
 ## Feedback
 + If you find bugs or have some questions, please create a github issue in this repository to let everyone knows it, so that a good solution could be contributed.
-+ If you want to ask some questions, just send e-mail to 1017549629@qq.com (Fuchuan Tong) or snowdar@stu.xmu.edu.cn (Snowdar) for SRE answers and xmulizheng@stu.xmu.edu.cn for LID answers. In general, we will reply you in our free time.
-+ If you want to join the WeChat group of asv-subtools, please pay attention to the official accounts, XMUSPEECH, and reply "join group" + your institution/university + your name.
++ If you want to ask some questions, just send e-mail to sssyousen@163.com (Tao Jiang) or snowdar@stu.xmu.edu.cn (Snowdar) for SRE answers and wangbling1207@stu.xmu.edu.cn for LID answers. In general, we will reply you in our free time.
++ If you want to join the WeChat group of asv-subtools, you can scan the QR code on the left to follow XMUSPEECH and reply "join group" + your institution/university + your name. In addtion, you can also scan the QR code on the right and the guy will invite you to the chat group.
++ <img src="./doc/xmuspeech.jpg" width="300" height="300"/><img src="./doc/sssyousen_wechat_qr.jpg" width="300" height="300"/>
 
 ## Acknowledgement
 + Thanks to everyone who contribute their time, ideas and codes to ASV-Subtools.

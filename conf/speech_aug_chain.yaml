@@ -1,0 +1,72 @@
+ speechaug:
+    mod: chain  # chain,concat,random
+    aug_classes:
+
+        # -
+        #     aug_name: add_white_noise  # Define the speeech augment name 
+        #     aug_type: Env              # Env or Time 
+        #     reverb_prob: 0.0
+        #     noise_prob: 0.2
+        #     noise_snr_low: 0
+        #     noise_snr_high: 15
+        #     noise_csv: ~
+        #     noise_num_workers: 0
+
+        # -
+        #     aug_name: add_noise
+        #     aug_type: Env
+        #     reverb_prob: 0.0
+        #     noise_prob: 0.4
+        #     noise_snr_low: 5
+        #     noise_snr_high: 15
+        #     noise_csv: exp/aug_csv/musan_music.csv
+        #     noise_num_workers: 0
+
+        -
+            aug_name: add_rev_babble_noise
+            aug_type: Env
+            reverb_prob: 0.6
+            noise_prob: 0.6
+            babble_prob: 0.0
+            babble_speaker_count: 4
+            babble_snr_low: 13
+            babble_snr_high: 20
+            noise_snr_low: 0
+            noise_snr_high: 15
+            noise_csv: exp/aug_csv/combine_music_noise.csv
+            reverb_csv: exp/aug_csv/real_reverb.csv
+            babble_csv: exp/aug_csv/musan_speech.csv
+            babble_noise_max_len: 2.015
+            noise_num_workers: 0
+            rir_scale_factor: 1.0
+
+
+        -
+            aug_name: augment_speed
+            aug_type: Time
+            perturb_prob: 1.0
+            drop_freq_prob: 1.0
+            drop_chunk_prob: 1.0
+            drop_freq_count_low: 0
+            drop_freq_count_high: 3
+            drop_chunk_count_low: 0
+            drop_chunk_count_high: 4
+            drop_chunk_length_low: 1000
+            drop_chunk_length_high: 2000
+            sample_rate: 16000
+            speeds: [95, 100, 105]
+            keep_shape: true
+
+# You can define here for more augment strategy.
+# tail_speechaug:
+#     mod: chain
+#     aug_classes:
+#         - 
+#             aug_name: augment_speed
+#             aug_type: Time
+#             perturb_prob: 1.0
+#             drop_freq_prob: 1.0
+#             drop_chunk_prob: 1.0
+#             sample_rate: 16000
+#             speeds: [95, 100, 105]
+#             keep_shape: true            
