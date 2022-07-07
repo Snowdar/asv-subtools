@@ -568,7 +568,7 @@ For any Challenge questions please contact lilt@cslt.org and for any baseline qu
 + If you find bugs or have some questions, please create a github issue in this repository to let everyone knows it, so that a good solution could be contributed.
 + If you want to ask some questions, just send e-mail to sssyousen@163.com (Tao Jiang) or snowdar@stu.xmu.edu.cn (Snowdar) for SRE answers and xmulizheng@stu.xmu.edu.cn for LID answers. In general, we will reply you in our free time.
 + If you want to join the WeChat group of asv-subtools, you can scan the QR code on the left to follow XMUSPEECH and reply "join group" + your institution/university + your name. In addtion, you can also scan the QR code on the right and the guy will invite you to the chat group.
-+ <img src="./doc/xmupseech.jpg" width="300" height="300"/><img src="./doc/sssyousen_wechat_qr.jpg" width="300" height="300"/>
++ <img src="./doc/xmuspeech.jpg" width="300" height="300"/><img src="./doc/sssyousen_wechat_qr.jpg" width="300" height="300"/>
 
 ## Acknowledgement
 + Thanks to everyone who contribute their time, ideas and codes to ASV-Subtools.
