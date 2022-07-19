@@ -269,7 +269,7 @@ optimizer_params = {
     "weight_decay": 1e-1,
     "lookahead.k": 5,
     # 0 means not using lookahead and if used, suggest to set it as 0.5.
-    "lookahead.alpha": 0.5,
+    "lookahead.alpha": 0,
     "gc": False,  # If true, use gradient centralization.
     "nesterov": False  # for sgd
 }
