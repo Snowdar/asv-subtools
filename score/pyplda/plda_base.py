@@ -315,7 +315,7 @@ class PldaEstimation(object):
         // Do symmetric eigenvalue decomposition between_var_proj = U diag(s) U^T,
         // where U is orthogonal.
         '''
-        s, U = np.linalg.eig(between_var_proj) #返回矩阵Ψ升序的特征值，以及特征值所对应的特征向量
+        s, U = np.linalg.eigh(between_var_proj) #返回矩阵Ψ升序的特征值，以及特征值所对应的特征向量
         assert s.min()>0
         '''
         // The transform U^T will make between_var_proj diagonal with value s
