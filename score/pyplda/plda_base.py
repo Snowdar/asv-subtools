@@ -1,9 +1,9 @@
 # -*- coding:utf-8 -*-
 
 # Copyright xmuspeech (Author: JFZhou 2019-11-18)
-# Updata xmuspeech (Author: Fuchuan Tong 2020-12-31)
+# Update xmuspeech (Author: Fuchuan Tong 2020-12-31)
 
-import scipy
+import scipye
 import numpy as np
 import math
 import os
@@ -196,7 +196,7 @@ class PLDA(object):
         // Do symmetric eigenvalue decomposition between_var_proj = U diag(s) U^T,
         // where U is orthogonal.
         '''
-        s, U = np.linalg.eig(between_var_proj)
+        s, U = np.linalg.eigh(between_var_proj)
         # Sorting the feature values from small to large
         sorted_indices = np.argsort(s)
         U = U[:,sorted_indices[:-len(sorted_indices)-1:-1]]
