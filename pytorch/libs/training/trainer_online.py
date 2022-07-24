@@ -18,7 +18,7 @@ import torch
 from torch.utils.data import DataLoader
 from contextlib import nullcontext
 from .reporter import Reporter_new as Reporter
-from .lr_scheduler_new import LRSchedulerWrapper
+from .lr_scheduler_online import LRSchedulerWrapper
 from .lr_finder import for_lr_finder_new
 
 import libs.support.utils as utils
