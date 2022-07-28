@@ -188,8 +188,8 @@ for set in $(echo $allsets | sed 's/ /\n/g' | sed '/^$/d' | sort -u);do
     errorNum=0
     logNum=0
     [ -d $vectordir/$set/log ] && logNum=$(find $vectordir/$set/log/ -name "extract.*.log" | wc -l)
-    [[ "$logNum" -gt 0 ]] && errorNum=$(grep ERROR $vectordir/$set/log/*.log | wc -l)
-    [[ "$errorNum" -gt 0 ]] && echo "There are some ERRORS in $vectordir/$set/log/*.log and it means you lose many vectors which is so bad thing and I suggest you to extract vectors of this dataset again." && exit 1
+    [[ "$logNum" -gt 0 ]] && errorNum=$(grep ERROR $vectordir/$set/log/extract.*.log | wc -l)
+    [[ "$errorNum" -gt 0 ]] && echo "There are some ERRORS in $vectordir/$set/log/extract.*.log and it means you lose many vectors which is so bad thing and I suggest you to extract vectors of this dataset again." && exit 1
     echo -e "name $set\ndata data/$prefix/$set\ndir $vectordir/$set\ninput $vectortype.scp" > $vectordir/$set/config
 done
 
