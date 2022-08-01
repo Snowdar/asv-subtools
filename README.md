@@ -100,7 +100,7 @@ Of course, this data pipeline could be also followed to know the basic principle
 </br>
 
 ### Update Pipeline
-- **20220707**
+- **[20220707](https://mp.weixin.qq.com/s/L1TJdZdUyE1OruqcNOJy8Q)**
   + Online Datasets is implemented (Including online feature extracting, online VAD, online augmentation and online x-vector extracting)
   + Supporting mixed precision training.
   + Runtime module for exporting jit model.

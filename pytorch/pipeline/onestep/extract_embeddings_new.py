@@ -19,7 +19,7 @@ import libs.support.utils as utils
 import libs.support.kaldi_io as kaldi_io
 import libs.support.kaldi_common as kaldi_common
 
-from libs.egs.egs_new import WavEgsXvector
+from libs.egs.egs_online import WavEgsXvector
 torchaudio_backend = utils.get_torchaudio_backend()
 torchaudio.set_audio_backend(torchaudio_backend)
 # Parse
