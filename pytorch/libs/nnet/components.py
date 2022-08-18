@@ -463,7 +463,7 @@ class ReluBatchNormTdnnfLayer(_BaseActivationBatchNorm):
     def __init__(self, input_dim, output_dim, inner_size, context_size = 0, **options):
         super(ReluBatchNormTdnnfLayer, self).__init__()
 
-        self.affine = TdnnfBlock(input_dim, output_dim, inner_size, context_size)
+        self.affine = FTdnnBlock(input_dim, output_dim, inner_size, context_size)
         self.add_relu_bn(output_dim, options=options)
 
 
