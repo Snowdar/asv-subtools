@@ -116,7 +116,7 @@ if ($dataset eq "test"){
 }
 
 if (system(
-  "utils/utt2spk_to_spk2utt.pl $out_dir/utt2spk >$out_dir/spk2utt") != 0) {
+  "subtools/kaldi/utils/utt2spk_to_spk2utt.pl $out_dir/utt2spk >$out_dir/spk2utt") != 0) {
   die "Error creating spk2utt file in directory $out_dir";
 }
 system("env LC_COLLATE=C utils/fix_data_dir.sh $out_dir");
