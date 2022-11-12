@@ -143,8 +143,6 @@ parser.add_argument("--local_rank", type=int, default=0,
                     help="Do not delete it when using DDP-based multi-GPU training.\n"
                          "It is important for torch.distributed.launch.")
 
-parser.add_argument("--port", type=int, default=29500,
-                    help="This port is used for DDP solution in multi-GPU training.")
 
 args = parser.parse_args()
 ##
@@ -290,7 +288,7 @@ exist_model = ""  # Use it in transfer learning.
 traindata = "data/mfcc_23_pitch/voxceleb1_train_aug"
 egs_dir = "exp/egs/mfcc_23_pitch_voxceleb1_train_aug" + "_" + sample_type
 
-model_blueprint = "subtools/pytorch/model/resnet-xvector.py"
+model_blueprint = "subtools/pytorch/model/resnet_xvector.py"
 model_dir = "exp/standard_voxceleb1"
 ##--------------------------------------------------##
 ##
@@ -302,7 +300,7 @@ utils.set_all_seed(1024)
 #### Init environment
 # It is used for multi-gpu training if used (number of gpu-id > 1).
 # And it will do nothing for single-GPU training.
-utils.init_multi_gpu_training(args.gpu_id, args.multi_gpu_solution, args.port)
+utils.init_multi_gpu_training(args.gpu_id, args.multi_gpu_solution)
 ##
 #### Set sleep time for a rest
 # Use it to run a launcher with a countdown function when there are no extra GPU memory 

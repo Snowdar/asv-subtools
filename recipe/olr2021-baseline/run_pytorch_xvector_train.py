@@ -267,7 +267,7 @@ traindata="data/mfcc_20_5.0/train_aug" #the data_dir where contains feats.scp, u
 # egs_dir="exp/egs/pytorch_xvector_train_volume_sp_ap20-olr" + "_" + sample_type + "_max"
 egs_dir="exp/egs/pytorch_xvector_train"+ sample_type  #
 
-model_blueprint="subtools/pytorch/model/snowdar-xvector.py"
+model_blueprint="subtools/pytorch/model/snowdar_xvector.py"
 model_dir="exp/pytorch_xvector_train"
 ##--------------------------------------------------##
 ##

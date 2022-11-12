@@ -168,7 +168,7 @@ exist_model=""  # Use it in transfer learning.
 traindata="data/mfcc_23_16k/voxceleb1_train"
 egs_dir="egs/mfcc_23_16k/voxceleb1_train"
 
-model_blueprint="subtools/model/factored-xvector.py"
+model_blueprint="subtools/model/factored_xvector.py"
 model_dir="exp/ftdnn_scale_xv_voxceleb1"
 ##--------------------------------------------------##
 ##

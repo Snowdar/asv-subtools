@@ -289,7 +289,7 @@ exist_model=""  # Use it in transfer learning.
 traindata="data/fbank_81/voxceleb2_dev_plus_augx4"
 egs_dir="exp/egs/fbank_81_voxceleb2_dev_plus_augx4" + "/" + sample_type
 
-model_blueprint="subtools/pytorch/model/resnet-xvector.py"
+model_blueprint="subtools/pytorch/model/resnet_xvector.py"
 model_dir="exp/resnet34_fbank_81_benchmark"
 ##--------------------------------------------------##
 ##

@@ -116,8 +116,8 @@ for position in $positions;do
                 fi
             fi
 
-            enroll_cohort_name="$cohort_set/score/${score}_${enrollset}_${cohort_set}${submean_string}${lda_string}_norm${extra_name:+_$extra_name}"
-            test_cohort_name="$cohort_set/score/${score}_${testset}_${cohort_set}${submean_string}${lda_string}_norm${extra_name:+_$extra_name}"
+            enroll_cohort_name="$cohort_set/score/${score}_${enrollset}_${cohort_set}spk_xvector${submean_string}${lda_string}_norm_mean${extra_name:+_$extra_name}"
+            test_cohort_name="$cohort_set/score/${score}_${testset}_${cohort_set}spk_xvector${submean_string}${lda_string}_norm_mean${extra_name:+_$extra_name}"
             output_name="${name}_snorm_$cohort_set"
             [ "${score_norm_method}" == "asnorm" ] && output_name="${name}_asnorm${top_n}_$cohort_set"
 
