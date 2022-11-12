@@ -7,8 +7,8 @@
 # support the case that the project is linked by a symbolic and $PWD contains the symbolic.
 
 current_dir=$(subtools/linux/decode_symbolic_link.sh $PWD)
-# kaldi_root_dir=$(dirname $(dirname $(dirname $current_dir)))
-kaldi_root_dir=/work/kaldi_test
+kaldi_root_dir=$(dirname $(dirname $(dirname $current_dir)))
+
 [ ! -d $kaldi_root_dir/tools ] && echo >&2 "[KALDI_ROOT ERROR] Got an invalid path $kaldi_root_dir when source environment (See the 'Note' in subtools/path.sh to correct it by yourself)." && exit 1
 
 export KALDI_ROOT=$kaldi_root_dir
