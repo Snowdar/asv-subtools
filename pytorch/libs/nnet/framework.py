@@ -20,10 +20,12 @@ def for_extract_embedding(maxChunk=10000, isMatrix=True):
             @input: a 3-dimensional tensor with batch-dim=1 or [frames, feature-dim] matrix for 
                     acoustic features only
             @return: an 1-dimensional vector 
+
             """
             train_status = self.training
-            self.eval()
 
+            self.eval()
+            
             with torch.no_grad():
                 if isMatrix:
                     input = torch.tensor(input)
@@ -33,8 +35,9 @@ def for_extract_embedding(maxChunk=10000, isMatrix=True):
                 input = utils.to_device(self, input)
                 num_frames = input.shape[2]
                 num_split = (num_frames + maxChunk - 1) // maxChunk
+
                 split_size = num_frames // num_split
-                
+
                 offset = 0
                 embedding_stats = 0.
                 for i in range(0, num_split-1):
@@ -53,7 +56,53 @@ def for_extract_embedding(maxChunk=10000, isMatrix=True):
 
         return _wrapper
     return wrapper
+# def for_extract_embedding(maxChunk=10000, isMatrix=True):
+#     """
+#     A decorator for extract_embedding class-function to wrap some common process codes like Kaldi's x-vector extractor.
+#     Used in TopVirtualNnet.
+#     """
+#     def wrapper(function):
+#         def _wrapper(self, input):
+#             """
+#             @input: a 3-dimensional tensor with batch-dim=1 or [frames, feature-dim] matrix for 
+#                     acoustic features only
+#             @return: an 1-dimensional vector 
+#             """
+#             train_status = self.training
+#             self.eval()
 
+#             with torch.no_grad():
+#                 if isMatrix:
+#                     input = torch.tensor(input)
+#                     input = torch.unsqueeze(input, dim = 0)
+#                     input = input.transpose(1,2)
+
+#                 input = utils.to_device(self, input)
+#                 num_frames = input.shape[2]
+#                 num_split = num_frames  // maxChunk
+             
+#                 offset = 0
+#                 embedding_stats = 0.
+#                 for i in range(0, num_split):
+#                     this_embedding = function(self, input[:, :, offset:offset+maxChunk])
+#                     offset += maxChunk
+#                     embedding_stats += maxChunk*this_embedding
+#                 if num_frames-offset>10:
+
+#                     last_embedding = function(self, input[:, :, offset:])
+#                     embedding = (embedding_stats + (num_frames-offset) * last_embedding) / num_frames
+#                 else:
+#                     embedding = embedding_stats / offset
+
+                
+
+#                 if train_status:
+#                     self.train()
+
+#                 return torch.squeeze(embedding.transpose(1,2)).cpu()
+
+#         return _wrapper
+#     return wrapper
 
 # Relation: activation -> components -> loss -> framework
 
@@ -138,6 +187,7 @@ class TopVirtualNnet(torch.nn.Module):
 
         remaining = { utils.key_to_value(self.rename_transform_keys, k, False):v for k,v in state_dict.items() if k.split('.')[0]  \
                      in self.transform_keys or k in self.transform_keys }
+
         self.load_state_dict(remaining, strict=False)
 
         return self

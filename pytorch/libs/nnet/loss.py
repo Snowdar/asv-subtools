@@ -3,7 +3,7 @@
 # Copyright xmuspeech (Author: Snowdar 2019-05-29)
 
 import numpy as np
-
+import math
 import torch
 import torch.nn.functional as F
 
@@ -88,11 +88,11 @@ so, in order to keep codes simple and efficient, do not using 'for' or any other
 class SoftmaxLoss(TopVirtualLoss):
     """ An usual log-softmax loss with affine component.
     """
-    def init(self, input_dim, num_targets, t=1, reduction='mean', special_init=False):
+    def init(self, input_dim, num_targets, t=1, reduction='mean', special_init=False,label_smoothing = 0.0):
         self.affine = TdnnAffine(input_dim, num_targets)
         self.t = t # temperature
         # CrossEntropyLoss() has included the LogSoftmax, so do not add this function extra.
-        self.loss_function = torch.nn.CrossEntropyLoss(reduction=reduction)
+        self.loss_function = torch.nn.CrossEntropyLoss(reduction=reduction,label_smoothing=label_smoothing)
 
         # The special_init is not recommended in this loss component
         if special_init :
@@ -120,12 +120,12 @@ class SoftmaxLoss_frame_phone_fix(TopVirtualLoss):
     #Zheng Li 2021-06-08
     """ An usual log-softmax loss with affine component.
     """
-    def init(self, input_dim, num_targets, t=1, reduction='mean', special_init=False):
+    def init(self, input_dim, num_targets, t=1, reduction='mean', special_init=False,label_smoothing = 0.0):
         self.affine = TdnnAffine(input_dim, num_targets)
         self.t = t # temperature
         self.num_phones = num_targets - 1
         # CrossEntropyLoss() has included the LogSoftmax, so do not add this function extra.
-        self.loss_function = torch.nn.CrossEntropyLoss(reduction=reduction)
+        self.loss_function = torch.nn.CrossEntropyLoss(reduction=reduction,label_smoothing=label_smoothing)
 
         # The special_init is not recommended in this loss component
         if special_init :
@@ -187,6 +187,7 @@ class FocalLoss(TopVirtualLoss):
         return self.loss_function(outputs, targets)
 
 
+
 class MarginSoftmaxLoss(TopVirtualLoss):
     """Margin softmax loss.
     There are AM, AAM, Double-AM, SM1 (Snowdar Margin softmax loss), SM2 and SM3. 
@@ -225,12 +226,13 @@ class MarginSoftmaxLoss(TopVirtualLoss):
              inter_loss=0.,
              ring_loss=0.,
              curricular=False,
-             reduction='mean', eps=1.0e-10, init=True):
+             reduction='mean', eps=1.0e-10, scale_init=False,label_smoothing = 0.0):
 
         self.input_dim = input_dim
         self.num_targets = num_targets
         self.weight = torch.nn.Parameter(torch.randn(num_targets, input_dim, 1))
         self.s = s # scale factor with feature normalization
+        self.init_m = m
         self.m = m # margin
         self.t = t # temperature
         self.feature_normalize = feature_normalize
@@ -241,8 +243,7 @@ class MarginSoftmaxLoss(TopVirtualLoss):
         self.mhe_w = mhe_w
         self.inter_loss = inter_loss
         self.ring_loss = ring_loss
-        self.lambda_factor = 0
-
+        self.lambda_m = 1
         self.curricular = CurricularMarginComponent() if curricular else None
 
         if self.ring_loss > 0:
@@ -260,112 +261,207 @@ class MarginSoftmaxLoss(TopVirtualLoss):
                 There are some suggested s : {suggested_s} w.r.t p_target {p_target}.".format(
                 s=self.s, suggested_s=suggested_s, p_target=p_target))
 
-        self.loss_function = torch.nn.CrossEntropyLoss(reduction=reduction)
-
+        self.loss_function = torch.nn.CrossEntropyLoss(reduction=reduction,label_smoothing = label_smoothing)
+        self.weight_scale =None
+        self.scale_init=scale_init
         # Init weight.
-        if init:
+        if scale_init:
+            initial_scale = torch.tensor(1.0).log()
+            self.weight_scale = torch.nn.Parameter(initial_scale.clone().detach())
+            std = 0.1
+            a = (3 ** 0.5) * std
+            torch.nn.init.uniform_(self.weight, -a, a)
+            fan_in = self.weight.shape[1] *self.weight[0][0].numel()
+            scale = fan_in ** -0.5  # 1/sqrt(fan_in)
+            with torch.no_grad():
+                self.weight_scale += torch.tensor(scale / std).log()
+
+        else:
              # torch.nn.init.xavier_normal_(self.weight, gain=1.0)
             torch.nn.init.normal_(self.weight, 0., 0.01) # It seems better.
 
+    def get_weight(self):
+        if self.scale_init:
+            return self.weight * self.weight_scale.exp()
+        else:
+            return self.weight
     def forward(self, inputs, targets):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
         assert len(inputs.shape) == 3
         assert inputs.shape[2] == 1
-
+        # with torch.cuda.amp.autocast(enabled=False):
         ## Normalize
+
         normalized_x = F.normalize(inputs.squeeze(dim=2), dim=1) # [512, 512] [batch_size, output_dim]
-        normalized_weight = F.normalize(self.weight.squeeze(dim=2), dim=1) # [1000, 512] [target_num, output_dim]
-        cosine_theta = F.linear(normalized_x, normalized_weight) # Y = W*X
+        normalized_weight = F.normalize(self.get_weight().squeeze(dim=2), dim=1) # [1000, 512] [target_num, output_dim]
 
-        if not self.feature_normalize :
-            self.s = inputs.norm(2, dim=1) # [batch-size, l2-norm]
-            # The accuracy must be reported before margin penalty added
-            self.posterior = (self.s.detach() * cosine_theta.detach()).unsqueeze(2) 
-        else:
-            self.posterior = (self.s * cosine_theta.detach()).unsqueeze(2)
+        with torch.cuda.amp.autocast(enabled=False):
+            cosine_theta = F.linear(normalized_x, normalized_weight) # Y = W*X
 
-        if not self.training:
-            # For valid set.
-            outputs = self.s * cosine_theta
-            return self.loss_function(outputs, targets)
+            if not self.feature_normalize :
+                self.s = inputs.norm(2, dim=1) # [batch-size, l2-norm]
+                # The accuracy must be reported before margin penalty added
+                self.posterior = (self.s.detach() * cosine_theta.detach()).unsqueeze(2) 
+            else:
+                self.posterior = (self.s * cosine_theta.detach()).unsqueeze(2)
 
-        ## Margin Penalty
-        # cosine_theta [batch_size, num_class]
-        # targets.unsqueeze(1) [batch_size, 1]
-        cosine_theta_target = cosine_theta.gather(1, targets.unsqueeze(1))
+            if not self.training:
+                # For valid set.
+                outputs = self.s * cosine_theta
+                return self.loss_function(outputs, targets)
 
-        if self.inter_loss > 0:
-            inter_cosine_theta = torch.softmax(self.s * cosine_theta, dim=1)
-            inter_cosine_theta_target = inter_cosine_theta.gather(1, targets.unsqueeze(1))
-            inter_loss = torch.log((inter_cosine_theta.sum(dim=1) - inter_cosine_theta_target)/(self.num_targets - 1) + self.eps).mean()
+            ## Margin Penalty
+            # cosine_theta [batch_size, num_class]
+            # targets.unsqueeze(1) [batch_size, 1]
+            cosine_theta_target = cosine_theta.gather(1, targets.unsqueeze(1))
 
-        if self.method == "am":
-            penalty_cosine_theta = cosine_theta_target - self.m
+            if self.inter_loss > 0:
+                inter_cosine_theta = torch.softmax(self.s * cosine_theta, dim=1)
+                inter_cosine_theta_target = inter_cosine_theta.gather(1, targets.unsqueeze(1))
+                inter_loss = torch.log((inter_cosine_theta.sum(dim=1) - inter_cosine_theta_target)/(self.num_targets - 1) + self.eps).mean()
+
+            if self.method == "am":
+                penalty_cosine_theta = cosine_theta_target - self.m
+                if self.double:
+                    double_cosine_theta = cosine_theta + self.m
+            elif self.method == "aam":
+                # Another implementation w.r.t cosine(theta+m) = cosine_theta * cos_m - sin_theta * sin_m
+                # penalty_cosine_theta = self.cos_m * cosine_theta_target - self.sin_m * torch.sqrt((1-cosine_theta_target**2).clamp(min=0.))
+                penalty_cosine_theta = torch.cos(torch.acos(cosine_theta_target) + self.m)
+                if self.double:
+                    double_cosine_theta = torch.cos(torch.acos(cosine_theta).add(-self.m))
+            elif self.method == "sm1":
+                # penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target) * self.m
+                penalty_cosine_theta = (1 + self.m) * cosine_theta_target - self.m
+            elif self.method == "sm2":
+                penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target**2) * self.m
+            elif self.method == "sm3":
+                penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target)**2 * self.m
+            else:
+                raise ValueError("Do not support this {0} margin w.r.t [ am | aam | sm1 | sm2 | sm3 ]".format(self.method))
+
+            penalty_cosine_theta = self.lambda_m * penalty_cosine_theta + \
+                                (1 - self.lambda_m) * cosine_theta_target
+
             if self.double:
-                double_cosine_theta = cosine_theta + self.m
-        elif self.method == "aam":
-            # Another implementation w.r.t cosine(theta+m) = cosine_theta * cos_m - sin_theta * sin_m
-            # penalty_cosine_theta = self.cos_m * cosine_theta_target - self.sin_m * torch.sqrt((1-cosine_theta_target**2).clamp(min=0.))
-            penalty_cosine_theta = torch.cos(torch.acos(cosine_theta_target) + self.m)
-            if self.double:
-                double_cosine_theta = torch.cos(torch.acos(cosine_theta).add(-self.m))
-        elif self.method == "sm1":
-            # penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target) * self.m
-            penalty_cosine_theta = (1 + self.m) * cosine_theta_target - self.m
-        elif self.method == "sm2":
-            penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target**2) * self.m
-        elif self.method == "sm3":
-            penalty_cosine_theta = cosine_theta_target - (1 - cosine_theta_target)**2 * self.m
-        else:
-            raise ValueError("Do not support this {0} margin w.r.t [ am | aam | sm1 | sm2 | sm3 ]".format(self.method))
+                cosine_theta = self.lambda_m * double_cosine_theta + (1 - self.lambda_m) * cosine_theta
 
-        penalty_cosine_theta = 1 / (1 + self.lambda_factor) * penalty_cosine_theta + \
-                               self.lambda_factor / (1 + self.lambda_factor) * cosine_theta_target
+            if self.curricular is not None:
+                cosine_theta = self.curricular(cosine_theta, cosine_theta_target, penalty_cosine_theta)
 
-        if self.double:
-            cosine_theta = 1/(1+self.lambda_factor) * double_cosine_theta + self.lambda_factor/(1+self.lambda_factor) * cosine_theta
+            # cosine_theta = cosine_theta.float()
+            # penalty_cosine_theta = penalty_cosine_theta.float()
 
-        if self.curricular is not None:
-            cosine_theta = self.curricular(cosine_theta, cosine_theta_target, penalty_cosine_theta)
+            outputs = self.s * cosine_theta.scatter(1, targets.unsqueeze(1), penalty_cosine_theta)
 
-        outputs = self.s * cosine_theta.scatter(1, targets.unsqueeze(1), penalty_cosine_theta)
+            ## Other extra loss
+            # Final reported loss will be always higher than softmax loss for the absolute margin penalty and 
+            # it is a lie about why we can not decrease the loss to a mininum value. We should not report the 
+            # loss after margin penalty did but we really report this invalid loss to avoid computing the 
+            # training loss twice.
 
-        ## Other extra loss
-        # Final reported loss will be always higher than softmax loss for the absolute margin penalty and 
-        # it is a lie about why we can not decrease the loss to a mininum value. We should not report the 
-        # loss after margin penalty did but we really report this invalid loss to avoid computing the 
-        # training loss twice.
+            if self.ring_loss > 0:
+                ring_loss = torch.mean((self.s - self.r)**2)/2
+            else:
+                ring_loss = 0.
 
-        if self.ring_loss > 0:
-            ring_loss = torch.mean((self.s - self.r)**2)/2
-        else:
-            ring_loss = 0.
+            if self.mhe_loss:
+                sub_weight = normalized_weight - torch.index_select(normalized_weight, 0, targets).unsqueeze(dim=1)
+                # [N, C]
+                normed_sub_weight = sub_weight.norm(2, dim=2)
+                mask = torch.full_like(normed_sub_weight, True, dtype=torch.bool).scatter_(1, targets.unsqueeze(dim=1), False)
+                # [N, C-1]
+                normed_sub_weight_clean = torch.masked_select(normed_sub_weight, mask).reshape(targets.size()[0], -1)
+                # torch.mean means 1/(N*(C-1))
+                the_mhe_loss = self.mhe_w * torch.mean((normed_sub_weight_clean**2).clamp(min=self.eps)**-1)
 
-        if self.mhe_loss:
-            sub_weight = normalized_weight - torch.index_select(normalized_weight, 0, targets).unsqueeze(dim=1)
-            # [N, C]
-            normed_sub_weight = sub_weight.norm(2, dim=2)
-            mask = torch.full_like(normed_sub_weight, True, dtype=torch.bool).scatter_(1, targets.unsqueeze(dim=1), False)
-            # [N, C-1]
-            normed_sub_weight_clean = torch.masked_select(normed_sub_weight, mask).reshape(targets.size()[0], -1)
-            # torch.mean means 1/(N*(C-1))
-            the_mhe_loss = self.mhe_w * torch.mean((normed_sub_weight_clean**2).clamp(min=self.eps)**-1)
-
-            return self.loss_function(outputs/self.t, targets) + the_mhe_loss + self.ring_loss * ring_loss
-        elif self.inter_loss > 0:
-            return self.loss_function(outputs/self.t, targets) + self.inter_loss * inter_loss + self.ring_loss * ring_loss
-        else:
-            return self.loss_function(outputs/self.t, targets) + self.ring_loss * ring_loss
+                return self.loss_function(outputs/self.t, targets) + the_mhe_loss + self.ring_loss * ring_loss
+            elif self.inter_loss > 0:
+                return self.loss_function(outputs/self.t, targets) + self.inter_loss * inter_loss + self.ring_loss * ring_loss
+            else:
+                return self.loss_function(outputs/self.t, targets) + self.ring_loss * ring_loss
     
-    def step(self, lambda_factor):
-        self.lambda_factor = lambda_factor
+    def step(self, lambda_m, add_margin=None):
+        self.lambda_m = lambda_m 
+        if add_margin is not None:
+            self.m = max(0,self.init_m+add_margin)
+
 
     def extra_repr(self):
         return '(~affine): (input_dim={input_dim}, num_targets={num_targets}, method={method}, double={double}, ' \
                'margin={m}, s={s}, t={t}, feature_normalize={feature_normalize}, mhe_loss={mhe_loss}, mhe_w={mhe_w}, ' \
-               'eps={eps})'.format(**self.__dict__)
+               'eps={eps}, scale_init={scale_init})'.format(**self.__dict__)
+
+
+#  Leo 2022-11-08
+class MarginWarm(torch.nn.Module):
+    def __init__(self,                 
+                 start_epoch,
+                 end_epoch,                 
+                 offset_margin = 0.0,
+                 init_lambda  = 1.0,
+                 epoch_iter=None):
+        '''
+        between start_epoch and end_epoch, the offset_margin is
+        exponentially increasing from offset_margin (usually negative) to 0.
+        And the lambda_t is linearly increasing from init_lambda to 1.
+        It is designed to control the margin_softmaxloss through `margin + offset_margin` and 
+        `penalty_cosine_theta = lambda * penalty_cosine_theta + (1 - lambda) * cosine_theta_target`
+        '''
+        super().__init__()
+        if end_epoch < start_epoch:
+            raise  ValueError("End_epoch should not smaller then start_epoch, but got end_epoch: {}, start_epoch:{}"
+                             .format(end_epoch,start_epoch))
+        assert abs(init_lambda - 0.5)<=0.5,"init_lambda should be in [0, 1]"              
+        self.start_epoch = start_epoch
+        self.end_epoch = end_epoch
+        self.offset_margin = offset_margin
+        self.init_lambda = init_lambda
+        self.epoch_iter = epoch_iter
+        if epoch_iter:
+            self.update_step_range(epoch_iter)
+
+
+    def update_step_range(self,epoch_iter,overwrite=False):
+        if not overwrite and self.epoch_iter:
+            raise ValueError("epoch_iter has been set as {}, but overwrite = {} now".format(self.epoch_iter,overwrite))
+        else:
+            self.epoch_iter = epoch_iter
+        self.increase_start_iter = (self.start_epoch - 1) * epoch_iter
+        self.fix_start_iter = (self.end_epoch - 1) * epoch_iter
+        self.step_range = self.fix_start_iter - self.increase_start_iter
+
+    def get_increase_margin(self, cur_step):
+        initial_val = 1.0
+        final_val = 1e-3
+
+        cur_pos = cur_step - self.increase_start_iter
+
+        ratio = math.exp(
+            (cur_pos / self.step_range) *
+            math.log(final_val / (initial_val + 1e-6))) * initial_val
+        offset_margin = self.offset_margin * ratio
+        lambda_t =  self.init_lambda + (cur_pos / self.step_range) * (1-self.init_lambda)
+
+        return offset_margin, lambda_t
+
+    def step(self, cur_step):
+        if self.epoch_iter<0 or not isinstance(self.epoch_iter, int):
+            raise  ValueError("MarginWarm expected positive integer epoch_iter, but got {}"
+                             .format(self.epoch_iter))
+        if cur_step >= self.fix_start_iter:
+            return 0,1
+        elif cur_step > self.increase_start_iter:
+            return self.get_increase_margin(cur_step)
+        else:
+            return self.offset_margin,self.init_lambda
+
+    def extra_repr(self):
+        return 'start_epoch={start_epoch}, end_epoch={end_epoch}, epoch_iter={epoch_iter}, ' \
+               'offset_margin={offset_margin} init_lambda={init_lambda})'.format(**self.__dict__)
+
 
 
 class CurricularMarginComponent(torch.nn.Module):

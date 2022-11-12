@@ -14,6 +14,7 @@ de_silence=false
 amp_th=100
 use_gpu=false
 gpu_id=""
+max_chunk=10000
 force=false
 sleep_time=3
 feat_config=config/feat_conf.yaml
@@ -87,8 +88,8 @@ if [ $stage -le 1 ]; then
         pids=""
         for g in $(seq $nj); do
           $cmd --gpu 1 ${dir}/log/extract.$g.log \
-            python3 subtools/pytorch/pipeline/onestep/extract_embeddings_new.py --use-gpu=$use_gpu --gpu-id="$gpu_id" \
-                    --data-type=$data_type --de-silence=$de_silence --amp-th=$amp_th \
+            python3 subtools/pytorch/pipeline/onestep/extract_embeddings_online.py --use-gpu=$use_gpu --gpu-id="$gpu_id" \
+                    --data-type=$data_type --de-silence=$de_silence --amp-th=$amp_th --max-chunk=$max_chunk \
                     --feat-config=$srcdir/$feat_config --nnet-config=$srcdir/$nnet_config \
                     "$srcdir/$model" "`echo $wavs | sed s/JOB/$g/g`" "`echo $output | sed s/JOB/$g/g`" || exit 1 &
           sleep $sleep_time
@@ -98,8 +99,8 @@ if [ $stage -le 1 ]; then
       wait
       else
       $cmd JOB=1:$nj ${dir}/log/extract.JOB.log \
-          python3 subtools/pytorch/pipeline/onestep/extract_embeddings_new.py --use-gpu="false" \
-                  --data-type=$data_type --de-silence=$de_silence --amp-th=$amp_th \
+          python3 subtools/pytorch/pipeline/onestep/extract_embeddings_online.py --use-gpu="false" \
+                  --data-type=$data_type --de-silence=$de_silence --amp-th=$amp_th --max-chunk=$max_chunk \
                   --feat-config=$srcdir/$feat_config --nnet-config=$srcdir/$nnet_config \
                   "$srcdir/$model" "$wavs" "$output" || exit 1;
       fi

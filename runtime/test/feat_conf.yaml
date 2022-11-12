@@ -1,0 +1,14 @@
+feature_type: fbank
+kaldi_featset:
+  dither: 0.0
+  energy_floor: 0.0
+  frame_length: 25
+  frame_shift: 10
+  high_freq: -200
+  low_freq: 40
+  num_mel_bins: 80
+  use_energy: false
+mean_var_conf:
+  mean_norm: true
+  std_norm: false
+
