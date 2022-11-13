@@ -20,6 +20,7 @@ import libs.egs.egs_online as egs
 import libs.training.optim as optim
 import libs.training.lr_scheduler_online as learn_rate_scheduler
 import libs.training.trainer_online as trainer
+import libs.training.trainer_online_sam as trainer_sam
 import libs.support.kaldi_common as kaldi_common
 import libs.support.utils as utils
 from  libs.support.logging_stdout import patch_logging_stream
@@ -32,6 +33,10 @@ from  libs.support.logging_stdout import patch_logging_stream
 Python version is gived (rather than Shell) to have more freedom, such as decreasing limitation of parameters that transfering 
 them to python from shell.
 
+
+Note, this launcher does not contain dataset preparation, augmentation, and back-end scoring etc.
+    1.See subtools/recipe/voxcelebSRC/runVoxceleb_online.sh to get complete stages.
+    2.An on-the-fly feature extraction mod.
 
 How to modify this launcher:
     1.Prepare your kaldi format dataset and model.py (model blueprint);
@@ -93,8 +98,9 @@ parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
         conflict_handler='resolve')
 
-parser.add_argument("--stage", type=int, default=0,
-                    help="The stage to control the start of training epoch (default 4).\n"
+
+parser.add_argument("--stage", type=int, default=3,
+                    help="The stage to control the start of training epoch (default 3).\n"
                          "    stage 0: Generate raw wav kaldidir which contains utt2chunk and utt2dur. (preprocess_raw_wav_egs.sh).\n"
                          "    stage 1: remove utts (preprocess_raw_wav_egs.sh).\n"
                          "    stage 2.1: get chunk egs (preprocess_raw_wav_egs.sh).\n"
@@ -103,7 +109,7 @@ parser.add_argument("--stage", type=int, default=0,
                          "    stage 4: extract xvector.")
 
 parser.add_argument("--endstage", type=int, default=4,
-                    help="The endstage to control the endstart of training epoch (default 5).")
+                    help="The endstage to control the endstart of training epoch (default 4).")
 
 parser.add_argument("--train-stage", type=int, default=-1,
                     help="The stage to control the start of training epoch (default -1).\n"
@@ -260,6 +266,8 @@ model_params = {
 
     "use_step":True,
     "step_params":{
+            "margin_warm":False,
+            "margin_warm_conf":{"start_epoch":1,"end_epoch":1,"offset_margin":-0.0,"init_lambda":1.0},
             "T":None,
             "m":True, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
             "s":False, "s_tuple":(30, 12), "s_list":None,
@@ -278,7 +286,14 @@ optimizer_params = {
     "lookahead.k":5,
     "lookahead.alpha":0.,  # 0 means not using lookahead and if used, suggest to set it as 0.5.
     "gc":False, # If true, use gradient centralization.
-    "nesterov": False  # for sgd
+    "nesterov": False,  # for sgd
+    "sam": False,       # suggest true when apply ASR transferring.
+    "sam.rho": 2.0,     # 2.0 for adaptive
+    "sam.adaptive": True,
+    # "custwd_dict":{
+    #     "train_len":0,
+        # "bias":0
+    # }
 }
 
 lr_scheduler_params = {
@@ -301,7 +316,7 @@ lr_scheduler_params = {
 epochs = 50 # Total epochs to train. It is important. Here 18 = 6 -> 12 -> 18 with warmR.T_mult=1 and warmR.T_max=6.
 
 compute_batch_num_valid = 10
-report_interval_iters = 100 # About validation computation and loss reporting. If report_times_every_epoch is not None, 
+report_interval_iters = 500 # About validation computation and loss reporting. If report_times_every_epoch is not None, 
                             # then compute report_interval_iters by report_times_every_epoch.
 stop_early = False
 suffix = "params" # Used in saved model file.
@@ -395,8 +410,22 @@ if stage <= 3 <= endstage:
     # It will change nothing for single-GPU training.
     model = utils.convert_synchronized_batchnorm(model)
 
-
-    if utils.is_main_training():logger.info("Define optimizer and lr_scheduler.")
+    epoch_iters = (info['epoch_iters']//accum_grad)
+    if hasattr(model,'margin_warm'):
+        model.margin_warm.update_step_range(epoch_iters)
+        
+    if utils.is_main_training():
+        print(model)
+        p1=sum(p.numel() for p in model.parameters())
+        script_model = copy.deepcopy(model)
+        script_model.loss=None
+        p2 = sum(p.numel() for p in script_model.parameters())
+        logger.info("model params w/o proj layer: {} / {} .".format(p1,p2))
+        script_model = torch.jit.script(script_model)
+        script_model.save(os.path.join(model_dir, 'init.zip'))
+        logger.info("The number of steps per epoch is about {}.".format(epoch_iters))        
+        logger.info("Define optimizer and lr_scheduler.")
+        del script_model
     optimizer = optim.get_optimizer(model, optimizer_params)
     lr_scheduler = learn_rate_scheduler.LRSchedulerWrapper(optimizer, lr_scheduler_params)
 
@@ -404,9 +433,10 @@ if stage <= 3 <= endstage:
     # Record params to model_dir
 
 
-    if utils.is_main_training():utils.write_list_to_file([egs_params, model_params, optimizer_params, 
-                              lr_scheduler_params], model_dir+'/config/params.dict')
 
+    if utils.is_main_training():
+        utils.write_list_to_file([egs_params, model_params, optimizer_params,
+                                  lr_scheduler_params], model_dir+'/config/params.dict',yml=True)
 
     if utils.is_main_training():logger.info("Init a simple trainer.")
     # Package(Elements:dict, Params:dict}. It is a key parameter's package to trainer and model_dir/config/.
@@ -416,13 +446,16 @@ if stage <= 3 <= endstage:
             "skip_nan_batch":skip_nan_batch, "benchmark":benchmark, "suffix":suffix, "compute_batch_num_valid":compute_batch_num_valid,
             "report_interval_iters":report_interval_iters, "record_file":"train.csv"})
 
-    trainer = trainer.SimpleTrainer(package)
+    train_exec = trainer_sam if isinstance(optimizer,optim.SAM) else trainer
+
+    execuer = train_exec.SimpleTrainer(package)
 
     if run_lr_finder:
-        trainer.run_lr_finder("lr_finder.csv", init_lr=1e-8, final_lr=10., num_iters=2000, beta=0.98)
+        execuer.run_lr_finder("lr_finder.csv", init_lr=1e-8, final_lr=10., num_iters=2000, beta=0.98)
         endstage = 3 # Do not start extractor.
     else:
-        trainer.run()
+        execuer.run()
+
 
     # Plan to use del to avoid memeory account after training done and continue to execute stage 4.
     # But it dose not work and is still a problem.
@@ -449,7 +482,7 @@ if stage <= 4 <= endstage and utils.is_main_training():
     gpu_id = ""
     sleep_time = 10
     feat_config="feat_conf.yaml"
-
+    max_chunk = 10000
 
     # Run a batch extracting process.
     try:
@@ -485,12 +518,12 @@ if stage <= 4 <= endstage and utils.is_main_training():
                     # with python's threads to extract xvectors directly, but the shell script is more convenient.
                     kaldi_common.execute_command("bash subtools/pytorch/pipeline/extract_xvectors_for_pytorch_new.sh "
                                                 " --model {model_file} --nj {nj} --use-gpu {use_gpu} --gpu-id '{gpu_id}' "
-                                                " --data-type '{data_type}' --de-silence {de_silence}  --amp-th {amp_th}"
+                                                " --data-type '{data_type}' --de-silence {de_silence}  --amp-th {amp_th} --max-chunk {max_chunk} "
                                                 " --force {force} --nnet-config config/{extract_config} --feat-config config/{feat_config} "
                                                 "{model_dir} {datadir} {outdir}".format(model_file=model_file, nj=nj,
                                                 use_gpu=str(use_gpu).lower(), gpu_id=gpu_id, force=str(force).lower(), extract_config=extract_config,
                                                 feat_config=feat_config,data_type=data_type_emb,de_silence=str(de_silence).lower(),amp_th=amp_th,
-                                                model_dir=model_dir, datadir=datadir, outdir=outdir))
+                                                max_chunk=max_chunk, model_dir=model_dir, datadir=datadir, outdir=outdir))
     except BaseException as e:
         if not isinstance(e, KeyboardInterrupt):
             traceback.print_exc()

@@ -3,9 +3,8 @@
 # Copyright xmuspeech (Author: Snowdar 2020-02-21)
 
 
-__all__ = ["TransformerEncoder", "repeat", "MultiSequential", "MultiHeadedAttention", "LayerNorm"]
+__all__ = ["TransformerEncoder", "ConformerEncoder", "MultiHeadedAttention", "LayerNorm","ReConformerEncoder"]
 
-from .repeat import *
 from .attention import *
 from .layer_norm import *
-from .TransformerEncoder import *
+from .encoder import *

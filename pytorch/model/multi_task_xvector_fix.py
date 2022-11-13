@@ -323,7 +323,8 @@ class Xvector(TopVirtualNnet):
                 current_postion = epoch*epoch_batchs + this_iter
                 lambda_factor = max(self.step_params["lambda_0"], 
                                  self.step_params["lambda_b"]*(1+self.step_params["gamma"]*current_postion)**(-self.step_params["alpha"]))
-                self.loss_spk.step(lambda_factor)
+                lambda_m = 1/(1 + lambda_factor)
+                self.loss_spk.step(lambda_m)
 
             if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
                 T_cur, T_i = self.get_warmR_T(*self.step_params["T"], epoch)
@@ -346,7 +347,8 @@ class Xvector(TopVirtualNnet):
             if self.step_params["m"]:
                 lambda_factor = max(self.step_params["lambda_0"],
                                  self.step_params["lambda_b"]*(1+self.step_params["gamma"]*cur_step)**(-self.step_params["alpha"]))
-                self.loss.step(lambda_factor)
+                lambda_m = 1/(1 + lambda_factor)
+                self.loss_spk.step(lambda_m)
 
             if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
                 T_cur, T_i = self.get_warmR_T(*self.step_params["T"], cur_step)

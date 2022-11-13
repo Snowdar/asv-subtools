@@ -225,9 +225,14 @@ def prepare_aug_csv(items, csv_file, max_length=None):
                 os.remove(filename)
                 for i in range(int(duration / max_length)):
                     start = int(max_length * i * rate)
-                    stop = int(
-                        min(max_length * (i + 1), duration) * rate
-                    )
+                    if i == int(duration / max_length) -1:                        
+                        stop = int(
+                            duration * rate
+                        )
+                    else:
+                        stop = int(
+                            max_length * (i + 1) * rate
+                        )                        
                     new_filename = (
                         filename[: -len(f".{ext}")] + f"_{i}.{ext}"
                     )
@@ -264,17 +269,17 @@ if __name__ == '__main__':
         conflict_handler='resolve')
 
     # Options
-    parser.add_argument("--openrir-folder", type=str, default='/tsdata/ASR',
+    parser.add_argument("--openrir-folder", type=str, default='/data',
                     help="where has openslr rir.")
 
-    parser.add_argument("--musan-folder", type=str, default='/tsdata/ASR',
+    parser.add_argument("--musan-folder", type=str, default='/data',
                     help="where has openslr musan.")
-    parser.add_argument("--savewav-folder", type=str, default='/work1/ldx/speech_aug_2_new',
+    parser.add_argument("--savewav-folder", type=str, default='/export/yourpath/speech_aug_6',
                     help="noise clips for online speechaug, set it in SSD.")
     parser.add_argument("--force-clear", type=str, action=kaldi_common.StrToBoolAction,
                     default=True, choices=["true", "false"],
                     help="force clear")
-    parser.add_argument("--max-noise-len", type=float, default=2.015,
+    parser.add_argument("--max-noise-len", type=float, default=6.015,
                     help="the maximum noise length in seconds. Noises longer than this will be cut into pieces")
     parser.add_argument("csv_aug_folder", type=str, help="csv file folder.")
 
