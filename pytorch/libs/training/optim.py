@@ -33,12 +33,17 @@ def get_optimizer(model, params:dict={}):
         "beta2":0.999,
         "beta3":0.999,
         "weight_decay":1e-4,
+        "nesterov": False,
         "lookahead.k":5,
         "lookahead.alpha":0.,
-        "gc":False
+        "gc":False,
+        "sam": False,
+        "sam.rho": 0.05,
+        "sam.adaptive": False,
+        "custwd_dict":{}
     }
 
-    used_params = utils.assign_params_dict(default_params, params)
+    used_params = utils.assign_params_dict(default_params, params, support_unknow=True)
 
     # Base params
     name = used_params["name"]
@@ -48,9 +53,9 @@ def get_optimizer(model, params:dict={}):
     beta3 = used_params["beta3"]
     weight_decay = used_params["weight_decay"]
     gc = used_params["gc"]
-
+    nesterov = used_params['nesterov']
     extra_params = {}
-
+    custwd_dict = used_params["custwd_dict"]
     # Gradient centralization: 
     # Yong, H., Huang, J., Hua, X., & Zhang, L. (2020). Gradient Centralization: 
     #     A New Optimization Technique for Deep Neural Networks. arXiv e-prints, arXiv:2004.01461. 
@@ -64,24 +69,37 @@ def get_optimizer(model, params:dict={}):
             raise TypeError("Optimizer {} does not support gradient centralization (GC) now.".format(name))
 
         extra_params["gc"] = True
+    params = []
 
+    for key, value in model.named_parameters():
+        if not value.requires_grad:
+            continue
+        apply_weight_decay = weight_decay
+        for k,v in custwd_dict.items():
+            if k in key:
+                apply_weight_decay = v
+
+        params += [{'params': [value], 'weight_decay': apply_weight_decay}]
+      
     # Select optimizer
     if name == "sgd":
-        base_optimizer = optim.SGD(model.parameters(), lr=learn_rate, momentum=beta1, weight_decay=weight_decay)
+        base_optimizer = optim.SGD(params, lr=learn_rate, momentum=beta1, weight_decay=weight_decay,nesterov=nesterov)
     elif name == "sgdW":
-        base_optimizer = SGDW(model.parameters(), lr=learn_rate, momentum=beta1, weight_decay=weight_decay)
+        base_optimizer = SGDW(params, lr=learn_rate, momentum=beta1, weight_decay=weight_decay,nesterov=nesterov)
     elif name == "adam":
-        base_optimizer = optim.Adam(model.parameters(), lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
+        base_optimizer = optim.Adam(params, lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
     elif name == "adamW":
-        base_optimizer = AdamW(model.parameters(), lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay, **extra_params)
+        base_optimizer = AdamW(params, lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay, **extra_params)
     elif name == "radam":
-        base_optimizer = RAdam(model.parameters(), lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
+        base_optimizer = optim.RAdam(params, lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
     elif name == "ralamb":
-        base_optimizer = Ralamb(model.parameters(), lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay, **extra_params)
+        base_optimizer = Ralamb(params, lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay, **extra_params)
     elif name == "adamod":
-        base_optimizer = AdaMod(model.parameters(), lr=learn_rate, betas=(beta1, beta2), beta3=beta3, weight_decay=weight_decay)
+        base_optimizer = AdaMod(params, lr=learn_rate, betas=(beta1, beta2), beta3=beta3, weight_decay=weight_decay)
     elif name == "novograd":
-        base_optimizer = Novograd(model.parameters(), lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
+        base_optimizer = Novograd(params, lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
+    elif name == "eve":
+        base_optimizer = Eve(params, lr=learn_rate, betas=(beta1, beta2), weight_decay=weight_decay)
     else:
         raise ValueError("Do not support {0} optimizer now.".format(name))
 
@@ -92,7 +110,14 @@ def get_optimizer(model, params:dict={}):
     else:
         optimizer = base_optimizer
 
+    if used_params["sam"]:
+        logger.info("Use SAM optimizer with rho={} and adaptvive={}".format(used_params["sam.rho"], used_params["sam.adaptive"]))
+        optimizer = SAM(optimizer,rho=used_params["sam.rho"],adaptive=used_params["sam.adaptive"])
     return optimizer
+
+
+
+
 
 
 ## Optim-wrapper ✿
@@ -424,89 +449,6 @@ class AdamW(Optimizer):
         return loss
 
 
-class RAdam(Optimizer):
-    '''https://github.com/lonePatient/lookahead_pytorch/blob/master/optimizer.py
-    
-    a PyTorch implementation of the RAdam Optimizer from th paper
-    On the Variance of the Adaptive Learning Rate and Beyond.
-    https://arxiv.org/abs/1908.03265
-    Example:
-        >>> from optimizer import RAdam
-        >>> optimizer = RAdam(model.parameters(), lr=0.001)
-    Note, here the weight decay is not L2 regularization.
-    '''
-
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), N_sma_threshhold=4, eps=1e-8, weight_decay=0):
-        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
-        self.N_sma_threshhold = N_sma_threshhold
-        self.buffer = [[None, None, None] for ind in range(10)]
-        super(RAdam, self).__init__(params, defaults)
-
-    def __setstate__(self, state):
-        super(RAdam, self).__setstate__(state)
-
-    def step(self, closure=None):
-
-        loss = None
-        if closure is not None:
-            loss = closure()
-
-        for group in self.param_groups:
-
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                grad = p.grad.data.float()
-                if grad.is_sparse:
-                    raise RuntimeError('RAdam does not support sparse gradients')
-
-                p_data_fp32 = p.data.float()
-
-                state = self.state[p]
-
-                if len(state) == 0:
-                    state['step'] = 0
-                    state['exp_avg'] = torch.zeros_like(p_data_fp32)
-                    state['exp_avg_sq'] = torch.zeros_like(p_data_fp32)
-                else:
-                    state['exp_avg'] = state['exp_avg'].type_as(p_data_fp32)
-                    state['exp_avg_sq'] = state['exp_avg_sq'].type_as(p_data_fp32)
-
-                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
-                beta1, beta2 = group['betas']
-
-                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
-                exp_avg.mul_(beta1).add_((1 - beta1) * grad)
-
-                state['step'] += 1
-                buffered = self.buffer[int(state['step'] % 10)]
-                if state['step'] == buffered[0]:
-                    N_sma, step_size = buffered[1], buffered[2]
-                else:
-                    buffered[0] = state['step']
-                    beta2_t = beta2 ** state['step']
-                    N_sma_max = 2 / (1 - beta2) - 1
-                    N_sma = N_sma_max - 2 * state['step'] * beta2_t / (1 - beta2_t)
-                    buffered[1] = N_sma
-                    if N_sma > self.N_sma_threshhold:
-                        step_size = group['lr'] * math.sqrt((1 - beta2_t) * (N_sma - 4) / (N_sma_max - 4) * (N_sma - 2) / N_sma * N_sma_max / (N_sma_max - 2)) / (1 - beta1 ** state['step'])
-                    else:
-                        step_size = group['lr'] / (1 - beta1 ** state['step'])
-                    buffered[2] = step_size
-
-                if group['weight_decay'] != 0:
-                    p_data_fp32.add_(-group['weight_decay'] * group['lr'] * p_data_fp32)
-
-                if N_sma > self.N_sma_threshhold:
-                    denom = exp_avg_sq.sqrt().add_(group['eps'])
-                    p_data_fp32.addcdiv_(exp_avg, denom, value=-step_size)
-                else:
-                    p_data_fp32.add_(-step_size * exp_avg)
-
-                p.data.copy_(p_data_fp32)
-
-        return loss
-
 
 class Ralamb(Optimizer):
     '''https://github.com/lonePatient/lookahead_pytorch/blob/master/optimizer.py
@@ -817,4 +759,224 @@ class Novograd(Optimizer):
 
                 p.data.add_(-group['lr'] * exp_avg)
         
+        return loss
+
+# Sharpness-Aware Minimization for Efficiently Improving Generalization.
+# https://openreview.net/pdf?id=6Tm1mposlrM
+# https://github.com/davda54/sam
+
+class SAM(Optimizer):
+    def __init__(self, optimizer, rho=0.05, adaptive=False) -> None:
+        assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
+        defaults = dict(rho=rho, adaptive=adaptive)
+
+        super(SAM, self).__init__(optimizer.param_groups, defaults)
+        self.base_optimizer = optimizer
+
+        self.defaults.update(self.base_optimizer.defaults)
+
+    @torch.no_grad()
+    def first_step(self, zero_grad=False):
+        grad_norm = self._grad_norm()
+        for group in self.param_groups:
+            scale = group["rho"] / (grad_norm + 1e-12)
+
+            for p in group["params"]:
+                if p.grad is None: continue
+                self.state[p]["old_p"] = p.data.clone()
+                self.state[p]["cache"] = True
+                e_w = (torch.pow(p, 2) if group["adaptive"] else 1.0) * p.grad * scale.to(p)
+                p.add_(e_w)  # climb to the local maximum "w + e(w)"
+
+        if zero_grad: self.zero_grad()
+
+    @torch.no_grad()
+    def second_step(self, zero_grad=False):
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.grad is None: continue
+                p.data = self.state[p]["old_p"]  # get back to "w" from "w + e(w)"
+                self.state[p]["cache"] = False
+
+        self.base_optimizer.step()  # do the actual "sharpness-aware" update
+
+        if zero_grad: self.zero_grad()
+
+    @torch.no_grad()
+    def back_w(self):
+        for group in self.param_groups:
+            for p in group["params"]:
+                p_cache = self.state[p].get('cache',False)
+                if p_cache:
+                    p.data = self.state[p]["old_p"]  # get back to "w" from "w + e(w)"
+                    self.state[p]["cache"] = False
+
+    @torch.no_grad()
+    def step(self,stage=1):
+        if stage==1:
+            self.first_step(zero_grad=True)
+            return True
+        else:
+            self.second_step(zero_grad=True)
+            return True
+
+    def _grad_norm(self):
+        shared_device = self.param_groups[0]["params"][0].device  # put everything on the same device, in case of model parallelism
+        norm = torch.norm(
+                    torch.stack([
+                        ((torch.abs(p) if group["adaptive"] else 1.0) * p.grad).norm(p=2).to(shared_device)
+                        for group in self.param_groups for p in group["params"]
+                        if p.grad is not None
+                    ]),
+                    p=2
+               )
+        return norm
+
+    def load_state_dict(self, state_dict):
+        super().load_state_dict(state_dict)
+        self.base_optimizer.param_groups = self.param_groups
+
+
+class Eve(Optimizer):
+    r"""
+    Implements Eve algorithm.  This is a modified version of AdamW with a special
+    way of setting the weight-decay / shrinkage-factor, which is designed to make the
+    rms of the parameters approach a particular target_rms (default: 0.1).  This is
+    for use with networks with 'scaled' versions of modules (see scaling.py), which
+    will be close to invariant to the absolute scale on the parameter matrix.
+    The original Adam algorithm was proposed in `Adam: A Method for Stochastic Optimization`_.
+    The AdamW variant was proposed in `Decoupled Weight Decay Regularization`_.
+    Eve is unpublished so far.
+    Arguments:
+        params (iterable): iterable of parameters to optimize or dicts defining
+            parameter groups
+        lr (float, optional): learning rate (default: 1e-3)
+        betas (Tuple[float, float], optional): coefficients used for computing
+            running averages of gradient and its square (default: (0.9, 0.999))
+        eps (float, optional): term added to the denominator to improve
+            numerical stability (default: 1e-8)
+        weight_decay (float, optional): weight decay coefficient (default: 3e-4;
+            this value means that the weight would decay significantly after
+            about 3k minibatches.  Is not multiplied by learning rate, but
+            is conditional on RMS-value of parameter being > target_rms.
+        target_rms (float, optional): target root-mean-square value of
+           parameters, if they fall below this we will stop applying weight decay.
+    .. _Adam\: A Method for Stochastic Optimization:
+        https://arxiv.org/abs/1412.6980
+    .. _Decoupled Weight Decay Regularization:
+        https://arxiv.org/abs/1711.05101
+    .. _On the Convergence of Adam and Beyond:
+        https://openreview.net/forum?id=ryQu7f-RZ
+    """
+
+    def __init__(
+        self,
+        params,
+        lr=1e-3,
+        betas=(0.9, 0.98),
+        eps=1e-8,
+        weight_decay=1e-3,
+        target_rms=0.1,
+    ):
+
+        if not 0.0 <= lr:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+        if not 0.0 <= eps:
+            raise ValueError("Invalid epsilon value: {}".format(eps))
+        if not 0.0 <= betas[0] < 1.0:
+            raise ValueError(
+                "Invalid beta parameter at index 0: {}".format(betas[0])
+            )
+        if not 0.0 <= betas[1] < 1.0:
+            raise ValueError(
+                "Invalid beta parameter at index 1: {}".format(betas[1])
+            )
+        if not 0 <= weight_decay <= 0.1:
+            raise ValueError(
+                "Invalid weight_decay value: {}".format(weight_decay)
+            )
+        if not 0 < target_rms <= 10.0:
+            raise ValueError("Invalid target_rms value: {}".format(target_rms))
+        defaults = dict(
+            lr=lr,
+            betas=betas,
+            eps=eps,
+            weight_decay=weight_decay,
+            target_rms=target_rms,
+        )
+        super(Eve, self).__init__(params, defaults)
+
+    def __setstate__(self, state):
+        super(Eve, self).__setstate__(state)
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        """Performs a single optimization step.
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+
+                # Perform optimization step
+                grad = p.grad
+                if grad.is_sparse:
+                    raise RuntimeError(
+                        "AdamW does not support sparse gradients"
+                    )
+
+                state = self.state[p]
+
+                # State initialization
+                if len(state) == 0:
+                    state["step"] = 0
+                    # Exponential moving average of gradient values
+                    state["exp_avg"] = torch.zeros_like(
+                        p, memory_format=torch.preserve_format
+                    )
+                    # Exponential moving average of squared gradient values
+                    state["exp_avg_sq"] = torch.zeros_like(
+                        p, memory_format=torch.preserve_format
+                    )
+
+                exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
+
+                beta1, beta2 = group["betas"]
+
+                state["step"] += 1
+                bias_correction1 = 1 - beta1 ** state["step"]
+                bias_correction2 = 1 - beta2 ** state["step"]
+
+                # Decay the first and second moment running average coefficient
+                exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+                denom = (exp_avg_sq.sqrt() * (bias_correction2 ** -0.5)).add_(
+                    group["eps"]
+                )
+
+                step_size = group["lr"] / bias_correction1
+                target_rms = group["target_rms"]
+                weight_decay = group["weight_decay"]
+
+                if p.numel() > 1:
+                    # avoid applying this weight-decay on "scaling factors"
+                    # (which are scalar).
+                    is_above_target_rms = p.norm() > (
+                        target_rms * (p.numel() ** 0.5)
+                    )
+                    p.mul_(1 - (weight_decay * is_above_target_rms))
+                p.addcdiv_(exp_avg, denom, value=-step_size)
+
+                # Constrain the range of scalar weights
+                if p.numel() == 1:
+                    p.clamp_(min=-10, max=2)
+
         return loss

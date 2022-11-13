@@ -2,6 +2,7 @@
 
 # Copyright xmuspeech (Author: Snowdar 2019-05-29)
 
+
 import numpy as np
 
 import torch
@@ -11,7 +12,7 @@ from .activation import Nonlinearity
 
 from libs.support.utils import to_device
 import libs.support.utils as utils
-
+from libs.nnet.transformer.layer_norm import LayerNorm
 
 ### There are some basic custom components/layers. ###
 
@@ -61,10 +62,14 @@ class TdnnAffine(torch.nn.Module):
 
         self.weight = torch.nn.Parameter(torch.randn(output_dim, input_dim//groups, *kernel_size))
 
-        if self.bool_bias:
-            self.bias = torch.nn.Parameter(torch.randn(output_dim))
-        else:
-            self.register_parameter('bias', None)
+        # For jit compiling. 
+        # 2021-07-08 Leo
+        self.bias = torch.nn.Parameter(torch.randn(output_dim)) if self.bool_bias else None
+
+        # if self.bool_bias:
+        #     self.bias = torch.nn.Parameter(torch.randn(output_dim))
+        # else:
+            # self.register_parameter('bias', None)
 
         # init weight and bias. It is important
         self.init_weight()
@@ -99,27 +104,39 @@ class TdnnAffine(torch.nn.Module):
             torch.nn.init.constant_(self.bias, 0.)
 
 
-    def forward(self, inputs):
+    def forward(self, inputs:torch.Tensor)-> torch.Tensor:
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
         assert len(inputs.shape) == 3
+
         assert inputs.shape[1] == self.input_dim
 
         # Do not use conv1d.padding for self.left_context + self.right_context != 0 case.
         if self.pad:
-            inputs = F.pad(inputs, (-self.left_context, self.right_context), mode="constant", value=0)
+            inputs = F.pad(inputs, (-self.left_context, self.right_context), mode="constant", value=0.0)
 
         assert inputs.shape[2] >=  self.tot_context
 
-        if not self.selected_device and self.mask is not None:
-            # To save the CPU -> GPU moving time
-            # Another simple case, for a temporary tensor, jus specify the device when creating it.
-            # such as, this_tensor = torch.tensor([1.0], device=inputs.device)
-            self.mask = to_device(self, self.mask)
-            self.selected_device = True
+        # if not self.selected_device and self.mask is not None:
+        #     # To save the CPU -> GPU moving time
+        #     # Another simple case, for a temporary tensor, jus specify the device when creating it.
+        #     self.mask = to_device(self, self.mask)
 
-        filters = self.weight  * self.mask if self.mask is not None else self.weight
+        #     
+        #     self.selected_device = True
+        #    filters = self.weight  * self.mask if self.mask is not None else self.weight
+
+
+        # For jit compiling. 
+        # 2021-07-08 Leo
+        if self.mask is not None:
+  
+            self.mask=self.mask.to(inputs.device)
+            filters=self.weight  * self.mask
+        else:
+            filters=self.weight
+
 
         if self.norm_w:
             filters = F.normalize(filters, dim=1)
@@ -326,16 +343,18 @@ class _BaseActivationBatchNorm(torch.nn.Module):
         self.affine = None
         self.activation = None
         self.batchnorm = None
-
+        self.bn_relu = False
     def add_relu_bn(self, output_dim=None, options:dict={}):
         default_params = {
             "bn-relu":False,
             "nonlinearity":'relu',
             "nonlinearity_params":{"inplace":True, "negative_slope":0.01},
             "bn":True,
+            "ln_replace": False,
             "bn_params":{"momentum":0.1, "affine":True, "track_running_stats":True},
             "special_init":True,
-            "mode":'fan_out'
+            "mode":'fan_out',
+            "jit_compile":False   # For jit compiling
         }
 
         default_params = utils.assign_params_dict(default_params, options)
@@ -347,18 +366,26 @@ class _BaseActivationBatchNorm(torch.nn.Module):
             # ReLU-BN
             # For speaker recognition, relu-bn seems better than bn-relu. And w/o affine (scale and shift) of bn is 
             # also better than w/ affine.
-            self.after_forward = self._relu_bn_forward
+            # self.after_forward = self._relu_bn_forward
+            self.bn_relu = False
             self.activation = Nonlinearity(default_params["nonlinearity"], **default_params["nonlinearity_params"])
             if default_params["bn"]:
-                self.batchnorm = torch.nn.BatchNorm1d(output_dim, **default_params["bn_params"])
+                if not default_params['ln_replace']:
+                    self.batchnorm = torch.nn.BatchNorm1d(output_dim, **default_params["bn_params"])
+                else:
+                    self.batchnorm = LayerNorm(output_dim,dim=1,eps=1e-5,learnabel_affine=default_params["bn_params"]["affine"])
         else:
             # BN-ReLU
-            self.after_forward = self._bn_relu_forward
+            # self.after_forward = self._bn_relu_forward
+            self.bn_relu = True            
             if default_params["bn"]:
-                self.batchnorm = torch.nn.BatchNorm1d(output_dim, **default_params["bn_params"])
+                if not default_params['ln_replace']:
+                    self.batchnorm = torch.nn.BatchNorm1d(output_dim, **default_params["bn_params"])
+                else:
+                    self.batchnorm = LayerNorm(output_dim,dim=1,eps=1e-5)
             self.activation = Nonlinearity(default_params["nonlinearity"], **default_params["nonlinearity_params"])
 
-        if default_params["special_init"] and self.affine is not None:
+        if default_params["special_init"] and self.affine is not None and not default_params["jit_compile"]:
             if default_params["nonlinearity"] in ["relu", "leaky_relu", "tanh", "sigmoid"]:
                 # Before special_init, there is another initial way been done in TdnnAffine and it 
                 # is just equal to use torch.nn.init.normal_(self.affine.weight, 0., 0.01) here. 
@@ -383,6 +410,7 @@ class _BaseActivationBatchNorm(torch.nn.Module):
     def _relu_bn_forward(self, x):
         if self.activation is not None:
             x = self.activation(x)
+
         if self.batchnorm is not None:
             x = self.batchnorm(x)
         return x
@@ -392,7 +420,14 @@ class _BaseActivationBatchNorm(torch.nn.Module):
         @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
         x = self.affine(inputs)
-        outputs = self.after_forward(x)
+
+        if self.bn_relu:
+            outputs=self._bn_relu_forward(x)
+
+        else:
+            outputs=self._relu_bn_forward(x)
+
+        # outputs = self.after_forward(x)
         return outputs
 
 
@@ -562,7 +597,48 @@ class SEBlock(torch.nn.Module):
 
         return inputs * scale
 
+class SEBlock_2D(torch.nn.Module):
+    """ A SE Block layer layer which can learn to use global information to selectively emphasise informative 
+    features and suppress less useful ones.
+    This is a pytorch implementation of SE Block based on the paper:
+    Squeeze-and-Excitation Networks
+    by JFChou xmuspeech 2019-07-13
+        leo 2020-12-20 [Check and update]
+        """
+    def __init__(self, in_planes, ratio=16, inplace=True):
+        '''
+        @ratio: a reduction ratio which allows us to vary the capacity and computational cost of the SE blocks 
+        in the network.
+        '''
+        super(SEBlock_2D, self).__init__()
 
+        self.in_planes = in_planes
+        self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
+        self.fc_1 = torch.nn.Linear(in_planes, in_planes // ratio)
+        self.relu = torch.nn.ReLU(inplace=inplace)
+        self.fc_2 = torch.nn.Linear(in_planes // ratio, in_planes)
+        self.sigmoid = torch.nn.Sigmoid()
+
+    def forward(self, inputs):
+        """
+        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
+        """
+        assert len(inputs.shape) == 4
+        assert inputs.shape[1] == self.in_planes
+
+        b, c, _, _ = inputs.size()
+        # print(b,c)
+        # exit()
+        x = self.avg_pool(inputs).view(b, c)
+        x = self.fc_1(x)
+        x = self.relu(x)
+        x = self.fc_2(x)
+        x = self.sigmoid(x)
+
+        scale = x.view(b, c, 1, 1)
+        return inputs * scale
+
+        
 class MultiAffine(torch.nn.Module):
     """To complete.
     """
@@ -633,7 +709,7 @@ class ChunkSeparationAffine(torch.nn.Module):
         
         if inputs.shape[2] % 2 != 0:
             # Make sure that the chunk length of inputs is an even number.
-            inputs = F.pad(inputs, (0, 1), mode="constant", value=0)
+            inputs = F.pad(inputs, (0, 1), mode="constant", value=0.0)
 
         return torch.cat((self.odd(inputs), self.even(inputs[:,:,1:])), dim=1)
 
@@ -665,3 +741,125 @@ class Mixup(torch.nn.Module):
         mixed_data = self.lam * inputs + (1 - self.lam) * inputs[self.index,:]
 
         return mixed_data
+
+
+
+
+# https://github.com/speechbrain/speechbrain/blob/develop/speechbrain/processing/signal_processing.py
+# Leo 2021-09-27
+
+class InputSequenceNormalization(torch.nn.Module):
+    """Performs mean and variance normalization of the input tensor.
+
+    Arguments
+    ---------
+    mean_norm : True
+         If True, the mean will be normalized.
+    std_norm : True
+         If True, the standard deviation will be normalized.
+
+    Example
+    -------
+    >>> import torch
+    >>> norm = InputNormalization()
+    >>> inputs = torch.randn([10, 101, 20])
+    >>> inp_len = torch.ones([10])
+    >>> features = norm(inputs, inp_len)
+    """
+
+
+    def __init__(
+        self,
+        mean_norm=True,
+        std_norm=True,
+    ):
+        super().__init__()
+        self.mean_norm = mean_norm
+        self.std_norm = std_norm
+        self.eps = 1e-10
+    def forward(self, x, lengths=None):
+        """Returns the tensor with the surrounding context.
+
+        Arguments
+        ---------
+        x : tensor
+            A batch of tensors.
+        lengths : tensor
+            A batch of tensors containing the relative length of each
+            sentence (e.g, [0.7, 0.9, 1.0]). It is used to avoid
+            computing stats on zero-padded steps.
+        """
+        N_batches = x.shape[0]
+
+        current_means = []
+        current_stds = []
+        if lengths is None:
+            lengths=torch.ones(N_batches)
+        for snt_id in range(N_batches):
+
+            # Avoiding padded time steps
+            actual_size = torch.round(lengths[snt_id] * x.shape[2]).int()
+            # computing statistics
+            current_mean, current_std = self._compute_current_stats(
+                x[snt_id, ..., 0:actual_size]
+            )
+
+            current_means.append(current_mean)
+            current_stds.append(current_std)
+
+
+
+            x[snt_id] = (x[snt_id] - current_mean.data) / current_std.data
+
+
+        return x
+
+    def _compute_current_stats(self, x):
+        """Returns the tensor with the surrounding context.
+
+        Arguments
+        ---------
+        x : tensor
+            A batch of tensors.
+        """
+        # Compute current mean
+        if self.mean_norm:
+            current_mean = torch.mean(x, dim=1,keepdim=True).detach().data
+        else:
+            current_mean = torch.tensor([0.0], device=x.device)
+
+        # Compute current std
+        if self.std_norm:
+            current_std = torch.std(x, dim=1,keepdim=True).detach().data
+        else:
+            current_std = torch.tensor([1.0], device=x.device)
+
+        # Improving numerical stability of std
+        current_std = torch.max(
+            current_std, self.eps * torch.ones_like(current_std)
+        )
+
+        return current_mean, current_std
+
+
+    def to(self, device):
+        """Puts the needed tensors in the right device.
+        """
+        self = super(InputSequenceNormalization, self).to(device)
+
+        return self
+
+# Leo 2022-08-14
+class LabelSmoothing(torch.nn.Module):
+    """Label-smoothing for target tensor. 
+    
+    """
+    def __init__(
+        self,
+        mean_norm=True,
+        std_norm=True,
+    ):
+        super().__init__()
+        self.mean_norm = mean_norm
+        self.std_norm = std_norm
+        self.eps = 1e-10    
