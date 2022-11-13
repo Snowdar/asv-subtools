@@ -1,3 +1,9 @@
+
+# Copyright xmuspeech (Author: Leo 2022-05-27)
+# refs:
+# 1.  ECAPA-TDNN: Emphasized Channel Attention, Propagation and Aggregation in TDNN Based Speaker Verification
+#           https://arxiv.org/abs/2005.07143
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,10 +12,6 @@ import sys
 sys.path.insert(0, 'subtools/pytorch')
 import libs.support.utils as utils
 from libs.nnet import *
-# Copyright xmuspeech (Author: Leo 2022-05-27)
-# refs:
-# 1.  ECAPA-TDNN: Emphasized Channel Attention, Propagation and Aggregation in TDNN Based Speaker Verification
-#           https://arxiv.org/abs/2005.07143
 
 
 class Res2NetBlock(torch.nn.Module):
@@ -34,7 +36,7 @@ class Res2NetBlock(torch.nn.Module):
     >>> layer = Res2NetBlock(64, 64, scale=4, dilation=3)
     >>> out_tensor = layer(inp_tensor).transpose(1, 2)
     >>> out_tensor.shape
-    torch.Size([8, 120, 64])
+    torch.Size([8, 120, 64]) 
     """
 
     def __init__(
@@ -231,6 +233,8 @@ class ECAPA_TDNN(TopVirtualNnet):
             "curricular": False}
 
         default_step_params = {
+            "margin_warm":False,
+            "margin_warm_conf":{"start_epoch":5.,"end_epoch":10.,"offset_margin":-0.2,"init_lambda":0.0},
             "T": None,
             "m": False, "lambda_0": 0, "lambda_b": 1000, "alpha": 5, "gamma": 1e-4,
             "s": False, "s_tuple": (30, 12), "s_list": None,
@@ -332,6 +336,8 @@ class ECAPA_TDNN(TopVirtualNnet):
             if margin_loss:
                 self.loss = MarginSoftmaxLoss(
                     embd_dim, num_targets, **margin_loss_params)
+                if self.use_step and self.step_params["margin_warm"]:
+                    self.margin_warm = MarginWarm(**step_params["margin_warm_conf"])
             else:
                 self.loss = SoftmaxLoss(embd_dim, num_targets)
                 # self.loss = AngleLoss(embd_dim,num_targets)
@@ -339,7 +345,7 @@ class ECAPA_TDNN(TopVirtualNnet):
                 self.loss, self.mixup) if mixup else None
             # An example to using transform-learning without initializing loss.affine parameters
             self.transform_keys = ["layer2", "layer3",
-                                   "layer4", "conv", "stats", "fc1", "fc2"]
+                                   "layer4", "stats", "mfa", "bn_stats", "fc1", "fc2", "loss"]
 
             if margin_loss and transfer_from == "softmax_loss":
                 # For softmax_loss to am_softmax_loss
@@ -348,7 +354,7 @@ class ECAPA_TDNN(TopVirtualNnet):
 
     @torch.jit.unused
     @utils.for_device_free
-    def forward(self, x):
+    def forward(self, x, x_len: torch.Tensor=torch.empty(0)):
         x = self.layer1(x)
         x1 = self.layer2(x)
         x2 = self.layer3(x+x1)
@@ -442,27 +448,28 @@ class ECAPA_TDNN(TopVirtualNnet):
         return xvector
 
     @torch.jit.export
-    def extract_embedding_whole(self, input: torch.Tensor, position: str = 'near', maxChunk: int = 10000, isMatrix: bool = True):
-        if isMatrix:
-            input = torch.unsqueeze(input, dim=0)
-            input = input.transpose(1, 2)
-        num_frames = input.shape[2]
-        num_split = (num_frames + maxChunk - 1) // maxChunk
-        split_size = num_frames // num_split
-        offset = 0
-        embedding_stats = torch.zeros(1, self.embd_dim, 1)
-        for _ in range(0, num_split-1):
-            this_embedding = self.extract_embedding_jit(
-                input[:, :, offset:offset+split_size], position)
-            offset += split_size
-            embedding_stats += split_size*this_embedding
+    def extract_embedding_whole(self, input: torch.Tensor, position: str = 'near', maxChunk: int = 4000, isMatrix: bool = True):
+        with torch.no_grad():
+            if isMatrix:
+                input = torch.unsqueeze(input, dim=0)
+                input = input.transpose(1, 2)
+            num_frames = input.shape[2]
+            num_split = (num_frames + maxChunk - 1) // maxChunk
+            split_size = num_frames // num_split
+            offset = 0
+            embedding_stats = torch.zeros(1, self.embd_dim, 1).to(input.device)
+            for _ in range(0, num_split-1):
+                this_embedding = self.extract_embedding_jit(
+                    input[:, :, offset:offset+split_size], position)
+                offset += split_size
+                embedding_stats += split_size*this_embedding
 
-        last_embedding = self.extract_embedding_jit(
-            input[:, :, offset:], position)
+            last_embedding = self.extract_embedding_jit(
+                input[:, :, offset:], position)
 
-        embedding = (embedding_stats + (num_frames-offset)
-                     * last_embedding) / num_frames
-        return torch.squeeze(embedding.transpose(1, 2)).cpu()
+            embedding = (embedding_stats + (num_frames-offset)
+                        * last_embedding) / num_frames
+            return torch.squeeze(embedding.transpose(1, 2)).cpu()
 
     @torch.jit.export
     def embedding_dim(self) -> int:
@@ -488,7 +495,8 @@ class ECAPA_TDNN(TopVirtualNnet):
                 current_postion = epoch*epoch_batchs + this_iter
                 lambda_factor = max(self.step_params["lambda_0"],
                                     self.step_params["lambda_b"]*(1+self.step_params["gamma"]*current_postion)**(-self.step_params["alpha"]))
-                self.loss.step(lambda_factor)
+                lambda_m = 1/(1 + lambda_factor)
+                self.loss.step(lambda_m)
 
             if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
                 T_cur, T_i = self.get_warmR_T(*self.step_params["T"], epoch)
@@ -509,10 +517,15 @@ class ECAPA_TDNN(TopVirtualNnet):
     def step_iter(self, epoch, cur_step):
         # For iterabledataset
         if self.use_step:
+            if self.step_params["margin_warm"]:
+                offset_margin, lambda_m = self.margin_warm.step(cur_step)
+                lambda_m =  max(1e-3,lambda_m)
+                self.loss.step(lambda_m,offset_margin)
             if self.step_params["m"]:
                 lambda_factor = max(self.step_params["lambda_0"],
                                     self.step_params["lambda_b"]*(1+self.step_params["gamma"]*cur_step)**(-self.step_params["alpha"]))
-                self.loss.step(lambda_factor)
+                lambda_m = 1/(1 + lambda_factor)
+                self.loss.step(lambda_m)
 
             if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
                 T_cur, T_i = self.get_warmR_T(*self.step_params["T"], cur_step)

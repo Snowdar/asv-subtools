@@ -15,8 +15,9 @@ import pandas as pd
 import numpy as np
 import yaml
 import torch
-import torch.distributed as dist
+from torch.nn.modules.batchnorm import _BatchNorm
 from torch.utils.data import DataLoader
+import torch.distributed as dist
 from contextlib import nullcontext
 from .reporter import Reporter_new as Reporter
 from .lr_scheduler_online import LRSchedulerWrapper
@@ -61,7 +62,7 @@ class _BaseTrainer():
     def __init__(self, package, stop_early=False):
         default_elements = {"data": None, "model": None,
                             "optimizer": None, "lr_scheduler": None}
-        default_params = {"model_dir": "", "model_blueprint": "", "exist_model": "", "start_epoch": 0, "epochs": 10, "warmup_steps":0,
+        default_params = {"model_dir": "", "model_blueprint": "", "exist_model": "", "start_epoch": 0, "epochs": 10,"warmup_steps":0,
                           "use_gpu": True, "gpu_id": "", "benchmark": True, "max_change": 5.0, "use_amp": False, "accum_grad": 1,
                           "compute_accuracy": True, "compute_valid_accuracy": True, "compute_batch_num_valid": 1,
                           "suffix": "params", "nan_debug": False, "skip_nan_batch": True, "use_tensorboard": True}
@@ -77,6 +78,7 @@ class _BaseTrainer():
 
         assert self.params["model_dir"] != ""
         assert self.params["model_blueprint"] != ""
+        assert self.params["accum_grad"] == 1 ,"Sharpness Aware Minimization do not support accum_grad now."
 
         self.elements["model_forward"] = self.elements["model"]
         self.params["start_epoch"] = max(0, self.params["start_epoch"])
@@ -92,6 +94,7 @@ class _BaseTrainer():
         self.cycle_point = 0  # for cycle training.
 
         self.warmup_steps = self.params["warmup_steps"] # model level warm up. just for transformer.
+
     def select_device(self):
         return utils.select_model_device(self.elements["model"], self.params["use_gpu"],
                                          gpu_id=self.params["gpu_id"], benchmark=self.params["benchmark"])
@@ -142,11 +145,7 @@ class _BaseTrainer():
             pass  # Now, it means use the raw initial model
 
         # Select device
- 
-        # for k,v in model.named_parameters():
-        #     if "train_len" in k:
-        #         print(v)
-        # assert 1==0
+
         model = self.select_device()
 
         # Original model is built in libs.nnet.framework.TopVirtualNnet, and it is not available after
@@ -221,9 +220,10 @@ class SimpleTrainer(_BaseTrainer):
         model = self.elements["model"]
         model_forward = self.elements["model_forward"]
         optimizer = self.elements["optimizer"]
-        cur_step = self.training_point[2]
+        device = utils.get_device(self.elements["model"])
 
         # model level warm up. just for transformer.
+        cur_step = self.training_point[2]
         warmup = cur_step / self.warmup_steps if self.warmup_steps >0 else 1.0
         warmup = torch.FloatTensor([warmup])
         if not model.training:
@@ -247,37 +247,90 @@ class SimpleTrainer(_BaseTrainer):
             if self.warmup_steps >0:
                 input_list.append(warmup)
         context = None
-        # Disable gradient synchronizations across DDP processes.
-        # Within this context, gradients will be accumulated on module
-        # variables, which will later be synchronized.
-        if self.use_ddp and self.num_batch%self.params["accum_grad"]!=0:
+        
+        # Disable gradient synchronizations across DDP processes in first background.
+        if self.use_ddp :
             context = model_forward.no_sync
 
         # Used for single gpu training and DDP gradient synchronization
         # processes.
         else:
             context = nullcontext
+
+
+        # first forward-backward pass    
         with context():
             # Managing automatic mixed precision  (Leo 2021-11-08)
             with torch.cuda.amp.autocast(self.scaler is not None):
-
+                
+                enable_running_stats(model_forward)
+                
                 loss = model.get_loss(model_forward(*input_list), targets)/self.params["accum_grad"]
                 # loss = model_forward(inputs, targets)/self.params["accum_grad"]
 
             if self.params["use_amp"]:
                 self.scaler.scale(loss).backward()
+
             else:
                 loss.backward()
+                
+        loss.detach()  # For safe.
+        loss = loss.item()*self.params["accum_grad"]
+        accuracy = model.get_accuracy(targets) if self.params["compute_accuracy"] else None
         # for name, param in model.named_parameters():
         #     if param.grad is None:
         #         print(name)
         #         sys.exit()
-        loss.detach()  # For safe.
-        loss = loss.item()*self.params["accum_grad"]
-        accuracy = None
 
 
-        if self.num_batch%self.params["accum_grad"]==0:
+
+        # Use mixed precision training (Leo 2021-11-08)
+        if self.params["use_amp"]:
+            self.scaler.unscale_(optimizer)
+            if not self.modify_grad() and not self.params["skip_nan_batch"]:
+                torch.save(inputs.cpu(), "{0}/nan.batch".format(self.params["model_dir"]))
+                torch.save(targets.cpu(), "{0}/nan.targets".format(self.params["model_dir"]))
+                torch.save(self.elements["model"].state_dict(), "{0}/nan.params".format(self.params["model_dir"]))
+                raise RuntimeError('There is Nan problem in epoch/iter: {0}/{1} (nan batch and params are saved in {2})'.format(self.training_point[0],
+                                                                                                                                self.training_point[1], "{0}/nan.*".format(self.params["model_dir"])))
+            else:
+                flag_step1 = self.scaler.step(optimizer,stage=1)
+
+            self.scaler.update()
+        else:
+            if not self.modify_grad():
+                if not self.params["skip_nan_batch"]:
+                    torch.save(inputs.cpu(), "{0}/nan.batch".format(self.params["model_dir"]))
+                    torch.save(targets.cpu(), "{0}/nan.targets".format(self.params["model_dir"]))
+                    torch.save(self.elements["model"].state_dict(), "{0}/nan.params".format(self.params["model_dir"]))
+                    raise RuntimeError('There is Nan problem in epoch/iter: {0}/{1} (nan batch and params are saved in {2})'.format(self.training_point[0],
+                                                                                                                                    self.training_point[1], "{0}/nan.*".format(self.params["model_dir"])))
+            else:
+                flag_step1=optimizer.step(stage=1)
+        if flag_step1:
+            stop_flag =  torch.zeros(1).to(device)
+        else:
+            stop_flag =  torch.ones(1).to(device)
+        if utils.use_ddp():
+            dist.all_reduce(stop_flag,op=dist.ReduceOp.SUM)
+                
+            dist.barrier()
+        stop_flag = bool(stop_flag)
+        flag_step2 = False
+        if not stop_flag:
+
+            # Managing automatic mixed precision  (Leo 2021-11-08)
+            with torch.cuda.amp.autocast(self.scaler is not None):
+                disable_running_stats(model_forward)
+                loss1 = model.get_loss(model_forward(*input_list), targets)/self.params["accum_grad"]
+                # loss = model_forward(inputs, targets)/self.params["accum_grad"]
+
+            if self.params["use_amp"]:
+                self.scaler.scale(loss1).backward()
+            else:
+                loss1.backward()
+            loss1.detach()
+
             # Use mixed precision training (Leo 2021-11-08)
             if self.params["use_amp"]:
                 self.scaler.unscale_(optimizer)
@@ -288,7 +341,8 @@ class SimpleTrainer(_BaseTrainer):
                     raise RuntimeError('There is Nan problem in epoch/iter: {0}/{1} (nan batch and params are saved in {2})'.format(self.training_point[0],
                                                                                                                                     self.training_point[1], "{0}/nan.*".format(self.params["model_dir"])))
                 else:
-                    self.scaler.step(optimizer)
+                    flag_step2 = self.scaler.step(optimizer,stage=2)
+
                 self.scaler.update()
             else:
                 if not self.modify_grad():
@@ -299,13 +353,17 @@ class SimpleTrainer(_BaseTrainer):
                         raise RuntimeError('There is Nan problem in epoch/iter: {0}/{1} (nan batch and params are saved in {2})'.format(self.training_point[0],
                                                                                                                                         self.training_point[1], "{0}/nan.*".format(self.params["model_dir"])))
                 else:
-                    optimizer.step()
+                    flag_step2 = optimizer.step(stage=2)
 
-            optimizer.zero_grad()
+
             self.training_point[2] += 1 # update step
-            accuracy = model.get_accuracy(targets) if self.params["compute_accuracy"] else None
+            
             if step_lr:
                 self.step_lr(loss,accuracy,optimizer,self.elements["lr_scheduler"])
+
+        if flag_step1 and flag_step2 is not True:
+            optimizer.back_w()
+        optimizer.zero_grad()
         self.num_batch += 1
 
         return loss, accuracy
@@ -455,12 +513,9 @@ class SimpleTrainer(_BaseTrainer):
                 model_context = model_forward.join(throw_on_early_termination=True)
             else:
                 model_context = nullcontext()
-
             device = utils.get_device(self.elements["model"])
             stop_training =  torch.zeros(1).to(device)
-
             with model_context:
-
                 for this_epoch in range(start_epoch, epochs+5):
                     # In case the uneven data in different ranks when ddp training, 
                     # here we design a more epoch for sub-ranks to ensure the main rank can broadcasting.
@@ -470,9 +525,10 @@ class SimpleTrainer(_BaseTrainer):
 
                     self.training_point[0]+=1
                     data.train_loader.dataset.set_epoch(this_epoch)
+                    if utils.is_main_training() and self.training_point[1]==0: self.origin_total_dur,self.num_sample=data.train_loader.dataset.get_data_dur()
+
 
                     # with model_context:
-                    if utils.is_main_training() and self.training_point[1]==0: self.origin_total_dur,self.num_sample=data.train_loader.dataset.get_data_dur()
 
                     for _, batch in enumerate(data.train_loader, 0):
                         # It is important for reporter.
@@ -481,6 +537,7 @@ class SimpleTrainer(_BaseTrainer):
                         if stop_training: 
                             break
                         self.training_point[1] +=1
+
                         num_utts = batch[0].size(0)
 
                         if num_utts == 0:
@@ -496,8 +553,8 @@ class SimpleTrainer(_BaseTrainer):
                         break
                     if utils.is_main_training():self.save_model(train_lr=self.train_lr)
                     self.training_point[1] =0
-               
-            # dist.barrier()
+
+
             if utils.is_main_training():self.reporter.finish()
             if utils.is_main_training():
                 final_model_name = "{}_cycle".format(self.cycle_point) if self.cycle_point else epochs
@@ -510,9 +567,6 @@ class SimpleTrainer(_BaseTrainer):
             if utils.use_ddp():utils.cleanup_ddp()
             if not isinstance(e, KeyboardInterrupt):traceback.print_exc()
             sys.exit(1)
-
-
-
 
     @for_lr_finder_new
     def lr_finder_compute(self, train_batch):
@@ -566,3 +620,20 @@ def add_gaussian_noise_to_grad(model, t, n=0.1, gamma=0.55):
     var = n/(1+t)**gamma
     for param in model.params():
         param.grad += to_device(model, torch.normal(0, var, param.size()))
+
+
+
+def disable_running_stats(model):
+    def _disable(module):
+        if isinstance(module, _BatchNorm):
+            module.backup_momentum = module.momentum
+            module.momentum = 0
+
+    model.apply(_disable)
+
+def enable_running_stats(model):
+    def _enable(module):
+        if isinstance(module, _BatchNorm) and hasattr(module, "backup_momentum"):
+            module.momentum = module.backup_momentum
+
+    model.apply(_enable)
