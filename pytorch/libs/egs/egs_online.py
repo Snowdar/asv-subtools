@@ -13,7 +13,6 @@ import torch
 from torch.utils.data import IterableDataset
 from torch.utils.data import DataLoader
 import torch.distributed as dist
-
 sys.path.insert(0, "subtools/pytorch")
 import libs.support.utils as utils
 import libs.egs.processor as processor
@@ -62,6 +61,8 @@ class Processor(IterableDataset):
     def apply(self, f):
         assert callable(f)
         return Processor(self, f, *self.args, **self.kw)
+    def __len__(self):
+        return len(self.source)
 
 class DistributedSampler:
     def __init__(self, shuffle=True, partition=True):
@@ -144,28 +145,54 @@ class DataList(IterableDataset):
             logger.warning('do not support get duration')
             total_dur=None
         num_sample = sum([int(self.lists[index]['eg-num']) for index in self.data_this_rank]) if "eg-num" in self.lists[0] else len(self.data_this_rank)
+        # tot_sample = sum([int(self.lists[index]['eg-num']) for index in self.lists]) if "eg-num" in self.lists[0] else len(self.lists)
         return total_dur,num_sample
+    def __len__(self):
+        return sum([int(self.lists[index]['eg-num']) for index in range(len(self.lists))]) if "eg-num" in self.lists[0] else len(self.lists)
 
-def WavEgs(egs_csv,conf,data_type='raw',partition=True):
+def WavEgs(egs_csv,conf,data_type='raw',partition=True,num_targets=0):
     assert data_type in ['raw', 'shard', 'kaldi']
     lists = utils.csv_to_list(egs_csv)
+
+
     shuffle = conf.get('shuffle', True)
+    
+ 
     dataset = DataList(lists, shuffle=shuffle, partition=partition)
-    if data_type in ['raw','shard']:
+
+    if data_type in ['raw', 'shard']:
         if data_type=='shard':
             dataset = Processor(dataset, processor.url_opener)
             dataset = Processor(dataset, processor.tar_file_and_group)
         else:
             dataset = Processor(dataset, processor.parse_raw)
-        
-        random_chunk = conf.get('random_chunk',False)
-        if random_chunk:
-            random_chunk_size = conf.get('random_chunk_size',2.015)
-            dataset = Processor(dataset, processor.random_chunk, random_chunk_size)
+        filt = conf.get('filter', False)   
+        filter_conf = conf.get('filter_conf', {})
+        if filt:
+            dataset = Processor(dataset, processor.filter, **filter_conf)
+
         resample = conf.get('resample', False)
         if resample:
             resample_conf = conf.get('resample_conf', {})
             dataset = Processor(dataset, processor.resample, **resample_conf)
+ 
+        
+        pre_speed_perturb =  conf.get('pre_speed_perturb', False)
+        spkid_aug = 1
+        if pre_speed_perturb:
+            perturb_conf =  conf.get('perturb_conf',{})       
+            sp = processor.PreSpeedPerturb(spk_num=num_targets,**perturb_conf)
+            spkid_aug = sp._spkid_aug()
+            dataset =  Processor(dataset,sp)
+
+        random_chunk = conf.get('random_chunk',False)
+        random_chunk_size = conf.get('random_chunk_size',2.015)
+        
+                
+        if random_chunk:
+            dataset = Processor(dataset, processor.random_chunk, random_chunk_size)
+
+
 
         speech_aug = conf.get('speech_aug', False)
         speech_aug_conf_file = conf.get('speech_aug_conf', '')
@@ -177,7 +204,11 @@ def WavEgs(egs_csv,conf,data_type='raw',partition=True):
                 csv_aug_folder = conf.get('csv_aug_folder','')
                 if csv_aug_folder:change_csv_folder(speech_aug_conf,csv_aug_folder)
 
-            speechaug_pipline = processor.SpeechAugPipline(**speech_aug_conf)
+            speechaug_pipline = processor.SpeechAugPipline(spk_num=num_targets,**speech_aug_conf)
+            spkid_aug_lat = speechaug_pipline.get_spkid_aug()
+            if not (spkid_aug==1 or spkid_aug_lat==1):
+                raise ValueError("multi speaker id perturb setting, check your speech aug config")
+            spkid_aug = spkid_aug_lat*spkid_aug
             dataset =  Processor(dataset, speechaug_pipline)
 
         feature_extraction_conf = conf.get('feature_extraction_conf',{})
@@ -185,6 +216,7 @@ def WavEgs(egs_csv,conf,data_type='raw',partition=True):
         dataset =  Processor(dataset, feature_extraction)
     else:
         dataset =  Processor(dataset,processor.offline_feat)
+
     spec_aug = conf.get('spec_aug', False)
     if spec_aug:
         spec_aug_conf=conf.get('spec_aug_conf',{})
@@ -201,7 +233,8 @@ def WavEgs(egs_csv,conf,data_type='raw',partition=True):
     batch_conf = conf.get('batch_conf', {})
     dataset = Processor(dataset, processor.batch, **batch_conf)
     dataset = Processor(dataset, processor.padding)
-    return dataset
+
+    return dataset,spkid_aug
 
 def WavEgsXvector(wav_scp,feat_conf={},data_type='kaldi',de_silence=False,de_sil_conf={},partition=False):
     if data_type in ['raw', 'shard']:
@@ -242,19 +275,22 @@ class BaseBunch():
 
 
     @classmethod
-    def get_bunch_from_csv(self, trainset_csv: str, valid_csv: str = None, egs_params: dict = {}):
+    def get_bunch_from_csv(self, trainset_csv: str, valid_csv: str = None, egs_params: dict = {},num_targets=-1):
 
         train_conf = egs_params['dataset_conf']
         valid_conf = copy.deepcopy(train_conf)
         valid_conf['speech_aug'] = False
+        valid_conf['pre_speed_perturb'] = False
         valid_conf['spec_aug'] = False
         valid_conf['shuffle'] = False
         data_type = egs_params.get('data_type','raw')
-        trainset = WavEgs(trainset_csv, train_conf, data_type=data_type,partition=True)
+        trainset, num_targets_t = WavEgs(trainset_csv, train_conf, data_type=data_type,partition=True,num_targets=num_targets)
+        
         if valid_csv != "" and valid_csv is not None:
-            valid = WavEgs(valid_csv, valid_conf,data_type=data_type,partition=False)
+            valid,_ = WavEgs(valid_csv, valid_conf,data_type=data_type,partition=False)
         else:
             valid = None
+        self.num_targets =num_targets*num_targets_t
 
         return self(trainset, valid, **egs_params['data_loader_conf'])
 
@@ -275,9 +311,17 @@ class BaseBunch():
             egsdir, train_csv_name=train_csv_name, valid_csv_name=valid_csv_name)
         assert 'feat_dim' in egs_params
         feat_dim = int(egs_params['feat_dim'])
-        info = {"feat_dim": feat_dim, "num_targets": num_targets}
+
         bunch = self.get_bunch_from_csv(
-            train_csv, valid_csv, egs_params)
+            train_csv, valid_csv, egs_params,num_targets)
+        num_targets = self.num_targets
+        tot_samples = len(bunch.train_loader.dataset)
+        world_size = dist.get_world_size() if dist.is_initialized() else 1
+        if egs_params['dataset_conf']['batch_conf']['batch_type']=='static':
+            epoch_iters = (tot_samples//world_size)//egs_params['dataset_conf']['batch_conf']['batch_size']
+        else:
+            epoch_iters = None
+        info = {"feat_dim": feat_dim, "num_targets": num_targets, "epoch_iters": epoch_iters}
         return bunch, info
 
 
@@ -301,4 +345,41 @@ def get_info_from_egsdir(egsdir, train_csv_name=None, valid_csv_name=None):
 
 
 if __name__ == "__main__":
-    pass
+    egs_conf="/tsdata/ldx/subtools_jit/subtools_bk/conf/egs_pre_new_test.yaml"
+    with open(egs_conf,'r') as fin:
+        egs_params = yaml.load(fin, Loader=yaml.FullLoader)
+    conf = egs_params['dataset_conf']
+    feat = conf['feature_extraction_conf']
+    raw_egs = "/tsdata/ldx/subtools_jit/data_test/shard/raw_eg_vad_amp_th50_2_015//valid.egs.csv"
+    shard_egs = "/tsdata/ldx/subtools_jit/data_test/shard/shard_eg_vad_amp_th50_2_015/valid.egs.csv"
+    dataset = WavEgs(shard_egs,conf,data_type='shard')
+    dataset_dl = DataLoader(dataset, batch_size=None,num_workers=2)
+    raw_dataset = WavEgs(raw_egs,conf,data_type='raw')
+    xv_dataset = WavEgsXvector(shard_egs,feat,data_type='shard')
+
+    # xv_raw_dataset = WavEgsXvector('/tsdata/ldx/subtools_jit/data_test/wav.scp',feat,data_type='raw')
+    # key=""
+    # cnt=0
+
+    # timer.reset()
+    # for data in raw_dataset:
+    #     print(data)
+    #     sys.exit()
+    # print(timer.elapse())
+
+    # timer.reset()
+    cnt=0
+    for data in dataset_dl:
+        i,t,l=data
+        print(i.shape,t.shape,l.shape)
+        sys.exit()
+        
+    # print(timer.elapse())
+
+    # timer.reset()
+    cnt=0
+    for i in dataset:
+        print(i[0][:,0,0],i[0].shape)
+        cnt+=1
+        if cnt==10:
+            sys.exit()

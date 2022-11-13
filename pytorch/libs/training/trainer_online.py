@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 import yaml
 import torch
+import torch.distributed as dist
 from torch.utils.data import DataLoader
 from contextlib import nullcontext
 from .reporter import Reporter_new as Reporter
@@ -60,8 +61,8 @@ class _BaseTrainer():
     def __init__(self, package, stop_early=False):
         default_elements = {"data": None, "model": None,
                             "optimizer": None, "lr_scheduler": None}
-        default_params = {"model_dir": "", "model_blueprint": "", "exist_model": "", "start_epoch": 0, "epochs": 10,
-                          "use_gpu": True, "gpu_id": "", "benchmark": True, "max_change": 10.0, "use_amp": False, "accum_grad": 1,
+        default_params = {"model_dir": "", "model_blueprint": "", "exist_model": "", "start_epoch": 0, "epochs": 10, "warmup_steps":0,
+                          "use_gpu": True, "gpu_id": "", "benchmark": True, "max_change": 5.0, "use_amp": False, "accum_grad": 1,
                           "compute_accuracy": True, "compute_valid_accuracy": True, "compute_batch_num_valid": 1,
                           "suffix": "params", "nan_debug": False, "skip_nan_batch": True, "use_tensorboard": True}
 
@@ -90,6 +91,7 @@ class _BaseTrainer():
         self.training_point = copy.deepcopy([self.params["start_epoch"], 0, 0])
         self.cycle_point = 0  # for cycle training.
 
+        self.warmup_steps = self.params["warmup_steps"] # model level warm up. just for transformer.
     def select_device(self):
         return utils.select_model_device(self.elements["model"], self.params["use_gpu"],
                                          gpu_id=self.params["gpu_id"], benchmark=self.params["benchmark"])
@@ -140,7 +142,11 @@ class _BaseTrainer():
             pass  # Now, it means use the raw initial model
 
         # Select device
-
+ 
+        # for k,v in model.named_parameters():
+        #     if "train_len" in k:
+        #         print(v)
+        # assert 1==0
         model = self.select_device()
 
         # Original model is built in libs.nnet.framework.TopVirtualNnet, and it is not available after
@@ -215,7 +221,11 @@ class SimpleTrainer(_BaseTrainer):
         model = self.elements["model"]
         model_forward = self.elements["model_forward"]
         optimizer = self.elements["optimizer"]
+        cur_step = self.training_point[2]
 
+        # model level warm up. just for transformer.
+        warmup = cur_step / self.warmup_steps if self.warmup_steps >0 else 1.0
+        warmup = torch.FloatTensor([warmup])
         if not model.training:
             model.train()
 
@@ -229,8 +239,13 @@ class SimpleTrainer(_BaseTrainer):
                                                               map_location="cpu"))
             self.elements["model"].to(device)
         else:
-            inputs, targets = batch
+            inputs, targets, feats_lens = batch
+            feats_lens = (feats_lens*inputs.shape[2]).long()
+            input_list = [inputs,feats_lens]
 
+            # model level warm up. just for transformer.
+            if self.warmup_steps >0:
+                input_list.append(warmup)
         context = None
         # Disable gradient synchronizations across DDP processes.
         # Within this context, gradients will be accumulated on module
@@ -246,13 +261,17 @@ class SimpleTrainer(_BaseTrainer):
             # Managing automatic mixed precision  (Leo 2021-11-08)
             with torch.cuda.amp.autocast(self.scaler is not None):
 
-                loss = model.get_loss(model_forward(inputs), targets)/self.params["accum_grad"]
+                loss = model.get_loss(model_forward(*input_list), targets)/self.params["accum_grad"]
                 # loss = model_forward(inputs, targets)/self.params["accum_grad"]
 
             if self.params["use_amp"]:
                 self.scaler.scale(loss).backward()
             else:
                 loss.backward()
+        # for name, param in model.named_parameters():
+        #     if param.grad is None:
+        #         print(name)
+        #         sys.exit()
         loss.detach()  # For safe.
         loss = loss.item()*self.params["accum_grad"]
         accuracy = None
@@ -320,13 +339,15 @@ class SimpleTrainer(_BaseTrainer):
         num_samples = 0
         with torch.no_grad():
             for idx,this_data in enumerate(data_loader):
-                inputs, targets = this_data
+                inputs, targets, feats_lens = this_data
+                feats_lens = (feats_lens*inputs.shape[2]).long()
                 num_utts = targets.size(0)
+                input_list = [inputs,feats_lens]
                 if num_utts == 0:
                     continue
                 # in valid stage, DO NOT call ddp model, for ddp model is in JOIN context wrapper.
                 # Leo 2022-02-03
-                loss += model.get_loss(model(inputs),
+                loss += model.get_loss(model(*input_list),
                                        targets).item() * len(targets)
 
                 # loss += model_forward(inputs,targets).item() * len(targets)
@@ -434,20 +455,32 @@ class SimpleTrainer(_BaseTrainer):
                 model_context = model_forward.join(throw_on_early_termination=True)
             else:
                 model_context = nullcontext()
-            with model_context:
-                for this_epoch in range(start_epoch, epochs):
-                    self.training_point[0]+=1
 
+            device = utils.get_device(self.elements["model"])
+            stop_training =  torch.zeros(1).to(device)
+
+            with model_context:
+
+                for this_epoch in range(start_epoch, epochs+5):
+                    # In case the uneven data in different ranks when ddp training, 
+                    # here we design a more epoch for sub-ranks to ensure the main rank can broadcasting.
+                    if utils.is_main_training:
+                        if this_epoch ==  epochs: # skip the last+1 epoch
+                            stop_training =  torch.ones(1).to(device)
+
+                    self.training_point[0]+=1
                     data.train_loader.dataset.set_epoch(this_epoch)
 
                     # with model_context:
+                    if utils.is_main_training() and self.training_point[1]==0: self.origin_total_dur,self.num_sample=data.train_loader.dataset.get_data_dur()
 
                     for _, batch in enumerate(data.train_loader, 0):
                         # It is important for reporter.
-                        if utils.is_main_training() and self.training_point[1]==0: self.origin_total_dur,self.num_sample=data.train_loader.dataset.get_data_dur()
-
+                        dist.barrier()
+                        if utils.use_ddp():dist.all_reduce(stop_training,op=dist.ReduceOp.SUM) 
+                        if stop_training: 
+                            break
                         self.training_point[1] +=1
-
                         num_utts = batch[0].size(0)
 
                         if num_utts == 0:
@@ -459,9 +492,12 @@ class SimpleTrainer(_BaseTrainer):
                         loss, acc = self.train_one_batch(batch)
 
                         model.backward_step(*self.training_point)
-
+                    if stop_training:
+                        break
                     if utils.is_main_training():self.save_model(train_lr=self.train_lr)
                     self.training_point[1] =0
+               
+            # dist.barrier()
             if utils.is_main_training():self.reporter.finish()
             if utils.is_main_training():
                 final_model_name = "{}_cycle".format(self.cycle_point) if self.cycle_point else epochs
@@ -474,6 +510,9 @@ class SimpleTrainer(_BaseTrainer):
             if utils.use_ddp():utils.cleanup_ddp()
             if not isinstance(e, KeyboardInterrupt):traceback.print_exc()
             sys.exit(1)
+
+
+
 
     @for_lr_finder_new
     def lr_finder_compute(self, train_batch):

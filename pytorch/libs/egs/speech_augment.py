@@ -3,6 +3,7 @@
 
 # Importing libraries
 import math
+from typing import Optional,List
 import numpy as np
 import random
 import sklearn
@@ -23,10 +24,10 @@ from .signal_processing import (
     reverberate,
 )
 from libs.support.utils import batch_pad_right
-
+import torch.distributed as dist
 
 class NoiseDataset(Dataset):
-    def __init__(self, csv_file, sorting="original", max_len=None):
+    def __init__(self, csv_file, sorting="original", max_len=None, filt_min=None):
 
         head = pd.read_csv(csv_file, sep=" ", nrows=0).columns
 
@@ -37,6 +38,11 @@ class NoiseDataset(Dataset):
 
         data = pd.read_csv(csv_file, sep=" ",header=0)
 
+
+        if filt_min:
+            data =data[data['duration']>filt_min]
+
+        
         if sorting == "decending":
             data = data.sort_values(by=['duration'], ascending=False)
         elif sorting == "ascending":
@@ -47,11 +53,13 @@ class NoiseDataset(Dataset):
             pass
  
         self.path = data['wav'].values.astype(np.string_)
+
+
         if max_len:
             assert max_len > 0.0
             self.lens=data['tot_frame'].values
             self.sr=data['sr'].values
-    
+
         self.max_len = max_len
         del data
  
@@ -72,6 +80,7 @@ class NoiseDataset(Dataset):
 
     def __len__(self):
         return len(self.path)
+
 
 
 class ReproducibleRandomSampler(RandomSampler):
@@ -195,6 +204,7 @@ class AddNoise(torch.nn.Module):
     def __init__(
         self,
         csv_file=None,
+        add_filt_min=None,
         sorting="random",
         num_workers=0,
         snr_low=0,
@@ -207,6 +217,7 @@ class AddNoise(torch.nn.Module):
         super().__init__()
 
         self.csv_file = csv_file
+        self.add_filt_min=add_filt_min
         self.sorting = sorting
         self.num_workers = num_workers
         self.snr_low = snr_low
@@ -287,7 +298,9 @@ class AddNoise(torch.nn.Module):
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
                 dataset = NoiseDataset(
-                    self.csv_file, sorting=self.sorting)
+                    self.csv_file,
+                    filt_min = self.add_filt_min,
+                    sorting=self.sorting)
                 shuffle = (self.sorting == "random")
                 if torch.distributed.is_initialized():
                     sampler = torch.utils.data.distributed.DistributedSampler(
@@ -325,7 +338,9 @@ class AddNoise(torch.nn.Module):
 
         # Ensure noise batch is long enough
         elif noise_batch.size(1) < max_length:
-            padding = (0, max_length - noise_batch.size(1))
+            pad = max_length - noise_batch.size(1)
+            left_padding = torch.randint(high = pad+1, size=(1,))[0]
+            padding = (left_padding,pad-left_padding)
             noise_batch = torch.nn.functional.pad(noise_batch, padding)
 
         # Select a random starting location in the waveform
@@ -429,12 +444,12 @@ class AddReverb(torch.nn.Module):
         self.csv_file = csv_file
         self.sorting = sorting
         self.reverb_prob = reverb_prob
-
         self.rir_scale_factor = rir_scale_factor
 
         # Create a data loader for the RIR waveforms
         dataset = NoiseDataset(
-            self.csv_file, sorting=self.sorting)
+            self.csv_file, 
+            sorting=self.sorting)
         shuffle = (self.sorting == "random")
         if torch.distributed.is_initialized():
             sampler = torch.utils.data.distributed.DistributedSampler(
@@ -443,7 +458,8 @@ class AddReverb(torch.nn.Module):
         else:
             sampler = None
         self.data_loader = make_dataloader(
-            dataset, shuffle=shuffle, sampler=sampler
+            dataset, shuffle=shuffle,
+             sampler=sampler
         )
         self.rir_data = iter(self.data_loader)
 
@@ -546,6 +562,7 @@ class AddBabble(torch.nn.Module):
     def __init__(
         self,
         csv_file=None,
+        add_filt_min=None,
         sorting="random",
         num_workers=0,
         snr_low=0,
@@ -559,6 +576,7 @@ class AddBabble(torch.nn.Module):
         super().__init__()
 
         self.csv_file = csv_file
+        self.add_filt_min = add_filt_min
         self.sorting = sorting
         self.num_workers = num_workers
         self.snr_low = snr_low
@@ -651,7 +669,10 @@ class AddBabble(torch.nn.Module):
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
                 dataset = NoiseDataset(
-                    self.csv_file, sorting=self.sorting, max_len=self.babble_noise_max_len)
+                    self.csv_file,
+                    filt_min=self.add_filt_min,
+                    sorting=self.sorting, 
+                    max_len=self.babble_noise_max_len)
                 shuffle = (self.sorting == "random")
                 if torch.distributed.is_initialized():
                     sampler = torch.utils.data.distributed.DistributedSampler(
@@ -689,7 +710,9 @@ class AddBabble(torch.nn.Module):
 
         # Ensure noise batch is long enough
         elif noise_batch.size(1) < max_length:
-            padding = (0, max_length - noise_batch.size(1))
+            pad = max_length - noise_batch.size(1)
+            left_padding = torch.randint(high = pad+1, size=(1,))[0]
+            padding = (left_padding,pad-left_padding)
             noise_batch = torch.nn.functional.pad(noise_batch, padding)
 
         # Select a random starting location in the waveform
@@ -991,6 +1014,56 @@ class DropChunk(torch.nn.Module):
 
         return dropped_waveform
 
+class RandomChunk(torch.nn.Module):
+    """Get segment.
+    Arguments
+    ---------
+    chunk_len : float
+        Get segment of utts, in senconds (s).
+    sample_rate : int
+        the sampling frequency of the input signal.
+    """
+    def __init__(
+        self, 
+        random_chunk=False,
+        chunk_len=2.015, 
+        sample_rate=16000,
+    ):
+        super().__init__()
+        self.random_chunk=random_chunk
+        self.lens = int(chunk_len*sample_rate)
+    def forward(self, waveforms,lengths):
+        """
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
+        lengths : tensor
+            Shape should be a single dimension, `[batch]`.
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`
+        """
+        if not self.random_chunk:
+            return waveforms,lengths
+        lengths=(lengths * waveforms.shape[1])  # [B]
+        shape = list(waveforms.shape)
+        shape[1] = self.lens
+        chunk_sig = torch.zeros(shape,device=lengths.device)
+        for i in range(shape[0]):
+            if lengths[i] > self.lens:
+                max_chop = (lengths[i] - self.lens).long()
+                start_index = torch.randint(
+                    high=max_chop, size=(1,))
+                chunk_sig[i] = waveforms[i,start_index: start_index + self.lens]  
+            else:
+                repeat_num = math.ceil(self.lens/lengths[i])
+                chunk_sig[i:i+1] = waveforms[i:i+1,: ].repeat(1,repeat_num)[:,:self.lens]             
+        lengths = torch.ones(shape[0])
+        if chunk_sig.shape!=48240:
+            print(chunk_sig.shape)
+        return chunk_sig, lengths
+
 
 class DoClip(torch.nn.Module):
     """This function mimics audio clipping by clamping the input tensor.
@@ -1041,6 +1114,48 @@ class DoClip(torch.nn.Module):
 
         return clipped_waveform
 
+class SoxEffectTransform(torch.nn.Module):
+        effects: List[List[str]]
+
+        def __init__(self, effects: List[List[str]],sample_rate:int):
+            
+            super().__init__()
+            self.effects = effects
+            self.sample_rate = sample_rate
+        def forward(self, waveforms: torch.Tensor):
+            """
+            Arguments
+            ---------
+            waveforms : tensor
+                Shape should be `[batch, time]` or `[batch, time, channels]`.
+            Returns
+            -------
+            Tensor of shape `[batch, time]` or `[batch, time, channels]`.
+            """
+
+            wavs = []
+            if self.effects == [[]]:
+                return waveforms
+            unsqueezed = False
+            if len(waveforms.shape)==2:
+                # add channel
+                waveforms=waveforms.unsqueeze(1)
+                unsqueezed = True
+            else:
+                waveforms = waveforms.transpose(1, 2) 
+            for i,wav in enumerate(waveforms):
+
+                wav,_ = torchaudio.sox_effects.apply_effects_tensor(wav, self.sample_rate, self.effects)
+                
+                wavs.append(wav.unsqueeze(0))
+            wavs = torch.cat(wavs,dim=0)
+
+
+            if unsqueezed:
+                wavs=wavs.squeeze(1)
+            else:
+                wavs=wavs.transpose(1,2)
+            return wavs
 
 class SpeedPerturb(torch.nn.Module):
     """Slightly speed up or slow down an audio signal.
@@ -1054,8 +1169,7 @@ class SpeedPerturb(torch.nn.Module):
     orig_freq : int
         The frequency of the original signal.
     speeds : list
-        The speeds that the signal should be changed to, as a percentage of the
-        original signal (i.e. `speeds` is divided by 100 to get a ratio).
+        A set of different speeds to use to perturb each batch. larger -> slower.
     perturb_prob : float
         The chance that the batch will be speed-
         perturbed. By default, every batch is perturbed.
@@ -1064,27 +1178,52 @@ class SpeedPerturb(torch.nn.Module):
     """
 
     def __init__(
-        self, orig_freq, speeds=[90, 100, 110], perturb_prob=1.0, keep_shape=True
+        self, orig_freq, speeds=[95, 100, 105], perturb_prob=1.0, keep_shape=True, perturb_type='resample', change_spk=False,spk_num=0
     ):
         super().__init__()
+        assert perturb_type in ['resample','sox_speed','sox_tempo']
+
         self.orig_freq = orig_freq
         self.speeds = speeds
         self.perturb_prob = perturb_prob
         self.keep_shape = keep_shape
+        self.change_spk = change_spk
 
-        # Initialize index of perturbation
-        self.samp_index = 0
+        if change_spk:
+            assert spk_num>0, "change_spk need total spk number."
+
+            self.aug_spks = self._speed_to_speaker(speeds)
+            self.aug_spks = [spk_num*aug_spk for aug_spk in self.aug_spks]
 
         # Initialize resamplers
-        self.resamplers = []
+        self.speeders = []
         for speed in self.speeds:
-            config = {
-                "orig_freq": self.orig_freq,
-                "new_freq": self.orig_freq * speed // 100,
-            }
-            self.resamplers.append(Resample(**config))
+            if perturb_type == 'resample':
 
-    def forward(self, waveform):
+                config = {
+                    "orig_freq": self.orig_freq,
+                    "new_freq": self.orig_freq * speed // 100,
+                }
+                self.speeders.append(Resample(**config))
+            else:
+                
+                if perturb_type == 'sox_speed':
+                    if speed==100:
+                        effects = [[]]
+                    else:
+                        speed = round(100/speed,2)
+                        effects = [['speed',str(speed)],['rate',str(orig_freq)]]
+
+                elif perturb_type == 'sox_tempo':
+                    if speed==100:
+                        effects = [[]]
+                    else:
+                        speed = round(100/speed,2)
+                        effects = [['tempo', str(speed)]]
+                else:
+                    raise ValueError("unsupport perturb_type: {}".format(perturb_type))
+                self.speeders.append(SoxEffectTransform(effects,orig_freq))
+    def forward(self, waveform: torch.Tensor, spk_id: torch.Tensor=torch.ones((0), dtype=torch.long)):
         """
         Arguments
         ---------
@@ -1092,6 +1231,8 @@ class SpeedPerturb(torch.nn.Module):
             Shape should be `[batch, time]` or `[batch, time, channels]`.
         lengths : tensor
             Shape should be a single dimension, `[batch]`.
+        spk_id: tensor
+            Shape should be a single dimension, `[batch]`
 
         Returns
         -------
@@ -1100,11 +1241,13 @@ class SpeedPerturb(torch.nn.Module):
 
         # Don't perturb (return early) 1-`perturb_prob` portion of the batches
         if torch.rand(1) > self.perturb_prob:
-            return waveform.clone()
+            return waveform.clone(),spk_id
 
         # Perform a random perturbation
-        self.samp_index = torch.randint(len(self.speeds), (1,))[0]
-        perturbed_waveform = self.resamplers[self.samp_index](waveform)
+        speed_index = torch.randint(len(self.speeds), (1,))[0]
+        perturbed_waveform = self.speeders[speed_index](waveform)
+        if self.change_spk:
+            spk_id = self.aug_spks[speed_index]+ spk_id
 
         if self.keep_shape:
             # Managing speed change
@@ -1116,7 +1259,27 @@ class SpeedPerturb(torch.nn.Module):
                 zero_sig[:, 0: perturbed_waveform.shape[1]
                          ] = perturbed_waveform
                 perturbed_waveform = zero_sig
-        return perturbed_waveform
+        return perturbed_waveform,spk_id
+
+    def get_spkid_aug(self):
+        sp_aug,spkid_aug =1,1
+        if self.perturb_prob>0:
+            sp_aug = len(set(self.speeds))
+            if self.change_spk:
+                spkid_aug=len(set(self.speeds))
+        return spkid_aug,sp_aug
+
+    def _speed_to_speaker(self,speeds):
+        assert 100 in speeds, "speed perturb with speaker aug need origin speed."
+        t = {}
+        spk_cont = 0
+        for s in sorted(set(speeds),key = speeds.index):
+            if s ==100:
+                t[s]=0
+            else:
+                spk_cont+=1
+                t[s]=spk_cont
+        return [t[sp] for sp in speeds]
 
 
 class Resample(torch.nn.Module):
@@ -1449,6 +1612,8 @@ class EnvCorrupt(torch.nn.Module):
         A prepared csv file for loading noise data, if None, means white noise.
     babble_csv : str
         A prepared csv file for loading babble data, if None, means simulated babble noise.
+    add_filt_min : float
+        Filt the short noises in when loading noises and babble from csv.
     noise_num_workers : int
         Number of workers to use for loading noises.   
     babble_speaker_count : int
@@ -1482,14 +1647,16 @@ class EnvCorrupt(torch.nn.Module):
         reverb_csv=None,
         noise_csv=None,
         babble_csv=None,
+        add_filt_min = None,
         babble_noise_max_len=2.0,
         noise_num_workers=0,
         babble_speaker_count=0,
-        babble_snr_low=0,
-        babble_snr_high=0,
+        babble_snr_low=13,
+        babble_snr_high=20,
         noise_snr_low=0,
-        noise_snr_high=0,
-        rir_scale_factor=1.0,
+        noise_snr_high=15,
+        pad_noise = False,
+        rir_scale_factor=1.0,        
         **ops
     ):
         super().__init__()
@@ -1506,23 +1673,27 @@ class EnvCorrupt(torch.nn.Module):
             self.add_babble = AddBabble(
                 mix_prob=babble_prob,
                 csv_file=babble_csv,
+                add_filt_min = add_filt_min,
                 num_workers=noise_num_workers,
                 speaker_count=babble_speaker_count,
                 snr_low=babble_snr_low,
                 snr_high=babble_snr_high,
                 babble_noise_max_len=babble_noise_max_len,
+                pad_noise=pad_noise,
             )
 
         if noise_prob > 0.0:
             self.add_noise = AddNoise(
                 mix_prob=noise_prob,
                 csv_file=noise_csv,
+                add_filt_min = add_filt_min,
                 num_workers=noise_num_workers,
                 snr_low=noise_snr_low,
                 snr_high=noise_snr_high,
+                pad_noise=pad_noise,
             )
 
-    def forward(self, waveforms, lengths):
+    def forward(self, waveforms, lengths,spk_id:torch.ones((0),dtype=torch.long)):
         """Returns the distorted waveforms.
 
         Arguments
@@ -1543,7 +1714,7 @@ class EnvCorrupt(torch.nn.Module):
             if hasattr(self, "add_noise"):
                 waveforms = self.add_noise(waveforms, lengths)
 
-        return waveforms
+        return waveforms,lengths, spk_id
 
 
 class TimeDomainSpecAugment(torch.nn.Module):
@@ -1553,8 +1724,9 @@ class TimeDomainSpecAugment(torch.nn.Module):
     the time-domain.
 
      1. Drop chunks of the audio (zero amplitude or white noise)
-     2. Drop frequency bands (with band-drop filters)
-     3. Speed peturbation (via resampling to slightly different rate)
+     2. RandomChunk selection.
+     3. Drop frequency bands (with band-drop filters)
+     4. Speed peturbation (via resampling to slightly different rate)
 
     Arguments
     ---------
@@ -1565,8 +1737,19 @@ class TimeDomainSpecAugment(torch.nn.Module):
     drop_chunk_prob : float from 0 to 1
         The probability that a batch will have chunks dropped.
     speeds : list of ints
-        A set of different speeds to use to perturb each batch.
-        See ``speechbrain.processing.speech_augmentation.SpeedPerturb``
+        A set of different speeds to use to perturb each batch. larger -> slower. 
+    spk_num: int
+        The total speker num, for aug spkid if needed.
+    perturb_type: str
+        ['resample','sox_speed','sox_tempo']
+    change_spk: bool
+        Whether aug spkid
+    keep_shape: bool
+        keep time length after speed perturb.
+    random_chunk: bool
+        random select chunks after speed perturb.
+    ramddom_chunsize:
+        random chunks length in seconds (s).        
     sample_rate : int
         Sampling rate of the input waveforms.
     drop_freq_count_low : int
@@ -1597,10 +1780,15 @@ class TimeDomainSpecAugment(torch.nn.Module):
     def __init__(
         self,
         perturb_prob=1.0,
-        drop_freq_prob=1.0,
-        drop_chunk_prob=1.0,
-        speeds=[95, 100, 105],
+        drop_freq_prob=0.0,
+        drop_chunk_prob=0.0,
+        speeds=[95, 100, 110],
+        spk_num=0,
+        perturb_type='resample', 
+        change_spk=False,
         keep_shape=True,
+        random_chunk=False,
+        ramddom_chunsize=2.015,
         sample_rate=16000,
         drop_freq_count_low=0,
         drop_freq_count_high=3,
@@ -1613,7 +1801,18 @@ class TimeDomainSpecAugment(torch.nn.Module):
     ):
         super().__init__()
         self.speed_perturb = SpeedPerturb(
-            perturb_prob=perturb_prob, orig_freq=sample_rate, speeds=speeds, keep_shape=keep_shape
+            perturb_prob=perturb_prob, 
+            orig_freq=sample_rate, 
+            speeds=speeds, 
+            spk_num=spk_num,
+            perturb_type=perturb_type, 
+            change_spk=change_spk,
+            keep_shape=keep_shape
+        )
+        self.random_chunk = RandomChunk(
+            random_chunk = random_chunk,
+            chunk_len = ramddom_chunsize,
+            sample_rate = sample_rate
         )
         self.drop_freq = DropFreq(
             drop_prob=drop_freq_prob,
@@ -1629,7 +1828,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
             noise_factor=drop_chunk_noise_factor,
         )
 
-    def forward(self, waveforms, lengths):
+    def forward(self, waveforms, lengths, spk_id:torch.ones((0),dtype=torch.long)):
         """Returns the distorted waveforms.
 
         Arguments
@@ -1639,11 +1838,18 @@ class TimeDomainSpecAugment(torch.nn.Module):
         """
         # Augmentation
         with torch.no_grad():
-            waveforms = self.speed_perturb(waveforms)
+            waveforms,spk_id = self.speed_perturb(waveforms,spk_id)
+            waveforms,lengths = self.random_chunk(waveforms,lengths)
             waveforms = self.drop_freq(waveforms)
             waveforms = self.drop_chunk(waveforms, lengths)
 
-        return waveforms
+        return waveforms,lengths,spk_id
+
+    def get_spkid_aug(self):
+
+        return self.speed_perturb.get_spkid_aug()
+
+
 
 
 class SpeechAug(torch.nn.Module):
@@ -1675,16 +1881,17 @@ class SpeechAug(torch.nn.Module):
     signal, lens = speech_aug(signal,torch.ones(1))
     """
 
-    def __init__(self, aug_classes=[], mod="random"):
+    def __init__(self, spk_num=0,aug_classes=[], mod="random"):
         super().__init__()
         assert mod in ["random", "concat", "chain"]
         self.mod = mod
         self.augment = []
         self.augment_name = []
-
+        self.spk_num=spk_num
         # define a weight of clean wav type
         random_weights = [1] if self.mod == 'random' else []
-
+        self.spkid_aug,self.sp_aug = 1,1
+        spt_num=0
         for aug_class in aug_classes:
 
             assert 'aug_type' in aug_class
@@ -1709,59 +1916,76 @@ class SpeechAug(torch.nn.Module):
             if aug_type == 'Env':
                 self.augment.append(EnvCorrupt(**aug_class))
             if aug_type == 'Time':
-                self.augment.append(TimeDomainSpecAugment(**aug_class))
+                td_aug = TimeDomainSpecAugment(spk_num=spk_num,**aug_class)
+                spkid_aug,sp_aug = td_aug.get_spkid_aug()
+                spt_num+=(int(spkid_aug>1))
+                
+                if spt_num > 1:
+                    raise ValueError("multi speaker id perturb setting, check your speech aug config")
+                if spkid_aug>1:
+                    self.spkid_aug = spkid_aug
+                self.augment.append(td_aug)
+                
+
         self.random_weight = torch.tensor(
             random_weights, dtype=torch.float) if random_weights else None
-        self.get_augment()
+        self.print_augment()
 
 
-    def forward(self, waveforms, lengths):
+    def forward(self, waveforms, lengths, spkid: torch.Tensor=torch.ones((0),dtype=torch.long)):
         if not self.augment:
-            return waveforms, lengths
+            return waveforms, lengths, spkid
             
         if self.mod == 'random':
-            return self._random_forward(waveforms, lengths)
+            return self._random_forward(waveforms, lengths,spkid)
         elif self.mod == 'chain':
-            return self._chain_forward(waveforms, lengths)
+            return self._chain_forward(waveforms, lengths,spkid)
         else:
-            return self._concat_forward(waveforms, lengths)
+            return self._concat_forward(waveforms, lengths,spkid)
 
-    def _random_forward(self, waveforms, lengths):
+    def _random_forward(self, waveforms, lengths,spkid):
         aug_idx = torch.multinomial(self.random_weight, 1)[0]
 
         if aug_idx == 0:
-            return waveforms, lengths
+            return waveforms, lengths,spkid
         else:
-            waves=self.augment[aug_idx-1](waveforms, lengths)
+            waves,lengths,spkid=self.augment[aug_idx-1](waveforms, lengths,spkid)
 
 
             if(torch.any((torch.isnan(waves)))):
                 raise ValueError('random_1:{},type:{},typename:{}'.format(waveforms,self.augment[aug_idx-1],self.augment_name[aug_idx-1]))
-            return waves, lengths
+            return waves, lengths, spkid
 
-    def _concat_forward(self, waveforms, lengths):
+    def _concat_forward(self, waveforms, lengths,spkid):
         wavs_aug_tot = []
+        spkids=[]
+        lens = []
         wavs_aug_tot.append(waveforms.clone())
+        spkids.append(spkid)
+        lens.append(lengths)
         for count, augment in enumerate(self.augment):
-            wavs_aug = augment(waveforms, lengths)
+            wavs_aug,len,spkid_a = augment(waveforms, lengths,spkid)
 
             if(torch.any((torch.isnan(wavs_aug)))):
                 raise ValueError('concat:{},type:{},typename:{}'.format(waveforms,self.augment[count],self.augment_name[count]))
             wavs_aug_tot.append(wavs_aug)
+            spkids.append(spkid_a)
+            lens.append(len)
         waveforms = torch.cat(wavs_aug_tot, dim=0)
-        lengths = torch.cat([lengths] * len(wavs_aug_tot))
-        return waveforms, lengths
+        lens = torch.cat(lens)
+        spkids = torch.cat(spkids, dim=0)
+        return waveforms, lens, spkids
 
-    def _chain_forward(self, waveforms, lengths):
+    def _chain_forward(self, waveforms, lengths,spkid):
 
         for count, augment in enumerate(self.augment):
-            waveforms = augment(waveforms, lengths)
+            waveforms,lengths,spkid = augment(waveforms, lengths,spkid)
 
 
             if(torch.any((torch.isnan(waveforms)))):
                 raise ValueError('chian:{},type:{},typename:{}'.format(waveforms,self.augment[count],self.augment_name[count]))
 
-        return waveforms, lengths
+        return waveforms, lengths,spkid
 
     
     def get_num_concat(self):
@@ -1770,7 +1994,13 @@ class SpeechAug(torch.nn.Module):
         else:
             return 1
 
-    def get_augment(self):
+    def get_spkid_aug(self):
+
+        return self.spkid_aug
+        
+
+
+    def print_augment(self):
         if self.augment:
             print('speech augment type is {}.'.format(self.mod))
             aug_dict=dict(zip(self.augment_name,self.augment))
