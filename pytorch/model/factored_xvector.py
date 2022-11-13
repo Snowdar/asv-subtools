@@ -61,7 +61,7 @@ class Xvector(TopVirtualNnet):
 
     @torch.jit.unused
     @utils.for_device_free
-    def forward(self, inputs, x_len: torch.Tensor=torch.empty(0)):
+    def forward(self, inputs):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index,  frames-dim-index, frames-index]
         """
@@ -158,28 +158,24 @@ class Xvector(TopVirtualNnet):
         return xvector
 
     @torch.jit.export
-    def extract_embedding_whole(self, input: torch.Tensor, position: str = 'near', maxChunk: int = 4000, isMatrix: bool = True):
-        with torch.no_grad():
-            if isMatrix:
-                input = torch.unsqueeze(input, dim=0)
-                input = input.transpose(1, 2)
-            num_frames = input.shape[2]
-            num_split = (num_frames + maxChunk - 1) // maxChunk
-            split_size = num_frames // num_split
-            offset = 0
-            embedding_stats = torch.zeros(1, self.embd_dim, 1).to(input.device)
-            for _ in range(0, num_split-1):
-                this_embedding = self.extract_embedding_jit(
-                    input[:, :, offset:offset+split_size], position)
-                offset += split_size
-                embedding_stats += split_size*this_embedding
+    def extract_embedding_whole(self,input:torch.Tensor,position:str='far',maxChunk:int=10000,isMatrix:bool=True):
+        if isMatrix:
+            input=torch.unsqueeze(input,dim=0)
+            input=input.transpose(1,2)
+        num_frames = input.shape[2]
+        num_split = (num_frames + maxChunk - 1) // maxChunk
+        split_size = num_frames // num_split
+        offset=0
+        embedding_stats = torch.zeros(1,self.embd_dim,1)
+        for _ in range(0, num_split-1):
+            this_embedding = self.extract_embedding_jit(input[:, :, offset:offset+split_size],position)
+            offset += split_size
+            embedding_stats += split_size*this_embedding
 
-            last_embedding = self.extract_embedding_jit(
-                input[:, :, offset:], position)
+        last_embedding = self.extract_embedding_jit(input[:, :, offset:],position)
 
-            embedding = (embedding_stats + (num_frames-offset)
-                        * last_embedding) / num_frames
-            return torch.squeeze(embedding.transpose(1, 2)).cpu()
+        embedding = (embedding_stats + (num_frames-offset) * last_embedding) / num_frames
+        return torch.squeeze(embedding.transpose(1,2)).cpu()
 
     @torch.jit.export
     def embedding_dim(self) -> int:

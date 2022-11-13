@@ -4,7 +4,6 @@
 
 import sys, os
 import math
-import yaml
 import random
 import logging
 import shutil
@@ -182,7 +181,6 @@ def create_model_from_py(model_blueprint, model_creation=""):
         return model_module
     else:
         model = eval("model_module.{0}".format(model_creation))
-
         return model
 
 
@@ -216,7 +214,7 @@ def create_model_dir(model_dir:str, model_blueprint:str, stage=-1):
         os.makedirs("{0}/config".format(model_dir), exist_ok=True)
     os.makedirs("{0}/checkpoint_info".format(model_dir), exist_ok=True)
     if is_main_training():
-        if stage <= 0 and model_blueprint != config_model_blueprint:
+        if stage < 0 and model_blueprint != config_model_blueprint:
             shutil.copy(model_blueprint, config_model_blueprint)
     else:
         while(True):
@@ -248,7 +246,7 @@ def read_file_to_list(file_path, every_bytes=10000000):
     return list
 
 
-def write_list_to_file(this_list, file_path, mod='w', yml=False):
+def write_list_to_file(this_list, file_path, mod='w'):
     """
     @mod: could be 'w' or 'a'
     """
@@ -256,14 +254,8 @@ def write_list_to_file(this_list, file_path, mod='w', yml=False):
         this_list = [this_list]
 
     with open(file_path, mod) as writer :
-        if yml:
-            for x in this_list:
-                yaml.dump(x,writer)
-        
-        else:
-
-            writer.write('\n'.join(str(x) for x in this_list))
-            writer.write('\n')
+        writer.write('\n'.join(str(x) for x in this_list))
+        writer.write('\n')
 
 
 def save_checkpoint(checkpoint_path, **kwargs):
@@ -317,11 +309,9 @@ def key_to_value(adict, key, return_none=True):
 
 
 def assign_params_dict(default_params:dict, params:dict, force_check=False, support_unknow=False):
-
     default_params = copy.deepcopy(default_params)
-
     default_keys = set(default_params.keys())
-    
+
     # Should keep force_check=False to use support_unknow
     if force_check:
         for key in param.keys():
@@ -494,7 +484,7 @@ def get_free_port(ip="127.0.0.1"):
         return s.getsockname()[1]
 
 # https://github.com/speechbrain/speechbrain/blob/develop/speechbrain/utils/data_utils.py
-def batch_pad_right(tensors: list, mode="constant", value=0,val_index=-1):
+def batch_pad_right(tensors: list, mode="constant", value=0):
     """Given a list of torch tensors it batches them together by padding to the right
     on each dimension in order to get same length for all.
 
@@ -553,10 +543,10 @@ def batch_pad_right(tensors: list, mode="constant", value=0,val_index=-1):
             t, max_shape, mode=mode, value=value
         )
         batched.append(padded)
-        valid.append(valid_percent[val_index])
+        valid.append(valid_percent[0])
 
     batched = torch.stack(batched)
-    
+
     return batched, torch.tensor(valid)
 
 
@@ -599,6 +589,7 @@ def pad_right_to(
         valid_vals.append(tensor.shape[j] / target_shape[j])
         i -= 1
         j += 1
+
     tensor = torch.nn.functional.pad(tensor, pads, mode=mode, value=value)
 
     return tensor, valid_vals

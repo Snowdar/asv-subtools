@@ -3,7 +3,7 @@
 # Copyright xmuspeech (Author: Snowdar 2019-05-29 2020-06-10)
 
 import numpy as np
-from typing import Optional
+
 import torch
 import torch.nn.functional as F
 
@@ -29,45 +29,32 @@ class StatisticsPooling(torch.nn.Module):
         # Used for unbiased estimate of stddev
         self.unbiased = unbiased
 
-    def forward(self, inputs, lengths:torch.Tensor = torch.ones((0),dtype=torch.long)):
+    def forward(self, inputs):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
         assert len(inputs.shape) == 3
         assert inputs.shape[1] == self.input_dim
 
-        if lengths.size(0) > 0:
-            mean = []
-            std = []
-            for i in range(inputs.shape[0]):
-                act_len = lengths[i]
-                act_counts = act_len
-                mean_i = torch.mean(inputs[i,:,:act_len],dim=1,keepdim=True)
-                mean.append(mean_i)
-                if self.stddev :
-                    if self.unbiased and act_len > 1:
-                        act_counts = act_len - 1
-                    var = torch.sum((inputs[i,:,:act_len]-mean_i)**2, dim=1, keepdim=True)/act_counts
-                    std.append(torch.sqrt(var.clamp(min=self.eps))) 
+        # Get the num of frames
+        counts = inputs.shape[2]
 
-            mean = torch.stack(mean)
-            out = mean
-            if self.stddev :
-                std_o = torch.stack(std)
-                out = torch.cat((mean, std_o), dim=1)             
+        mean = inputs.sum(dim=2, keepdim=True) / counts
+
+        if self.stddev :
+            if self.unbiased and counts > 1:
+                counts = counts - 1
+
+            # The sqrt (as follows) is deprecated because it results in Nan problem.
+            # std = torch.unsqueeze(torch.sqrt(torch.sum((inputs - mean)**2, dim=2) / counts), dim=2)
+            # There is a eps to solve this problem.
+            # Another method: Var is equal to std in "cat" way, actually. So, just use Var directly.
+
+            var = torch.sum((inputs - mean)**2, dim=2, keepdim=True) / counts
+            std = torch.sqrt(var.clamp(min=self.eps))
+            return torch.cat((mean, std), dim=1)
         else:
-            counts = inputs.shape[2]
-            mean = inputs.mean(dim=2, keepdim=True)
-            out = mean
-            if self.stddev:
-                if self.unbiased and counts > 1:
-                    counts = counts - 1
-                var = torch.sum((inputs - mean)**2, dim=2, keepdim=True) / counts
-                std = torch.sqrt(var.clamp(min=self.eps))
-                out = torch.cat((mean, std), dim=1)  
-       
-        return out
-
+            return mean
 
     def get_output_dim(self):
         return self.output_dim

@@ -49,9 +49,8 @@ class ExtendedXvector(TopVirtualNnet):
             self.transform_keys = ["tdnn1","tdnn2","tdnn3","tdnn4","tdnn5","stats","tdnn6","tdnn7",
                                    "ex_tdnn1","ex_tdnn2","ex_tdnn3","ex_tdnn4","ex_tdnn5"]
 
-    @torch.jit.unused
     @utils.for_device_free
-    def forward(self, inputs, x_len: torch.Tensor=torch.empty(0)):
+    def forward(self, inputs):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index,  frames-dim-index, frames-index]
         """

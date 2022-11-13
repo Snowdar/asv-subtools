@@ -7,10 +7,6 @@
 import math
 import numpy as np
 import torch
-<<<<<<< HEAD
-=======
-from typing import Union
->>>>>>> v1
 from torch.optim.lr_scheduler import _LRScheduler
 
 from .optim import *
@@ -43,12 +39,7 @@ class LRSchedulerWrapper():
             "1cycle.epochs":None,
             "1cycle.steps_per_epoch":None,
             "1cycle.pct_start":0.3,
-<<<<<<< HEAD
             "1cycle.anneal_strategy":'linear',
-=======
-            "1cycle.warmup_steps":None,
-            "1cycle.anneal_strategy":'cos',  # ["cos", "linear"]
->>>>>>> v1
             "1cycle.cycle_momentum":False,
             "1cycle.base_momentum":0.85,
             "1cycle.max_momentum":0.95,
@@ -62,14 +53,6 @@ class LRSchedulerWrapper():
             "warmR.log_decay":False,
             "warmR.lr_decay_step":1,
 
-<<<<<<< HEAD
-=======
-            "noam.warmup_steps": 2000,
-            "noam.step_decay": False,
-            "noam.step_size": 34000,
-            "noam.step_rate": 0.5,
-
->>>>>>> v1
             "reduceP.metric":'valid_acc',
             "reduceP.check_interval":0, 
             "reduceP.factor":0.5, 
@@ -96,31 +79,13 @@ class LRSchedulerWrapper():
             self.step_total=int(step_up + step_down)            
             self.lr_scheduler = torch.optim.lr_scheduler.CyclicLR(base_optimizer, base_lr, max_lr, **split_params["cyclic"])
         elif self.name == "1cycle":
-<<<<<<< HEAD
             max_lr = split_params["1cycle"].pop("learn_rate")
             self.lr_scheduler = optim.lr_scheduler.OneCycleLR(base_optimizer, max_lr, **split_params["1cycle"])
-=======
-            warmup_steps = split_params["1cycle"].pop("warmup_steps")
-            pct_start = split_params["1cycle"].pop("pct_start")
-            max_lr = split_params["1cycle"].pop("learn_rate")
-            self.lr_scheduler = optim.lr_scheduler.OneCycleLR(base_optimizer, max_lr, pct_start=pct_start,**split_params["1cycle"])
-            self.step_total = self.lr_scheduler.total_steps
-            if warmup_steps is not None:
-                pct_start = warmup_steps/self.step_total
-            self.lr_scheduler = optim.lr_scheduler.OneCycleLR(base_optimizer, max_lr, pct_start=pct_start,**split_params["1cycle"])
->>>>>>> v1
         elif self.name == "warmR":
             self.T_0 = split_params["warmR"].pop("T_max")
             self.T_mult = split_params["warmR"]["T_mult"]
             self.lr_decay_step = split_params["warmR"].pop("lr_decay_step")
             self.lr_scheduler = CosineAnnealingWarmRestarts(base_optimizer, self.T_0, **split_params["warmR"])
-<<<<<<< HEAD
-=======
-        elif self.name == "noam":
-            warmup_steps = split_params["noam"].pop("warmup_steps")
-            self.lr_scheduler = WarmupLR(base_optimizer, warmup_steps, **split_params["noam"])
-            pass
->>>>>>> v1
         elif self.name == "reduceP":
             self.check_interval = split_params["reduceP"].pop("check_interval")
             self.metric = split_params["reduceP"].pop("metric")
@@ -155,11 +120,7 @@ class LRSchedulerWrapper():
             else:
                 if math.log(max(0.05, (epoch / self.T_0 * (self.T_mult - 1) + 1)), self.T_mult)%1==0 and epoch>0:
                     return False if (self.lr_decay_step == 0  and  training_point[1]>1) else True
-<<<<<<< HEAD
         if self.name=="cyclic":
-=======
-        if self.name in ["cyclic", "1cycle"] :
->>>>>>> v1
 
             return True if training_point[2]%self.step_total==0 and training_point[2]>0 else False
 
@@ -176,23 +137,12 @@ class LRSchedulerWrapper():
         elif self.name == "cyclic":
             self.lr_scheduler.step()
         elif self.name == "1cycle":
-<<<<<<< HEAD
             self.lr_scheduler.step(training_point[2])
-=======
-            self.lr_scheduler.step()
->>>>>>> v1
         elif self.name == "reduceP":
             # Sample a point in which the metrics of valid are computed and adjust learning rate at this point.
             if self.is_reduce_point(training_point):
                 metric = valid_metric[0] if self.metric == "valid_loss" else valid_metric[1]
                 self.lr_scheduler.step(metric)
-<<<<<<< HEAD
-=======
-        elif self.name == "noam":
-            self.lr_scheduler.step()
-        else:
-            raise ValueError("unknown lr_scheduler: " + self.name)
->>>>>>> v1
 
 ## Learn rate scheduler ✿
 class CosineAnnealingWarmRestarts(_LRScheduler):
@@ -224,11 +174,7 @@ class CosineAnnealingWarmRestarts(_LRScheduler):
     Base lr decay has been added. [Snowdar 2019-08-29]
     """
 
-<<<<<<< HEAD
     def __init__(self, optimizer, T_0, T_mult=1, eta_min=0, factor=1.0, log_decay=False, last_epoch=-1):
-=======
-    def __init__(self, optimizer, T_0, T_mult=1, eta_min=0, factor=1.0, log_decay=False, last_epoch=-1, warmup_steps=5000):
->>>>>>> v1
         if T_0 <= 0 or not isinstance(T_0, int):
             raise ValueError("Expected positive integer T_0, but got {}".format(T_0))
         if T_mult <=0: # or not isinstance(T_mult, int):
@@ -305,68 +251,3 @@ class CosineAnnealingWarmRestarts(_LRScheduler):
         self.last_epoch = math.floor(epoch)
         for param_group, lr in zip(self.optimizer.param_groups, self.get_lr()):
             param_group['lr'] = lr
-<<<<<<< HEAD
-=======
-
-
-# Reference: https://github.com/wenet-e2e/wenet/blob/main/wenet/utils/scheduler.py
-class WarmupLR(_LRScheduler):
-    """The WarmupLR scheduler
-
-    This scheduler is almost same as NoamLR Scheduler except for following
-    difference:
-
-    NoamLR:
-        lr = optimizer.lr * model_size ** -0.5
-             * min(step ** -0.5, step * warmup_step ** -1.5)
-    WarmupLR:
-        lr = optimizer.lr * warmup_step ** 0.5
-             * min(step ** -0.5, step * warmup_step ** -1.5)
-
-    Note that the maximum lr equals to optimizer.lr in this scheduler.
-
-    """
-
-    def __init__(
-        self,
-        optimizer: torch.optim.Optimizer,
-        warmup_steps: Union[int, float] = 25000,
-        step_decay: bool=False,
-        step_size: int=80000,
-        step_rate: float = 0.5,
-        last_epoch: int = -1,
-    ):
-        self.warmup_steps = warmup_steps
-        self.step_decay = step_decay
-        self.step_size = step_size
-        self.step_rate  = step_rate
-        # __init__() must be invoked before setting field
-        # because step() is also invoked in __init__()
-        super().__init__(optimizer, last_epoch)
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}(warmup_steps={self.warmup_steps})"
-
-    def get_lr(self):
-        step_num = self.last_epoch + 1
-        if step_num<self.warmup_steps:
-            lrs = [lr * (step_num/self.warmup_steps) for lr in self.base_lrs ]
-        else:
-            if self.step_decay:
-                step_rate=self.step_rate**((step_num-self.warmup_steps) // self.step_size)
-                lrs = [lr * step_rate for lr in self.base_lrs ]
-            else:
-                lrs = [lr * self.warmup_steps ** 0.5*(step_num ** -0.5) for lr in self.base_lrs]
-        return lrs
-
-            
-        # return [
-        #     lr
-        #     * self.warmup_steps ** 0.5
-        #     * min(step_num ** -0.5, step_num * self.warmup_steps ** -1.5)
-        #     for lr in self.base_lrs
-        # ]
-
-    def set_step(self, step: int):
-        self.last_epoch = step
->>>>>>> v1

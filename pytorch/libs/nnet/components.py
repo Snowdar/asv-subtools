@@ -12,7 +12,7 @@ from .activation import Nonlinearity
 
 from libs.support.utils import to_device
 import libs.support.utils as utils
-from libs.nnet.transformer.layer_norm import LayerNorm
+
 
 ### There are some basic custom components/layers. ###
 
@@ -350,7 +350,6 @@ class _BaseActivationBatchNorm(torch.nn.Module):
             "nonlinearity":'relu',
             "nonlinearity_params":{"inplace":True, "negative_slope":0.01},
             "bn":True,
-            "ln_replace": False,
             "bn_params":{"momentum":0.1, "affine":True, "track_running_stats":True},
             "special_init":True,
             "mode":'fan_out',
@@ -370,19 +369,13 @@ class _BaseActivationBatchNorm(torch.nn.Module):
             self.bn_relu = False
             self.activation = Nonlinearity(default_params["nonlinearity"], **default_params["nonlinearity_params"])
             if default_params["bn"]:
-                if not default_params['ln_replace']:
-                    self.batchnorm = torch.nn.BatchNorm1d(output_dim, **default_params["bn_params"])
-                else:
-                    self.batchnorm = LayerNorm(output_dim,dim=1,eps=1e-5,learnabel_affine=default_params["bn_params"]["affine"])
+                self.batchnorm = torch.nn.BatchNorm1d(output_dim, **default_params["bn_params"])
         else:
             # BN-ReLU
             # self.after_forward = self._bn_relu_forward
             self.bn_relu = True            
             if default_params["bn"]:
-                if not default_params['ln_replace']:
-                    self.batchnorm = torch.nn.BatchNorm1d(output_dim, **default_params["bn_params"])
-                else:
-                    self.batchnorm = LayerNorm(output_dim,dim=1,eps=1e-5)
+                self.batchnorm = torch.nn.BatchNorm1d(output_dim, **default_params["bn_params"])
             self.activation = Nonlinearity(default_params["nonlinearity"], **default_params["nonlinearity_params"])
 
         if default_params["special_init"] and self.affine is not None and not default_params["jit_compile"]:
@@ -470,7 +463,7 @@ class ReluBatchNormTdnnfLayer(_BaseActivationBatchNorm):
     def __init__(self, input_dim, output_dim, inner_size, context_size = 0, **options):
         super(ReluBatchNormTdnnfLayer, self).__init__()
 
-        self.affine = TdnnfBlock(input_dim, output_dim, inner_size, context_size)
+        self.affine = FTdnnBlock(input_dim, output_dim, inner_size, context_size)
         self.add_relu_bn(output_dim, options=options)
 
 
@@ -849,17 +842,4 @@ class InputSequenceNormalization(torch.nn.Module):
 
         return self
 
-# Leo 2022-08-14
-class LabelSmoothing(torch.nn.Module):
-    """Label-smoothing for target tensor. 
-    
-    """
-    def __init__(
-        self,
-        mean_norm=True,
-        std_norm=True,
-    ):
-        super().__init__()
-        self.mean_norm = mean_norm
-        self.std_norm = std_norm
-        self.eps = 1e-10    
+ 

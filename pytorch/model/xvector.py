@@ -13,7 +13,7 @@ from libs.nnet import *
 
 
 class Xvector(TopVirtualNnet):
-    """ A standard x-vector framework. """
+    """ A standard x-vector framework """
     
     def init(self, inputs_dim, num_targets, nonlinearity="relu", aug_dropout=0.2, training=True, extracted_embedding="far"):
 
@@ -40,7 +40,7 @@ class Xvector(TopVirtualNnet):
             self.transform_keys = ["tdnn1","tdnn2","tdnn3","tdnn4","tdnn5","stats","tdnn6","tdnn7"]
 
     @utils.for_device_free
-    def forward(self, inputs, x_len: torch.Tensor=torch.empty(0)):
+    def forward(self, inputs):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index,  frames-dim-index, frames-index]
         """

@@ -68,50 +68,50 @@ subtools/newCopyData.sh $prefix "voxceleb2_dev voxceleb1"
 
 # [5] Sample egs. It will do cmn and vad firstly and then remove invalid utts. Finally, 
 #                  it samples egs to fixed chunk-size with instance sampling.
-# subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runResnetXvector_online.py --stage=0 --endstage=2
+subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runResnetXvector_online.py --stage=0 --endstage=2
 # subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runRepvggXvector.py --stage=0 --endstage=2
 # subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runEcapaXvector_online.py --stage=0 --endstage=2
-subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runTransformerXvector.py --stage=0 --endstage=2
 
 # [6] Train a thin Resnet34 model with AM-Softmax loss and 8 GPUs will be used to accelerate training
-# subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runResnetXvector_online.py --stage=3 --endstage=3 --gpu-id=0,1,2,3
-# subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runRepvggXvector.py --stage=3 --endstage=3 --gpu-id=0,1,2,3
-# subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runEcapaXvector_online.py --stage=3 --endstage=3 --gpu-id=0,1,2,3
-subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runTransformerXvector.py --stage=3 --endstage=3 --gpu-id=0,1,2,3
+subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runResnetXvector_online.py --stage=3 --endstage=3 --gpu-id=0,1,2,3,4
+# subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runRepvggXvector.py --stage=3 --endstage=3 --gpu-id=0,1,2,3,4
+# subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runEcapaXvector_online.py --stage=3 --endstage=3 --gpu-id=0,1,2,3,4
 
 # [7] Extract near xvectors for voxceleb1 and voxceleb2_dev
-# subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runResnetXvector_online.py --stage=4
+subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runResnetXvector_online.py --stage=4
 # subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runRepvggXvector.py --stage=4
 # subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runEcapaXvector_online.py --stage=4
-subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runTransformerXvector.py --stage=4
-
-# [8] Large-Margin Fine-tune
-subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runTransformerXvector_LM.py --stage=3 --endstage=3 --gpu-id=0,1,2,3
-
-# [9] Extract xvectors
-subtools/runPytorchLauncher.sh subtools/pytorch/launcher/runTransformerXvector.py --stage=4
-
 ### Back-end scoring
-# [14] Score with submean + Cosine + AS-Norm processes.
-
-# tasks="vox1-O vox1-O-clean vox1-E vox1-E-clean vox1-H vox1-H-clean"
-# for task in $tasks;do
-#     score_norm=false
-#     [ "$task" == "vox1-O" ] && score_norm=true
-#     [ "$task" == "vox1-O-clean" ] && score_norm=true
-#     subtools/recipe/voxcelebSRC/gather_results_from_epochs.sh --prefix $prefix --score cosine  --submean true \
-#          --vectordir "exp/resnet34_fbank80_online" --task $task --epochs "40" --positions "near" --trainset voxceleb2_dev_vad \
-#          --score-norm $score_norm --score-norm-method "asnorm" --top-n 100 --cohort-set voxceleb2_dev_vad
-# done
-
+# [14] Score with submean + Cosine + AS-Norm processes
 tasks="vox1-O vox1-O-clean vox1-E vox1-E-clean vox1-H vox1-H-clean"
 for task in $tasks;do
     score_norm=false
     [ "$task" == "vox1-O" ] && score_norm=true
     [ "$task" == "vox1-O-clean" ] && score_norm=true
-    subtools/recipe/voxcelebSRC/gather_results_from_epochs.sh --prefix $prefix --score cosine  --submean false \
-         --vectordir "exp/conformer_6L256D4H_4sub_lm" --task $task --epochs "4" --positions "near" --trainset voxceleb2_dev \
-         --score-norm $score_norm --score-norm-method "asnorm" --top-n 300 --cohort-set voxceleb2_dev
+    subtools/recipe/voxcelebSRC/gather_results_from_epochs.sh --prefix $prefix --score cosine  --submean true \
+         --vectordir "exp/resnet34_fbank80_online" --task $task --epochs "40" --positions "near" --trainset voxceleb2_dev_vad \
+         --score-norm $score_norm --score-norm-method "asnorm" --top-n 100 --cohort-set voxceleb2_dev_vad
 done
 
+#### Report ####
+# Egs = Voxceleb2_dev(online random aug) + sequential sampling
+# Optimization = [SGD (lr = 0.01) + ReduceLROnPlateau] x 4 GPUs (total batch-size=512)
+# Resnet34 (channels = 32, 64, 128, 256) + Stats-Pooling + FC-ReLU-BN-FC-BN + AM-Softmax (margin = 0.2) + AMP training
+#
+# Back-end = near + Cosine
+#
+#  EER%       vox1-O   vox1-O-clean   vox1-E   vox1-E-clean   vox1-H   vox1-H-clean
+#  Submean    1.071    0.920          1.257    1.135          2.205    2.072       
+#  AS-Norm    0.970    0.819          -        -              -        -                   
+#
+
+# Egs = Voxceleb2_dev(online random aug) + random chunk
+# ECAPA-TDNN (channels = 1024) + FC-ReLU-BN-FC-BN + AAM-Softmax (margin = 0.2)
+# Optimization = [adamW (lr = 1e-8 - 1e-3) + cyclic for 3 cycle with triangular2 strategy] x 4 GPUs (total batch-size=512)
+# Back-end = near + Cosine
+#
+#  EER%       vox1-O   vox1-O-clean   vox1-E   vox1-E-clean   vox1-H   vox1-H-clean      
+#  Submean    1.045    0.904          1.330    1.211          2.430    2.303       
+#  AS-Norm    0,991    0.856          -        -              -        -           
+#
 
