@@ -122,9 +122,9 @@ def ProcessAppendDescriptor(segment, parent_node_name, affix, edge_attributes = 
 
     attr_string = ''
     if edge_attributes is not None:
-        if edge_attributes.has_key('label'):
+        if 'label' in edge_attributes:
             attr_string += " label={0} ".format(edge_attributes['label'])
-        if edge_attributes.has_key('style'):
+        if 'style' in edge_attributes:
             attr_string += ' style={0} '.format(edge_attributes['style'])
 
     dot_string = '{0} -> {1} [tailport=s]'.format(GetDotNodeName(desc_name)['node'], GetDotNodeName(parent_node_name)['node'])
@@ -142,10 +142,10 @@ def ProcessRoundDescriptor(segment, parent_node_name, affix, edge_attributes = N
     label = 'Round ({0})'.format(segment['arguments'][1])
     style = None
     if edge_attributes is not None:
-        if edge_attributes.has_key('label'):
+        if 'label' in  edge_attributes:
             label = "{0} {1}".format(edge_attributes['label'], label)
-        if edge_attributes.has_key('style'):
-            style  = 'style={0}'.format(edge_attributes['style'])
+        if 'style' in  edge_attributes:
+            style = 'style={0}'.format(edge_attributes['style'])
 
     attr_string = 'label="{0}"'.format(label)
     if style is not None:
@@ -164,10 +164,10 @@ def ProcessOffsetDescriptor(segment, parent_node_name, affix, edge_attributes = 
     label = 'Offset ({0})'.format(segment['arguments'][1])
     style = None
     if edge_attributes is not None:
-        if edge_attributes.has_key('label'):
+        if 'label' in  edge_attributes:
             label = "{0} {1}".format(edge_attributes['label'], label)
-        if edge_attributes.has_key('style'):
-            style  = 'style={0}'.format(edge_attributes['style'])
+        if 'style' in edge_attributes:
+            style = 'style={0}'.format(edge_attributes['style'])
 
     attr_string = 'label="{0}"'.format(label)
     if style is not None:
@@ -204,9 +204,9 @@ def ProcessSumDescriptor(segment, parent_node_name, affix, edge_attributes = Non
 
     attr_string = ''
     if edge_attributes is not None:
-        if edge_attributes.has_key('label'):
+        if 'label' in  edge_attributes:
             attr_string += " label={0} ".format(edge_attributes['label'])
-        if edge_attributes.has_key('style'):
+        if 'style' in  edge_attributes:
             attr_string += ' style={0} '.format(edge_attributes['style'])
 
     dot_string = '{0} -> {1}'.format(GetDotNodeName(desc_name)['node'], GetDotNodeName(parent_node_name)['node'])
@@ -221,9 +221,9 @@ def ProcessReplaceIndexDescriptor(segment, parent_node_name, affix, edge_attribu
     label = 'ReplaceIndex({0}, {1})'.format(segment['arguments'][1], segment['arguments'][2])
     style = None
     if edge_attributes is not None:
-        if edge_attributes.has_key('label'):
+        if 'label' in  edge_attributes:
             label = "{0} {1}".format(edge_attributes['label'], label)
-        if edge_attributes.has_key('style'):
+        if 'style' in  edge_attributes:
             style  = 'style={0}'.format(edge_attributes['style'])
 
     attr_string = 'label="{0}"'.format(label)

@@ -84,7 +84,7 @@ def xconfig_line_to_object(config_line, prev_layers = None):
         if x is None:
             return None
         (first_token, key_to_value) = x
-        if not config_to_layer.has_key(first_token):
+        if first_token not in config_to_layer:
             raise RuntimeError("No such layer type '{0}'".format(first_token))
         return config_to_layer[first_token](first_token, key_to_value, prev_layers)
     except Exception:
