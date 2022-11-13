@@ -323,7 +323,8 @@ class Xvector(TopVirtualNnet):
                 current_postion = epoch*epoch_batchs + this_iter
                 lambda_factor = max(self.step_params["lambda_0"], 
                                  self.step_params["lambda_b"]*(1+self.step_params["gamma"]*current_postion)**(-self.step_params["alpha"]))
-                self.loss_spk.step(lambda_factor)
+                lambda_m = 1/(1 + lambda_factor)
+                self.loss_spk.step(lambda_m)
 
             if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
                 T_cur, T_i = self.get_warmR_T(*self.step_params["T"], epoch)
@@ -340,4 +341,25 @@ class Xvector(TopVirtualNnet):
                 self.loss.s = self.step_params["s_tuple"][self.step_params["s_list"][epoch]]
 
 
+    def step_iter(self, epoch, cur_step):
+        # For iterabledataset
+        if self.use_step:
+            if self.step_params["m"]:
+                lambda_factor = max(self.step_params["lambda_0"],
+                                 self.step_params["lambda_b"]*(1+self.step_params["gamma"]*cur_step)**(-self.step_params["alpha"]))
+                lambda_m = 1/(1 + lambda_factor)
+                self.loss_spk.step(lambda_m)
+
+            if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
+                T_cur, T_i = self.get_warmR_T(*self.step_params["T"], cur_step)
+
+
+            if self.step_params["t"]:
+                self.loss.t = self.compute_decay_value(*self.step_params["t_tuple"], T_cur, T_i)
+
+            if self.step_params["p"]:
+                self.aug_dropout.p = self.compute_decay_value(*self.step_params["p_tuple"], T_cur, T_i)
+
+            if self.step_params["s"]:
+                self.loss.s = self.step_params["s_tuple"][self.step_params["s_list"][epoch]]
 
