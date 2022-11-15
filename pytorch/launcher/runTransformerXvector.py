@@ -431,11 +431,6 @@ if stage <= 3 <= endstage:
     model = model_py.TransformerXvector(
         info["feat_dim"], info["num_targets"], **model_params)
 
-
-    # If multi-GPU used, then batchnorm will be converted to synchronized batchnorm, which is important
-    # to make peformance stable.
-    # It will change nothing for single-GPU training.
-    model = utils.convert_synchronized_batchnorm(model)
     # print(model)
     epoch_iters = (info['epoch_iters']//accum_grad)
     if hasattr(model,'margin_warm'):
@@ -454,7 +449,11 @@ if stage <= 3 <= endstage:
         logger.info("The number of steps per epoch is about {}.".format(epoch_iters))
         logger.info("Define optimizer and lr_scheduler.")
         del script_model
-
+        
+    # If multi-GPU used, then batchnorm will be converted to synchronized batchnorm, which is important
+    # to make peformance stable.
+    # It will change nothing for single-GPU training.
+    model = utils.convert_synchronized_batchnorm(model)
     optimizer = optim.get_optimizer(model, optimizer_params)
     lr_scheduler = learn_rate_scheduler.LRSchedulerWrapper(
         optimizer, lr_scheduler_params)
