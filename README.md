@@ -552,6 +552,7 @@ Here, this is a Conformer benchmark model. And the training script is available 
 * Conformer + FC-Swish-LN + ASP + FC-LN + AAM-Softmax (margin = 0.2))
 * Back-end = near + Cosine
 * LM: Large-Margin Fine-tune (margin: 0.2 --> 0.5, chunk: 6s)
+
 |Config|EER%|vox1-O|vox1-O-clean|vox1-E|vox1-E-clean|vox1-H|vox1-H-clean|
 | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
 |6L-256-4H-4Sub|Submean|1.204|1.074|1.386|1.267|2.416|2.294|
@@ -562,9 +563,21 @@ Here, this is a Conformer benchmark model. And the training script is available 
 |6L-256D-4H-2Sub |cosine|1.066|0.915|1.298|1.177|2.167|2.034|
 | |LM| 1.029|0.888|1.160|1.043|1.923|1.792|
 | |AS-Norm|0.949|0.792|-|-|-|-|
+---
 
+**Results of RTF**
+* RTF is evaluated on LibTorch-based runtime, see `subtools/runtime`
+* One thread is used for CPU threading and TorchScript inference. 
+* CPU: Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz.
 
-
+| Model | Config | Params | RTF | 
+|:-----|:------  |:------:|:---:|
+|  ResNet34  | base32 |  6.80M  | 0.090 |
+|  ECAPA     | C1024  |  16.0M  | 0.071 |
+|            | C512   |  6.53M  | 0.030 |
+|  Conformer | 6L-256D-4H-4Sub  |  18.8M |   0.025   |  
+|            | 6L-256D-4H-2Sub  |  22.5M |   0.070   |   
+---
 
 ### [2] OLR Challenge 2020 Baseline Recipe [Language Identification]
 
