@@ -15,7 +15,7 @@ import torchaudio
 import torchaudio.compliance.kaldi as kaldi
 import libs.support.kaldi_io as kaldi_io
 from libs.support.utils import batch_pad_right,get_torchaudio_backend
-from .speech_augment import SpeechAug
+from .speech_augment import SpeechAug,SpeedPerturb
 from .signal_processing import de_silence
 from libs.egs.augmentation import *
 from libs.egs.kaldi_features import InputSequenceNormalization
@@ -87,7 +87,8 @@ def tar_file_and_group(data):
                 try:
                     if postfix == 'txt':
                         label = file_obj.read().decode('utf8')
-                        example['label'] = int(label)
+
+                        example['label'] = torch.tensor([int(label)],dtype=torch.long)
                     elif postfix in AUDIO_FORMAT_SETS:
                         waveform, sample_rate = torchaudio.load(file_obj)
                         example['wav'] = waveform[:1,:]
@@ -134,7 +135,7 @@ def parse_raw(data):
             else:
                 waveform, sample_rate = torchaudio.load(wav_file)
             waveform = waveform[:1,:]
-            label = int(label)
+            label = torch.tensor([int(label)],dtype=torch.long)
             lens = torch.ones(1)
             example = dict(key=key,
                            label=label,
@@ -172,6 +173,48 @@ def de_sil(data,win_len=0.1,min_eng=50,retry_times=1,force_output=True):
         sample['wav'] = cache_wave
         del waveform
         yield sample
+
+class PreSpeedPerturb(object):
+    def __init__(self,
+                 sample_rate=16000,
+                 speeds=[90, 100, 110], 
+                 perturb_type='resample', 
+                 perturb_prob=1.0, 
+                 change_spk=True,
+                 spk_num=0):
+        super().__init__()
+        self.change_spk = change_spk
+        self.speeder = SpeedPerturb(sample_rate, speeds=speeds, perturb_prob=perturb_prob, perturb_type=perturb_type, spk_num=spk_num,change_spk=change_spk,keep_shape=False)
+
+    def __call__(self, data):
+        """ speechaug.
+            Args:
+                data: Iterable[{key, wav, label, lens, sample_rate}]
+            Returns:
+                Iterable[{key, wav, label, lens, sample_rate}]
+        """
+
+        for sample in data:
+            assert 'wav' in sample
+            assert 'label' in sample
+            waveform = sample['wav']
+            spkid = sample['label']
+
+            try:
+
+                waveform,spkid = self.speeder(waveform, spkid)
+
+                sample['wav'] = waveform
+                if self.change_spk:
+                    sample['label'] = spkid
+                yield sample
+            except Exception as ex:
+                logging.warning('Failed to speech aug {}'.format(sample['key']))
+
+    def _spkid_aug(self):
+        spkid_aug, _ = self.speeder.get_spkid_aug()
+        return spkid_aug
+
 
 def random_chunk(data,chunk_len=2.015):
     """ 
@@ -215,6 +258,7 @@ def offline_feat(data):
         key = sample['eg-id']
         ark_path = sample['ark-path']
         label = int(sample['class-label'])
+        label=torch.tensor([label],dtype=torch.long)
         try:
 
             if 'start-position' in sample:
@@ -257,17 +301,57 @@ def resample(data, resample_rate=16000):
 
 
 
+def filter(data,
+           max_length=15,
+           min_length=0.2,
+           max_cut=True):
+    """ Filter sample according to feature.
+        Args::
+            data: Iterable[{key, wav, label, sample_rate}]
+            max_length: drop utterance which is greater than max_length(s)
+            min_length: drop utterance which is less than min_length(s)
+
+        Returns:
+            Iterable[{key, wav, *, sample_rate}]
+    """
+    for sample in data:
+        assert 'sample_rate' in sample
+        assert 'wav' in sample
+        duration_sample=sample['wav'].size(1)
+
+        duration = duration_sample / sample['sample_rate'] 
+        if duration < min_length:
+            continue
+        if duration > max_length:
+            if max_cut:
+                duration_sample=sample['wav'].size(1)
+
+                snt_len_sample = int(max_length*sample['sample_rate'])
+                start = random.randint(0, duration_sample - snt_len_sample - 1)
+                stop = stop = start + snt_len_sample
+                sample['wav'] = sample['wav'][:,start:stop]
+            else:
+                continue
+
+        yield sample
+
+
+
 class SpeechAugPipline(object):
-    def __init__(self, speechaug={}, tail_speechaug={}):
+    def __init__(self,spk_num=0,speechaug={}, tail_speechaug={}):
         super().__init__()
 
-        self.speechaug = SpeechAug(**speechaug)
-        self.tail_speechaug = SpeechAug(**tail_speechaug)
+        self.speechaug = SpeechAug(spk_num=spk_num,**speechaug)
+        self.tail_speechaug = SpeechAug(spk_num=spk_num,**tail_speechaug)
+        speechaug_nid_aug=self.speechaug.get_spkid_aug()
+        tail_speechaug_nid_aug=self.tail_speechaug.get_spkid_aug()     
         speechaug_n_concat=self.speechaug.get_num_concat()
         tail_speechaug_n_concat=self.tail_speechaug.get_num_concat()
         # The concat number of speech augment, which is used to modify target.
         self.concat_pip= (speechaug_n_concat,tail_speechaug_n_concat)
-
+        self.spk_nid_aug = tail_speechaug_nid_aug*speechaug_nid_aug
+        if speechaug_nid_aug>1 and tail_speechaug_nid_aug>1:
+            raise ValueError("multi speaker id perturb setting, check your speech aug config")
     def __call__(self, data):
         """ speechaug.
             Args:
@@ -283,17 +367,20 @@ class SpeechAugPipline(object):
 
             waveforms = sample['wav']
             lens = sample['lens']
-            try:
 
-                waveforms, lens = self.speechaug(waveforms, lens)
+            spkid = sample['label']
+            # try:
 
-                waveforms, lens = self.tail_speechaug(waveforms, lens)
-                sample['wav'] = waveforms
-
-                sample['lens'] = lens
-                yield sample
-            except Exception as ex:
-                logging.warning('Failed to speech aug {}'.format(sample['key']))
+            waveforms, lens,spkid = self.speechaug(waveforms, lens,spkid)
+            waveforms, lens,spkid = self.tail_speechaug(waveforms, lens,spkid)
+            sample['wav'] = waveforms
+            sample['label'] = spkid
+            sample['lens'] = lens
+            yield sample
+            # except Exception as ex:
+            #     logging.warning('Failed to speech aug {}'.format(sample['key']))
+    def get_spkid_aug(self):
+        return self.spk_nid_aug
 
 
 
@@ -311,7 +398,6 @@ class KaldiFeature(object):
         super().__init__()
         assert feature_type in ['mfcc','fbank']
         self.feat_type=feature_type
-
         self.kaldi_featset=kaldi_featset
         if self.feat_type=='mfcc':
             self.extract=kaldi.mfcc
@@ -327,7 +413,7 @@ class KaldiFeature(object):
             Args:
                 data: Iterable[{key, wav, label, lens, sample_rate}]
             Returns:
-                Iterable[{utt:str, keys:list, label, feats:list, max_len:int}]
+                Iterable[{utt:str, keys:list, labels:list, feats:list, max_len:int}]
         """
         for sample in data:
             assert 'wav' in sample
@@ -339,9 +425,10 @@ class KaldiFeature(object):
             self.kaldi_featset['sample_frequency'] = sample['sample_rate']
             lens = sample['lens']
             waveforms = sample['wav']
+            label = sample['label']
             waveforms = waveforms * (1 << 15)
             feats = []
-            label = sample['label']
+            labels=[]
             keys=[]
             utt = sample['key']
             try:
@@ -349,27 +436,32 @@ class KaldiFeature(object):
                     lens=lens*waveforms.shape[1]
 
                     for i,wav in enumerate(waveforms):
-
+                        
                         if len(wav.shape)==1:
                             # add channel
                             wav=wav.unsqueeze(0)
+                        else:
+                            wav = wav.transpose(0, 1)
+
                         wav= wav[:,:lens[i].long()]
+
                         feat=self.extract(wav,**self.kaldi_featset)
                         if(torch.any((torch.isnan(feat)))):
                             logging.warning('Failed to make featrue for {}, aug version:{}'.format(sample['key'],i))
-                            pass
+                            continue
                         feat = feat.detach()
                         feat=self.mean_var(feat)
 
                         key = sample['key']+'#{}'.format(i) if i>0 else sample['key']
                         feats.append(feat)
-
+                        labels.append(label[i])
                         keys.append(key)
                     if len(feats)==0:
-                        pass
+                        continue
 
                     max_len = max([feat.size(0) for feat in feats])
-                    yield dict(utt=utt,keys=keys,feats=feats,label=label,max_len=max_len)
+
+                    yield dict(utt=utt,keys=keys,feats=feats,labels=labels,max_len=max_len)
             except Exception as ex:
                 logging.warning('Failed to make featrue {}'.format(sample['key']))
 
@@ -381,9 +473,9 @@ class SpecAugPipline(object):
     def __call__(self,data):
         """ make features.
             Args:
-                data: Iterable[{utt:str, keys:list, label, feats:list, max_len:int}]
+                data: Iterable[{utt:str, keys:list, labels:list, feats:list, max_len:int}]
             Returns:
-                Iterable[{utt:str, keys:list, label, feats:list, max_len:int}]
+                Iterable[{utt:str, keys:list, labels:list, feats:list, max_len:int}]
         """
         for sample in data:
             assert 'keys' in sample
@@ -396,32 +488,7 @@ class SpecAugPipline(object):
             yield sample
 
 
-# def speed_perturb(data, speeds=None):
-#     """ Apply speed perturb to the data.
-#         Inplace operation.
 
-#         Args:
-#             data: Iterable[{key, wav, label, sample_rate}]
-#             speeds(List[float]): optional speed
-
-#         Returns:
-#             Iterable[{key, wav, label, sample_rate}]
-#     """
-#     if speeds is None:
-#         speeds = [0.9, 1.0, 1.1]
-#     for sample in data:
-#         assert 'sample_rate' in sample
-#         assert 'wav' in sample
-#         sample_rate = sample['sample_rate']
-#         waveform = sample['wav']
-#         speed = random.choice(speeds)
-#         if speed != 1.0:
-#             wav, _ = torchaudio.sox_effects.apply_effects_tensor(
-#                 waveform, sample_rate,
-#                 [['speed', str(speed)], ['rate', str(sample_rate)]])
-#             sample['wav'] = wav
-
-#         yield sample
 
 
 
@@ -429,14 +496,16 @@ def shuffle(data, shuffle_size=10000):
     """ Local shuffle the data
 
         Args:
-            data: Iterable[{utt:str, keys:list, label, feats:list, max_len:int}]
+            data: Iterable[{utt:str, keys:list, labels:list, feats:list, max_len:int}]
             shuffle_size: buffer size for shuffle
 
         Returns:
-            Iterable[{utt:str, keys:list, label, feats:list, max_len:int}]
+            Iterable[{utt:str, keys:list, labels:list, feats:list, max_len:int}]
     """
+
     buf = []
     for sample in data:
+        
         buf.append(sample)
         if len(buf) >= shuffle_size:
             random.shuffle(buf)
@@ -456,11 +525,11 @@ def sort(data, sort_size=500):
         be less than `shuffle_size`
 
         Args:
-            data: Iterable[{utt:str, keys:list, label, feats:list, max_len:int}]
+            data: Iterable[{utt:str, keys:list, labels:list, feats:list, max_len:int}]
             sort_size: buffer size for sort
 
         Returns:
-            data: Iterable[{utt:str, keys:list, label, feats:list, max_len:int}]
+            data: Iterable[{utt:str, keys:list, labels:list, feats:list, max_len:int}]
     """
 
     buf = []
@@ -476,14 +545,13 @@ def sort(data, sort_size=500):
     for x in buf:
         yield x
 
-
 def static_batch(data, batch_size=16):
     """ Static batch the data by `batch_size`
         Args:
-            data: Iterable[{utt:str, keys:list, label, feats:list, max_len:int}]
+            data: Iterable[{utt:str, keys:list, labels:list, feats:list, max_len:int}]
             batch_size: batch size
         Returns:
-            Iterable[List[{utt:str, keys:list, label, feats:list, max_len:int}]]
+            Iterable[List[{utt:str, keys:list, labels:list, feats:list, max_len:int}]]
     """
     buf = []
     for sample in data:
@@ -500,10 +568,10 @@ def dynamic_batch(data, max_frames_in_batch=12000):
     """ Dynamic batch the data until the total frames in batch
         reach `max_frames_in_batch`
         Args:
-            data: Iterable[{utt:str, keys:list, label, feats:list, max_len:int}]
+            data: Iterable[{utt:str, keys:list, labels:list, feats:list, max_len:int}]
             max_frames_in_batch: max_frames in one batch
         Returns:
-            Iterable[List[{utt:str, keys:list, label, feats:list, max_len:int}]]
+            Iterable[List[{utt:str, keys:list, labels:list, feats:list, max_len:int}]]
     """
     buf = []
     longest_frames = 0
@@ -541,25 +609,27 @@ def batch(data, batch_type='static', batch_size=16, max_frames_in_batch=12000):
 def padding(data):
     """ Padding the data into training data
         Args:
-            data: Iterable[List[{utt:str, keys:list, label, feats:list, max_len:int}]]
+            data: Iterable[List[{utt:str, keys:list, labels:list, feats:list, max_len:int}]]
         Returns:
             Iterable[Tuple(keys, feats, labels, feats lengths, label lengths)]
     """
     for sample in data:
 
         assert isinstance(sample, list)
+
         feats=[]
         labels=[]
         keys=[]
         for x in sample:
             feats.extend(x['feats'])
 
-            labels.extend([x['label']]*len(x['feats']))
+            labels.extend(x['labels'])
             keys.extend(x['keys'])
+  
+        labels = torch.tensor(labels)
 
-        labels = torch.LongTensor(labels)
         feats = [(x.T) for x in feats]
-        padded_feats, lens = batch_pad_right(feats)
+        padded_feats, feats_lens = batch_pad_right(feats)
 
-        yield (padded_feats, labels)
+        yield (padded_feats, labels, feats_lens)
 

@@ -47,7 +47,7 @@ class Xvector(TopVirtualNnet):
             "share":True,
             "affine_layers":1,
             "hidden_size":64,
-            "context":[0],
+            "context": [0],
             "stddev":True,
             "temperature":False, 
             "fixed":True,
@@ -65,6 +65,8 @@ class Xvector(TopVirtualNnet):
         }
 
         default_step_params = {
+            "margin_warm":False,
+            "margin_warm_conf":{"start_epoch":5.,"end_epoch":10.,"offset_margin":-0.2,"init_lambda":0.0},
             "T":None,
             "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
             "s":False, "s_tuple":(30, 12), "s_list":None,
@@ -153,6 +155,8 @@ class Xvector(TopVirtualNnet):
         if training :
             if margin_loss:
                 self.loss = MarginSoftmaxLoss(512, num_targets, **margin_loss_params)
+                if self.use_step and self.step_params["margin_warm"]:
+                    self.margin_warm = MarginWarm(**step_params["margin_warm_conf"])
             else:
                 self.loss = SoftmaxLoss(512, num_targets)
 
@@ -161,14 +165,14 @@ class Xvector(TopVirtualNnet):
             # An example to using transform-learning without initializing loss.affine parameters
             self.transform_keys = ["tdnn1","tdnn2","tdnn3","tdnn4","tdnn5","stats","tdnn6","tdnn7",
                                    "ex_tdnn1","ex_tdnn2","ex_tdnn3","ex_tdnn4","ex_tdnn5",
-                                   "se1","se2","se3","se4","loss"]
+                                   "se1","se2","se3","se4", "loss"]
 
             if margin_loss and transfer_from == "softmax_loss":
                 # For softmax_loss to am_softmax_loss
                 self.rename_transform_keys = {"loss.affine.weight":"loss.weight"} 
-
+    @torch.jit.unused
     @utils.for_device_free
-    def forward(self, inputs):
+    def forward(self, inputs, x_len: torch.Tensor=torch.empty(0)):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
@@ -272,6 +276,67 @@ class Xvector(TopVirtualNnet):
 
         return xvector
 
+    def extract_embedding_jit(self, x: torch.Tensor, position: str = 'near') -> torch.Tensor:
+        """
+        inputs: a 3-dimensional tensor with batch-dim = 1 or normal features matrix
+        return: an 1-dimensional vector after processed by decorator
+        """
+
+        # Tensor shape is not modified in libs.nnet.resnet.py for calling free, such as using this framework in cv.
+        x = x.unsqueeze(1)
+        x = self.repvgg(x)
+        x = x.reshape(x.shape[0], x.shape[1]*x.shape[2], x.shape[3])
+        x = self.stats(x)
+
+        if position == "far" and self.fc1 is not None:
+            xvector = self.fc1.affine(x)
+        elif position == "near_affine":
+            if self.fc1 is not None:
+                x=self.fc1(x)
+            xvector = self.fc2.affine(x)
+        elif position == "near":
+            if self.fc1 is not None:
+                x=self.fc1(x)
+            xvector = self.fc2(x)
+            # xvector = F.normalize(xvector)
+
+        else:
+            raise TypeError("Expected far or near position, but got {}".format(position))
+
+        return xvector
+
+    @torch.jit.export
+    def extract_embedding_whole(self, input: torch.Tensor, position: str = 'near', maxChunk: int = 4000, isMatrix: bool = True):
+        with torch.no_grad():
+            if isMatrix:
+                input = torch.unsqueeze(input, dim=0)
+                input = input.transpose(1, 2)
+            num_frames = input.shape[2]
+            num_split = (num_frames + maxChunk - 1) // maxChunk
+            split_size = num_frames // num_split
+            offset = 0
+            embedding_stats = torch.zeros(1, self.embd_dim, 1).to(input.device)
+            for _ in range(0, num_split-1):
+                this_embedding = self.extract_embedding_jit(
+                    input[:, :, offset:offset+split_size], position)
+                offset += split_size
+                embedding_stats += split_size*this_embedding
+
+            last_embedding = self.extract_embedding_jit(
+                input[:, :, offset:], position)
+
+            embedding = (embedding_stats + (num_frames-offset)
+                        * last_embedding) / num_frames
+            return torch.squeeze(embedding.transpose(1, 2)).cpu()
+
+    @torch.jit.export
+    def embedding_dim(self) -> int:
+        """ Export interface for c++ call, return embedding dim of the model
+        """
+
+        return self.embd_dim
+
+
     def get_warmR_T(self,T_0, T_mult, epoch):
         n = int(math.log(max(0.05, (epoch / T_0 * (T_mult - 1) + 1)), T_mult))
         T_cur = epoch - T_0 * (T_mult ** n - 1) / (T_mult - 1)
@@ -288,9 +353,10 @@ class Xvector(TopVirtualNnet):
         if self.use_step:
             if self.step_params["m"]:
                 current_postion = epoch*epoch_batchs + this_iter
-                lambda_factor = max(self.step_params["lambda_0"], 
-                                 self.step_params["lambda_b"]*(1+self.step_params["gamma"]*current_postion)**(-self.step_params["alpha"]))
-                self.loss.step(lambda_factor)
+                lambda_factor = max(self.step_params["lambda_0"],
+                                    self.step_params["lambda_b"]*(1+self.step_params["gamma"]*current_postion)**(-self.step_params["alpha"]))
+                lambda_m = 1/(1 + lambda_factor)
+                self.loss.step(lambda_m)
 
             if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
                 T_cur, T_i = self.get_warmR_T(*self.step_params["T"], epoch)
@@ -298,32 +364,39 @@ class Xvector(TopVirtualNnet):
                 T_i = T_i * epoch_batchs
 
             if self.step_params["t"]:
-                self.loss.t = self.compute_decay_value(*self.step_params["t_tuple"], T_cur, T_i)
+                self.loss.t = self.compute_decay_value(
+                    *self.step_params["t_tuple"], T_cur, T_i)
 
             if self.step_params["p"]:
-                self.aug_dropout.p = self.compute_decay_value(*self.step_params["p_tuple"], T_cur, T_i)
+                self.aug_dropout.p = self.compute_decay_value(
+                    *self.step_params["p_tuple"], T_cur, T_i)
 
             if self.step_params["s"]:
                 self.loss.s = self.step_params["s_tuple"][self.step_params["s_list"][epoch]]
 
-
     def step_iter(self, epoch, cur_step):
         # For iterabledataset
         if self.use_step:
+            if self.step_params["margin_warm"]:
+                offset_margin, lambda_m = self.margin_warm.step(cur_step)
+                lambda_m = max(1e-3,lambda_m)
+                self.loss.step(lambda_m,offset_margin)
             if self.step_params["m"]:
                 lambda_factor = max(self.step_params["lambda_0"],
-                                 self.step_params["lambda_b"]*(1+self.step_params["gamma"]*cur_step)**(-self.step_params["alpha"]))
-                self.loss.step(lambda_factor)
+                                    self.step_params["lambda_b"]*(1+self.step_params["gamma"]*cur_step)**(-self.step_params["alpha"]))
+                lambda_m = 1/(1 + lambda_factor)
+                self.loss.step(lambda_m)
 
             if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
                 T_cur, T_i = self.get_warmR_T(*self.step_params["T"], cur_step)
 
-
             if self.step_params["t"]:
-                self.loss.t = self.compute_decay_value(*self.step_params["t_tuple"], T_cur, T_i)
+                self.loss.t = self.compute_decay_value(
+                    *self.step_params["t_tuple"], T_cur, T_i)
 
             if self.step_params["p"]:
-                self.aug_dropout.p = self.compute_decay_value(*self.step_params["p_tuple"], T_cur, T_i)
+                self.aug_dropout.p = self.compute_decay_value(
+                    *self.step_params["p_tuple"], T_cur, T_i)
 
             if self.step_params["s"]:
                 self.loss.s = self.step_params["s_tuple"][self.step_params["s_list"][epoch]]

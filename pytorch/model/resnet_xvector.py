@@ -29,8 +29,8 @@ class ResNetXvector(TopVirtualNnet):
             "head_conv":True, "head_conv_params":{"kernel_size":3, "stride":1, "padding":1},
             "head_maxpool":False, "head_maxpool_params":{"kernel_size":3, "stride":1, "padding":1},
             "block":"BasicBlock",
-            "layers":[3, 4, 6, 3],
-            "planes":[32, 64, 128, 256], # a.k.a channels.
+            "layers": [3, 4, 6, 3],
+            "planes": [32, 64, 128, 256], # a.k.a channels.
             "use_se": False,
             "se_ratio": 4,
             "convXd":2,
@@ -63,6 +63,8 @@ class ResNetXvector(TopVirtualNnet):
             }
         
         default_step_params = {
+            "margin_warm":False,
+            "margin_warm_conf":{"start_epoch":5.,"end_epoch":10.,"offset_margin":-0.2,"init_lambda":0.0},
             "T":None,
             "m":False, "lambda_0":0, "lambda_b":1000, "alpha":5, "gamma":1e-4,
             "s":False, "s_tuple":(30, 12), "s_list":None,
@@ -85,7 +87,7 @@ class ResNetXvector(TopVirtualNnet):
         
         ## Nnet.
         self.aug_dropout = torch.nn.Dropout2d(p=aug_dropout) if aug_dropout > 0 else None
-        self.cmvn_=InputSequenceNormalization(**cmvn_params) if cmvn else None
+        self.cmvn_=InputSequenceNormalization(**cmvn_params) if cmvn else torch.nn.Identity()
 
         # [batch, 1, feats-dim, frames] for 2d and  [batch, feats-dim, frames] for 1d.
         # Should keep the channel/plane is always in 1-dim of tensor (index-0 based).
@@ -126,10 +128,14 @@ class ResNetXvector(TopVirtualNnet):
         if training :
             if margin_loss:
                 self.loss = MarginSoftmaxLoss(resnet_params["planes"][3], num_targets, **margin_loss_params)
+                if self.use_step and self.step_params["margin_warm"]:
+                    self.margin_warm = MarginWarm(**step_params["margin_warm_conf"])
             else:
                 self.loss = SoftmaxLoss(resnet_params["planes"][3], num_targets)
 
             # An example to using transform-learning without initializing loss.affine parameters
+            # self.transform_keys = ["resnet", "stats", "fc1", "fc2"]
+
             self.transform_keys = ["resnet", "stats", "fc1", "fc2","loss.weight"]
 
             if margin_loss and transfer_from == "softmax_loss":
@@ -138,12 +144,12 @@ class ResNetXvector(TopVirtualNnet):
 
     @torch.jit.unused
     @utils.for_device_free
-    def forward(self, x):
+    def forward(self, x, x_len: torch.Tensor=torch.empty(0)):
         """
         @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
         """
         
-        x = self.auto(self.cmvn_,x)
+        x = self.self.cmvn_(x)
 
         x = self.auto(self.aug_dropout, x) # This auto function is equal to "x = layer(x) if layer is not None else x" for convenience.
         # [samples-index, frames-dim-index, frames-index] -> [samples-index, 1, frames-dim-index, frames-index]
@@ -181,7 +187,7 @@ class ResNetXvector(TopVirtualNnet):
         return: an 1-dimensional vector after processed by decorator
         """
         # Tensor shape is not modified in libs.nnet.resnet.py for calling free, such as using this framework in cv.
-        x = self.auto(self.cmvn_,x)
+        x = self.cmvn_(x)
         x = x.unsqueeze(1) if self.convXd == 2 else x
         x = self.resnet(x)
         x = x.reshape(x.shape[0], x.shape[1]*x.shape[2], x.shape[3]) if self.convXd == 2 else x
@@ -204,10 +210,10 @@ class ResNetXvector(TopVirtualNnet):
     def extract_embedding_jit(self, x: torch.Tensor, position: str = 'near') -> torch.Tensor:
         """
         x: a 3-dimensional tensor with batch-dim = 1 or normal features matrix
-        return: an 1-dimensional vector after processed by decorator
+        return: an 1-dimensional vector after processed by decorator 
         """
 
-        x = self.auto(self.cmvn_,x)
+        x = self.cmvn_(x)
         # Tensor shape is not modified in libs.nnet.resnet.py for calling free, such as using this framework in cv.
         x = x.unsqueeze(1) if self.convXd == 2 else x
         x = self.resnet(x)
@@ -230,24 +236,28 @@ class ResNetXvector(TopVirtualNnet):
 
         return xvector
     @torch.jit.export
-    def extract_embedding_whole(self,input:torch.Tensor,position:str='near',maxChunk:int=10000,isMatrix:bool=True):
-        if isMatrix:
-            input=torch.unsqueeze(input,dim=0)
-            input=input.transpose(1,2)
-        num_frames = input.shape[2]
-        num_split = (num_frames + maxChunk - 1) // maxChunk
-        split_size = num_frames // num_split
-        offset=0
-        embedding_stats = torch.zeros(1,self.embd_dim,1)
-        for _ in range(0, num_split-1):
-            this_embedding = self.extract_embedding_jit(input[:, :, offset:offset+split_size],position)
-            offset += split_size
-            embedding_stats += split_size*this_embedding
+    def extract_embedding_whole(self, input: torch.Tensor, position: str = 'near', maxChunk: int = 4000, isMatrix: bool = True):
+        with torch.no_grad():
+            if isMatrix:
+                input = torch.unsqueeze(input, dim=0)
+                input = input.transpose(1, 2)
+            num_frames = input.shape[2]
+            num_split = (num_frames + maxChunk - 1) // maxChunk
+            split_size = num_frames // num_split
+            offset = 0
+            embedding_stats = torch.zeros(1, self.embd_dim, 1).to(input.device)
+            for _ in range(0, num_split-1):
+                this_embedding = self.extract_embedding_jit(
+                    input[:, :, offset:offset+split_size], position)
+                offset += split_size
+                embedding_stats += split_size*this_embedding
 
-        last_embedding = self.extract_embedding_jit(input[:, :, offset:],position)
+            last_embedding = self.extract_embedding_jit(
+                input[:, :, offset:], position)
 
-        embedding = (embedding_stats + (num_frames-offset) * last_embedding) / num_frames
-        return torch.squeeze(embedding.transpose(1,2)).cpu()
+            embedding = (embedding_stats + (num_frames-offset)
+                        * last_embedding) / num_frames
+            return torch.squeeze(embedding.transpose(1, 2)).cpu()
 
     @torch.jit.export
     def embedding_dim(self) -> int:
@@ -274,9 +284,10 @@ class ResNetXvector(TopVirtualNnet):
         if self.use_step:
             if self.step_params["m"]:
                 current_postion = epoch*epoch_batchs + this_iter
-                lambda_factor = max(self.step_params["lambda_0"], 
-                                 self.step_params["lambda_b"]*(1+self.step_params["gamma"]*current_postion)**(-self.step_params["alpha"]))
-                self.loss.step(lambda_factor)
+                lambda_factor = max(self.step_params["lambda_0"],
+                                    self.step_params["lambda_b"]*(1+self.step_params["gamma"]*current_postion)**(-self.step_params["alpha"]))
+                lambda_m = 1/(1 + lambda_factor)
+                self.loss.step(lambda_m)
 
             if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
                 T_cur, T_i = self.get_warmR_T(*self.step_params["T"], epoch)
@@ -284,10 +295,12 @@ class ResNetXvector(TopVirtualNnet):
                 T_i = T_i * epoch_batchs
 
             if self.step_params["t"]:
-                self.loss.t = self.compute_decay_value(*self.step_params["t_tuple"], T_cur, T_i)
+                self.loss.t = self.compute_decay_value(
+                    *self.step_params["t_tuple"], T_cur, T_i)
 
             if self.step_params["p"]:
-                self.aug_dropout.p = self.compute_decay_value(*self.step_params["p_tuple"], T_cur, T_i)
+                self.aug_dropout.p = self.compute_decay_value(
+                    *self.step_params["p_tuple"], T_cur, T_i)
 
             if self.step_params["s"]:
                 self.loss.s = self.step_params["s_tuple"][self.step_params["s_list"][epoch]]
@@ -295,20 +308,26 @@ class ResNetXvector(TopVirtualNnet):
     def step_iter(self, epoch, cur_step):
         # For iterabledataset
         if self.use_step:
+            if self.step_params["margin_warm"]:
+                offset_margin, lambda_m = self.margin_warm.step(cur_step)
+                lambda_m = max(1e-3,lambda_m)
+                self.loss.step(lambda_m,offset_margin)
             if self.step_params["m"]:
                 lambda_factor = max(self.step_params["lambda_0"],
-                                 self.step_params["lambda_b"]*(1+self.step_params["gamma"]*cur_step)**(-self.step_params["alpha"]))
-                self.loss.step(lambda_factor)
+                                    self.step_params["lambda_b"]*(1+self.step_params["gamma"]*cur_step)**(-self.step_params["alpha"]))
+                lambda_m = 1/(1 + lambda_factor)
+                self.loss.step(lambda_m)
 
             if self.step_params["T"] is not None and (self.step_params["t"] or self.step_params["p"]):
                 T_cur, T_i = self.get_warmR_T(*self.step_params["T"], cur_step)
 
-
             if self.step_params["t"]:
-                self.loss.t = self.compute_decay_value(*self.step_params["t_tuple"], T_cur, T_i)
+                self.loss.t = self.compute_decay_value(
+                    *self.step_params["t_tuple"], T_cur, T_i)
 
             if self.step_params["p"]:
-                self.aug_dropout.p = self.compute_decay_value(*self.step_params["p_tuple"], T_cur, T_i)
+                self.aug_dropout.p = self.compute_decay_value(
+                    *self.step_params["p_tuple"], T_cur, T_i)
 
             if self.step_params["s"]:
                 self.loss.s = self.step_params["s_tuple"][self.step_params["s_list"][epoch]]

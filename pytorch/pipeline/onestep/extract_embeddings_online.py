@@ -43,7 +43,11 @@ parser.add_argument("--data-type",type=str,default="kaldi",choices=["raw", "shar
 parser.add_argument("--de-silence", type=str, action=kaldi_common.StrToBoolAction, default=False, choices=["true", "false"],
                     help="Vad or not")
 parser.add_argument("--amp-th", type=int, default=50,
-                    help="De_silence threshold (16bit)")                    
+                    help="De_silence threshold (16bit)")
+
+parser.add_argument("--max-chunk", type=int, default=10000,
+                    help="Select chun_size of features when extracting xvector") 
+                 
 parser.add_argument("--feat-config",type=str,default="",help="The config yaml of feat extraction")
 
 parser.add_argument("--use-gpu", type=str, default='true',
@@ -80,12 +84,14 @@ try:
         raise ValueError("Expected nnet_config or (model_blueprint, model_creation) to exist.")
 
     model = utils.create_model_from_py(model_blueprint, model_creation)
-
+    position = model.extracted_embedding
     model.load_state_dict(torch.load(args.model_path, map_location='cpu'), strict=False)
+
 
     # Select device
     model = utils.select_model_device(model, args.use_gpu, gpu_id=args.gpu_id)
-   
+    devc = utils.get_device(model)
+    model.eval()
     feature_extraction_conf = None
     if args.data_type != "kaldi":
         feat_config=args.feat_config
@@ -102,7 +108,7 @@ try:
     de_sil_conf={}
     de_sil_conf["min_eng"]=args.amp_th
     dataset=WavEgsXvector(args.feats_rspecifier,feat_conf=feature_extraction_conf,data_type=args.data_type,de_silence=args.de_silence,de_sil_conf=de_sil_conf)
-    data_loader = DataLoader(dataset, batch_size=None,num_workers=2, prefetch_factor=500)
+    data_loader = DataLoader(dataset, batch_size=None,num_workers=2, prefetch_factor=100)
     timer = utils.Timer()
     with kaldi_io.open_or_fd(args.vectors_wspecifier, 'wb') as w:
         cnt=0
@@ -111,11 +117,16 @@ try:
         pbar=tqdm(total=tot_len, position=0,ascii=True,miniters=tot_len/100,dynamic_ncols=True)
         for idx,sample in enumerate(data_loader):
             key = sample['keys'][0]
-            feats = sample['feats'][0]
+            feats = sample['feats'][0].to(devc)
+
             total_dur += feats.size(0)*0.01
 
             timer.reset()
-            embedding = model.extract_embedding(feats)
+            embedding = model.extract_embedding_whole(feats,position=position,maxChunk=args.max_chunk)
+            # embedding1 = model.forward_1(feats)
+            # print(embedding)
+            # print(embedding1)
+            # assert 1==0
             extract_time+=timer.elapse()
             if cnt%500==0:
                 pbar.update(500)
