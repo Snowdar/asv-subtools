@@ -613,6 +613,15 @@ For any Challenge questions please contact lilt@cslt.org and for any baseline qu
 
 ---
 
+**New Results of CN-Celeb.E with CN-Celeb.T (online random augmentation) Training(EER%)**
+|config|pretrain ASR|EER%|minDCF|
+| :--: | :--: | :--: | :--: |
+|6L-256D-4H|-|8.39%|0.4748|
+| |Multi-CN|7.95%|0.4534|
+| |WenetSpeech|7.42%|0.4427|
+---
+
+
 ## Feedback
 + If you find bugs or have some questions, please create a github issue in this repository to let everyone knows it, so that a good solution could be contributed.
 + If you want to ask some questions, just send e-mail to sssyousen@163.com (Tao Jiang) or snowdar@stu.xmu.edu.cn (Snowdar) for SRE answers and wangbling1207@stu.xmu.edu.cn for LID answers. In general, we will reply you in our free time.
