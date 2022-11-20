@@ -100,6 +100,10 @@ Of course, this data pipeline could be also followed to know the basic principle
 </br>
 
 ### Update Pipeline
+- **[20221113]**
+  + Runtime module is implemented.
+  + Conformer Xvector is implemented.
+  + User Manual for ASV-Subtools is implemented.
 - **[20220707](https://mp.weixin.qq.com/s/L1TJdZdUyE1OruqcNOJy8Q)**
   + Online Datasets is implemented (Including online feature extracting, online VAD, online augmentation and online x-vector extracting)
   + Supporting mixed precision training.
@@ -126,6 +130,7 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] [F-TDNN X-vector](http://www.danielpovey.com/files/2019_interspeech_nist_sre18.pdf)
   + [x] [ECAPA X-vector](https://arxiv.org/abs/2005.07143) [[Source codes](https://github.com/lawlict/ECAPA-TDNN) ]
   + [x] [RepVGG](https://arxiv.org/pdf/2101.03697.pdf) 
+  + [x] [Conformer X-vector](https://arxiv.org/abs/2211.07201.pdf)  
 
 - **Component**
   + [x] [Attentive Statistics Pooling](https://arxiv.org/pdf/1803.10963v1.pdf)
@@ -167,17 +172,15 @@ Of course, this data pipeline could be also followed to know the basic principle
   + [x] Basic Classifiers: SVM, GMM, Logistic Regression (LR)
   + [x] PLDA Classifiers: [PLDA](https://ravisoji.com/assets/papers/ioffe2006probabilistic.pdf), APLDA, [CORAL](https://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/download/12443/11842), [CORAL+](https://arxiv.org/pdf/1812.10260), [LIP](http://150.162.46.34:8080/icassp2014/papers/p4075-garcia-romero.pdf), [CIP](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9054113) [[Python versions](./score/pyplda) was contributed by Jianfeng Zhou. For more details, see the [note](./score/pyplda/Domain-Adaptation-of-PLDA-in-Speaker-Recognition.pdf).]
   + [x] Score Normalization: [S-Norm](http://www.crim.ca/perso/patrick.kenny/kenny_Odyssey2010_presentation.pdf), [AS-Norm](https://www.researchgate.net/profile/Daniele_Colibro/publication/221480280_Comparison_of_Speaker_Recognition_Approaches_for_Real_Applications/links/545e4f6e0cf295b561602c42/Comparison-of-Speaker-Recognition-Approaches-for-Real-Applications.pdf)
-  + [ ] Calibration
   + [x] Metric: EER, Cavg, minDCF
 
 - **Runtime**
   + [x] export jit model.(./pytorch/pytorch/pipeline/export_jit_model.sh)
+  + [x] Cmake for constructing project.(./runtime)
 
 - **Others**
   + [x] [Learning Rate Finder](https://sgugger.github.io/how-do-you-find-a-good-learning-rate.html)
-  + [x] Support [TensorboardX](https://tensorflow.google.cn/tensorboard) in Log System ==*new*==
-  + [ ] Plot DET Curve with ```matplotlib``` w.r.t the Format of DETware (Matlab Version) of [NIST's Tools](https://www.nist.gov/itl/iad/mig/tools)
-  + [ ] Accumulate Total MACs and Flops of Model Based on ```thop```
+  + [x] Support [TensorboardX](https://tensorflow.google.cn/tensorboard) in Log System
   + [x] Training with AMP
 
 ## Ready to Start  
@@ -541,6 +544,41 @@ Here, this is a ECAPA benchmark model. And the training script is available in [
 |Submean|1.045|0.904|1.330|1.211|2.430|2.303|
 |AS-Norm|0.991|0.856|-|-|-|-|
 ---
+
+**New Results of Voxceleb1-O/E/H with Voxceleb2.dev (online random augmentation) Training(EER%)**
+Here, this is a Conformer benchmark model. And the training script is available in [subtools/pytorch/launcher/runTransformerXvector.py](./pytorch/launcher/runTransformerXvector.py). For more details, see it also. (experiments conducted by Dexin Liao) ==2022-11-15==
+* Egs = Voxceleb2_dev(online random aug) + random chunk(3s) 
+* Optimization = [adamW (lr = 1e-6 - 1e-3) + 1cycle] x 4 GPUs (total batch-size=512)
+* Conformer + FC-Swish-LN + ASP + FC-LN + AAM-Softmax (margin = 0.2))
+* Back-end = near + Cosine
+* LM: Large-Margin Fine-tune (margin: 0.2 --> 0.5, chunk: 6s)
+
+|Config|EER%|vox1-O|vox1-O-clean|vox1-E|vox1-E-clean|vox1-H|vox1-H-clean|
+| :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
+|6L-256-4H-4Sub|Submean|1.204|1.074|1.386|1.267|2.416|2.294|
+| |AS-Norm|1.029|0.952|-|-|-|-|
+|+SAM training |cosine|1.103|0.984|1.350|1.234|2.380|2.257|
+| |LM| 1.034|0.899|1.181|1.060|2.079|1.953|
+| |AS-Norm|0.943|0.792|-|-|-|-|
+|6L-256D-4H-2Sub |cosine|1.066|0.915|1.298|1.177|2.167|2.034|
+| |LM| 1.029|0.888|1.160|1.043|1.923|1.792|
+| |AS-Norm|0.949|0.792|-|-|-|-|
+---
+
+**Results of RTF**
+* RTF is evaluated on LibTorch-based runtime, see `subtools/runtime`
+* One thread is used for CPU threading and TorchScript inference. 
+* CPU: Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz.
+
+| Model | Config | Params | RTF | 
+|:-----|:------  |:------:|:---:|
+|  ResNet34  | base32 |  6.80M  | 0.090 |
+|  ECAPA     | C1024  |  16.0M  | 0.071 |
+|            | C512   |  6.53M  | 0.030 |
+|  Conformer | 6L-256D-4H-4Sub  |  18.8M |   0.025   |  
+|            | 6L-256D-4H-2Sub  |  22.5M |   0.070   |   
+---
+
 ### [2] OLR Challenge 2020 Baseline Recipe [Language Identification]
 
 OLR Challenge 2020 is closed now.
@@ -574,6 +612,15 @@ For any Challenge questions please contact lilt@cslt.org and for any baseline qu
 |Task2 SR|CN-Celeb.T|SR.eval|mAP:0.242|
 
 ---
+
+**New Results of CN-Celeb.E with CN-Celeb.T (online random augmentation) Training(EER%)**
+|config|pretrain ASR|EER%|minDCF|
+| :--: | :--: | :--: | :--: |
+|6L-256D-4H|-|8.39%|0.4748|
+| |Multi-CN|7.95%|0.4534|
+| |WenetSpeech|7.42%|0.4427|
+---
+
 
 ## Feedback
 + If you find bugs or have some questions, please create a github issue in this repository to let everyone knows it, so that a good solution could be contributed.
