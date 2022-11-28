@@ -476,8 +476,10 @@ class SimpleTrainer(_BaseTrainer):
 
                     for _, batch in enumerate(data.train_loader, 0):
                         # It is important for reporter.
-                        dist.barrier()
-                        if utils.use_ddp():dist.all_reduce(stop_training,op=dist.ReduceOp.SUM) 
+                        
+                        if utils.use_ddp():
+                            dist.barrier()
+                            dist.all_reduce(stop_training,op=dist.ReduceOp.SUM) 
                         if stop_training: 
                             break
                         self.training_point[1] +=1
