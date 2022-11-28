@@ -2,12 +2,13 @@
 
 #### Baseline ASV conformers are conducted on VoxCeleb and CNCeleb.
 * VoxCeleb: `subtools/recipe/voxcelebSRC/runVoxcelebSRC_online.sh`
-* CNCeleb: To be released.
+* CNCeleb: To be released. see  
+[Towards A Unified Conformer Structure: from ASR to ASV Task](https://arxiv.org/abs/2211.07201)
 
 #### ASR transferring is conducted on CNCeleb
 </br>
 <div align='center'>
-<img src="./trans.jpg" width=40% height=100 align=center />
+<img src="./trans.jpg" width=40% height=40%  align=center />
 </div>  
 </br>
 * The pretrained ASR encoder can be either an open source pretrained model or trained from scratch.

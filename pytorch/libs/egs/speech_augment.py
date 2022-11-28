@@ -342,6 +342,10 @@ class AddNoise(torch.nn.Module):
             left_padding = torch.randint(high = pad+1, size=(1,))[0]
             padding = (left_padding,pad-left_padding)
             noise_batch = torch.nn.functional.pad(noise_batch, padding)
+            # pad = max_length - noise_batch.size(1)
+            # left_padding = torch.randint(high = pad+1, size=(1,))[0]
+            # padding = (left_padding,pad-left_padding)
+            # noise_batch = torch.nn.functional.pad(noise_batch, padding)
 
         # Select a random starting location in the waveform
         start_index = self.start_index
@@ -714,6 +718,10 @@ class AddBabble(torch.nn.Module):
             left_padding = torch.randint(high = pad+1, size=(1,))[0]
             padding = (left_padding,pad-left_padding)
             noise_batch = torch.nn.functional.pad(noise_batch, padding)
+            # pad = max_length - noise_batch.size(1)
+            # left_padding = torch.randint(high = pad+1, size=(1,))[0]
+            # padding = (left_padding,pad-left_padding)
+            # noise_batch = torch.nn.functional.pad(noise_batch, padding)
 
         # Select a random starting location in the waveform
         start_index = self.start_index
