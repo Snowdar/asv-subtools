@@ -55,3 +55,22 @@
 |            | C512   |  6.53M  | 0.030 |
 |  Conformer | 6L-256D-4H-4Sub  |  18.8M |   0.025   |  
 |            | 6L-256D-4H-2Sub  |  22.5M |   0.070   |   
+<br/>
+
+### Effects of some tricks (2022-12-29)
+* Egs = Voxceleb2_dev(online random aug) + random chunk(2s)  
+* Optimization = [adamW (lr = 1e-6 - 2e-3) + 1cycle] x 4 GPUs (total batch-size=512)
+* ECAPA-TDNN (channels = 1024) + FC-BN + AM-Softmax (margin = 0.2), `subtools/pytorch/launcher/runEcapaXvector_roadmap.py`
+* Back-end = near + Cosine
+
+| Config | vox1-O | vox1-O-clean | vox1-E | vox1-E-clean | vox1-H | vox1-H-clean |
+|:-----|:------:|:------------:|:------:|:------------:|:------:|:------------:|
+|  Baseline | 1.188 |  1.048 | 1.313 | 1.190 | 2.369 | 2.241 |
+|  + topk | 1.151 |  0.984 |   1.281   |   1.156   |   2.273   |   2.143   |
+|  + subcenter | 1.113 |  0.984 |   1.255   |   1.139   |   2.239   |   2.108   |
+|  + syncbn | 1.045 |  0.925 |   1.244   |   1.120   |   2.199   |   2.070   |
+|  AM $\Rightarrow$ AAM | 1.103 |  0.952 |   1.213   |   1.084   |   2.133   |   1.994   |
+|  + LM | 0.870 |  0.771 |   1.120   |   0.994   |   1.933   |   1.802   |
+|  + mqmha(2q2h) | 0.832 |  0.713 |   1.103   |   0.978   |   1.925   |   1.796   |
+|  + AS-Norm | 0.758 |  0.654 |   -   |   -   |   -   |   -   |
+<br/>

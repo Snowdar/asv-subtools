@@ -175,7 +175,7 @@ class AttentiveStatsPool(nn.Module):
         if self.time_attention:
             global_mean = torch.mean(x, dim=2, keepdim=True).expand_as(x)
             global_std = torch.sqrt(
-                torch.var(x, dim=-1, keepdim=True) + 1e-9).expand_as(x)
+                torch.var(x, dim=-1, keepdim=True) + 1e-5).expand_as(x)
             x_in = torch.cat((x, global_mean, global_std), dim=1)
 
         else:
@@ -184,7 +184,7 @@ class AttentiveStatsPool(nn.Module):
         alpha = self.attention(x_in)
         mean = torch.sum(alpha * x, dim=2)
         residuals = torch.sum(alpha * (x ** 2), dim=2) - mean ** 2
-        std = torch.sqrt(residuals.clamp(min=1e-9))
+        std = torch.sqrt(residuals.clamp(min=1e-5))
         return torch.cat([mean, std], dim=1)
 
 
@@ -225,12 +225,7 @@ class ECAPA_TDNN(TopVirtualNnet):
 
         default_margin_loss_params = {
             "method": "am", "m": 0.2,
-            "feature_normalize": True, "s": 30,
-            "double": False,
-            "mhe_loss": False, "mhe_w": 0.01,
-            "inter_loss": 0.,
-            "ring_loss": 0.,
-            "curricular": False}
+            }
 
         default_step_params = {
             "margin_warm":False,
@@ -250,11 +245,11 @@ class ECAPA_TDNN(TopVirtualNnet):
             default_ecapa_params, ecapa_params)
 
         pooling_params = utils.assign_params_dict(
-            default_pooling_params, pooling_params)
+            default_pooling_params, pooling_params,support_unknow=True)
         fc1_params = utils.assign_params_dict(default_fc_params, fc1_params)
         fc2_params = utils.assign_params_dict(default_fc_params, fc2_params)
         margin_loss_params = utils.assign_params_dict(
-            default_margin_loss_params, margin_loss_params)
+            default_margin_loss_params, margin_loss_params,support_unknow=True)
         step_params = utils.assign_params_dict(
             default_step_params, step_params)
         embd_dim = ecapa_params["embd_dim"]
@@ -291,6 +286,13 @@ class ECAPA_TDNN(TopVirtualNnet):
                 mfa_conv * 2, **ecapa_params["bn_params"])
             self.fc1 = ReluBatchNormTdnnLayer(
                 mfa_conv * 2, embd_dim, **fc1_params) if fc1 else None
+        elif pooling == "mqmha":
+            self.stats = MQMHASP(
+                mfa_conv, **pooling_params)
+            self.bn_stats = nn.BatchNorm1d(
+                self.stats.get_output_dim(), **ecapa_params["bn_params"])
+            self.fc1 = ReluBatchNormTdnnLayer(
+                self.stats.get_output_dim(), embd_dim, **fc1_params) if fc1 else None
         elif pooling == "multi-head":
             self.stats = MultiHeadAttentionPooling(
                 mfa_conv, stddev=stddev, **pooling_params)
@@ -326,6 +328,8 @@ class ECAPA_TDNN(TopVirtualNnet):
             fc2_in_dim = embd_dim
         else:
             fc2_in_dim = mfa_conv * 2
+            if pooling == "mqmha":
+                fc2_in_dim = self.stats.get_output_dim()
         self.fc2 = ReluBatchNormTdnnLayer(fc2_in_dim, embd_dim, **fc2_params)
         self.tail_dropout = torch.nn.Dropout2d(
             p=tail_dropout) if tail_dropout > 0 else None
@@ -334,7 +338,7 @@ class ECAPA_TDNN(TopVirtualNnet):
         # Do not need when extracting embedding.
         if training:
             if margin_loss:
-                self.loss = MarginSoftmaxLoss(
+                self.loss = MarginSoftmaxLoss_v1(
                     embd_dim, num_targets, **margin_loss_params)
                 if self.use_step and self.step_params["margin_warm"]:
                     self.margin_warm = MarginWarm(**step_params["margin_warm_conf"])
@@ -344,7 +348,7 @@ class ECAPA_TDNN(TopVirtualNnet):
             self.wrapper_loss = MixupLoss(
                 self.loss, self.mixup) if mixup else None
             # An example to using transform-learning without initializing loss.affine parameters
-            self.transform_keys = ["layer2", "layer3",
+            self.transform_keys = ["layer1", "layer2", "layer3",
                                    "layer4", "stats", "mfa", "bn_stats", "fc1", "fc2", "loss"]
 
             if margin_loss and transfer_from == "softmax_loss":
