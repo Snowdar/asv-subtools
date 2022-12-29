@@ -680,6 +680,8 @@ class MQMHASP(torch.nn.Module):
                 norm = torch.nn.BatchNorm1d(hidden_size * num_head * num_q) 
             elif norm_type == 'layer_norm':
                 norm =  torch.nn.GroupNorm(num_head * num_q, hidden_size * num_head * num_q)
+            else:
+                raise ValueError("Unsupport norm type:{}".format(norm_type))
             att = torch.nn.Sequential(
                 torch.nn.Conv1d(idim, hidden_size * num_head * num_q, kernel_size=1, groups=num_head),
                 torch.nn.ReLU(),
@@ -692,7 +694,7 @@ class MQMHASP(torch.nn.Module):
                 torch.nn.Conv1d(idim, odim, kernel_size=1, groups=num_head),
             )
         else:
-            raise ValueError("Expected 1 or 2 affine layers, but got {}.",format(affine_layers))
+            raise ValueError("Expected 1 or 2 affine layers, but got {}.".format(affine_layers))
         return att
 
     def extra_repr(self):
