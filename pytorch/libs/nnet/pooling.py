@@ -585,3 +585,167 @@ class MultiResolutionMultiHeadAttentionPooling(torch.nn.Module):
 
     def get_output_dim(self):
         return self.output_dim * self.num_head
+
+# (Leo 2022-11-17)
+class MQMHASP(torch.nn.Module):
+    """ 
+     Reference:
+        Miao Zhao, Yufeng Ma, and Yiwei Ding et al. "Multi-query multi-head attention pooling and Inter-topK penalty for speaker verification".
+        https://arxiv.org/pdf/2110.05042.pdf   
+    """
+    def __init__(self, in_dim,
+                 num_q = 2, 
+                 num_head=4,
+                 hidden_size=128, 
+                 stddev=True,
+                 share = True,
+                 affine_layers=2,
+                 time_attention=False,
+                 norm_type = 'batch_norm',
+                 **kargs
+    ):
+        super(MQMHASP,self).__init__()
+        self.stddev = stddev
+        # self.output_dim = in_dim*2 if self.stddev else in_dim
+        self.num_head = max(1, num_head)
+        self.num_q = max(1, num_q)
+        self.time_attention = time_attention 
+        assert (in_dim % num_head) == 0 
+        att_idim = in_dim //num_head 
+        if time_attention:
+            att_idim = (in_dim * 3) //num_head  if stddev else (in_dim * 2) //num_head
+        att_odim = 1  if share else in_dim //num_head 
+        self.attention = self.build_attention(att_idim * num_head, att_odim * num_head * num_q, num_q, num_head, affine_layers, hidden_size, norm_type = norm_type)
+        self.out_dim = in_dim * num_q * 2 if stddev else in_dim * num_q
+        
+
+    def forward(self, x, mask: torch.Tensor = torch.ones((0, 0, 0))):
+        """
+            x: input feature [B, F, T] 
+            returns: pooling statiscs [B, F * qs, 1]
+        """
+        B, C ,T = x.shape
+
+        if mask.size(2) == 0 :
+            mask = torch.ones((B, 1, T)).to(x.device)
+            
+
+        if self.time_attention:
+
+            total = mask.sum(dim=2, keepdim=True) # [B, *, 1]
+            mean, std = compute_statistics(x, mask / total,stddev = self.stddev)
+            mean = (mean.repeat(1, 1, T)).view(B, self.num_head, -1, T)
+            x_in = x.view(B, self.num_head, -1, T)
+            if self.stddev:
+                std = (std.repeat(1, 1, T)).view(B, self.num_head, -1, T)
+                x_in = torch.cat([x_in, mean, std], dim = 2)
+            else:
+                x_in = torch.cat([x_in, mean], dim = 2)
+            x_in = x_in.reshape(B, -1, T)  
+        else:
+            x_in = x
+        alpha = self.attention(x_in)   # [B, head * att_dim, T]
+
+        alpha = alpha.masked_fill(mask == 0, float("-inf"))
+
+        alpha = F.softmax(alpha, dim=2)
+        alpha = alpha.reshape(B, self.num_head, self.num_q, -1, T)
+
+        mean, std = compute_statistics(x.reshape(B, self.num_head, 1, -1, T), alpha,stddev = self.stddev)   # mean: [B, head, q, C/head, 1]
+        mean = mean.reshape(B, -1, 1)
+        if self.stddev:
+            std = std.reshape(B, -1, 1)
+            out =  torch.cat([mean, std], dim=1)
+        else:
+            out = mean
+        return out
+    def get_output_dim(self):
+        return self.out_dim
+
+    def build_attention(self,
+                        idim,
+                        odim,
+                        num_q,
+                        num_head,
+                        affine_layers=1, 
+                        hidden_size=128,
+                        norm_type = 'batch_norm',
+    ):
+        assert affine_layers in [1 ,2], "Expected 1 or 2 affine layers."
+        assert (idim % num_head) == 0 
+        assert (odim % (num_head * num_q)) == 0
+
+        if affine_layers == 2:
+            if norm_type == 'batch_norm':
+                norm = torch.nn.BatchNorm1d(hidden_size * num_head * num_q) 
+            elif norm_type == 'layer_norm':
+                norm =  torch.nn.GroupNorm(num_head * num_q, hidden_size * num_head * num_q)
+            else:
+                raise ValueError("Unsupport norm type:{}".format(norm_type))
+            att = torch.nn.Sequential(
+                torch.nn.Conv1d(idim, hidden_size * num_head * num_q, kernel_size=1, groups=num_head),
+                torch.nn.ReLU(),
+                norm,              
+                torch.nn.Tanh(),
+                torch.nn.Conv1d(hidden_size * num_head * num_q, odim, kernel_size=1, groups=num_head * num_q)
+            )
+        elif affine_layers == 1 :
+            att = torch.nn.Sequential(
+                torch.nn.Conv1d(idim, odim, kernel_size=1, groups=num_head),
+            )
+        else:
+            raise ValueError("Expected 1 or 2 affine layers, but got {}.".format(affine_layers))
+        return att
+
+    def extra_repr(self):
+        return '(stddev={stddev}, num_head={num_head}, num_q={num_q}, out_dim={out_dim}) '.format(**self.__dict__)
+
+# (Leo 2022-11-17)
+class MQMHASP_Linear(torch.nn.Module):
+    """ Linear version of MQMHASP means computing querys one by one, which can save memory but cost more time. 
+     Reference:
+        Miao Zhao, Yufeng Ma, and Yiwei Ding et al. "Multi-query multi-head attention pooling and Inter-topK penalty for speaker verification".
+        https://arxiv.org/pdf/2110.05042.pdf   
+    """
+    def __init__(self, in_dim, 
+                 num_q = 2,
+                 stddev=True,
+                 share = True,
+                 num_head=4,
+                 affine_layers=2,
+                 hidden_size=128, 
+                 **kargs
+    ):
+        super(MQMHASP_Linear,self).__init__()
+        num_q = max(1, num_q)
+        self.num_head = max(1, num_head)
+        self.num_q = max(1, num_q)
+        self.stddev=stddev
+        self.querys = torch.nn.ModuleList(
+            [
+                MQMHASP(in_dim, 
+                        num_q = 1,
+                        hidden_size=hidden_size, 
+                        stddev=stddev, 
+                        share=share, 
+                        num_head=num_head, 
+                        affine_layers=affine_layers,
+                        **kargs) for i in range(num_q)
+            ]
+        )
+        self.out_dim = in_dim * num_q * 2 if stddev else in_dim * num_q
+
+    def forward(self, x, mask: torch.Tensor = torch.ones((0, 0, 0))):
+        """
+            x: input feature [B, F, T] 
+            returns: pooling statiscs [B, F * qs, 1]
+        """
+        out = []
+        for i, layer in enumerate(self.querys):
+            out.append(layer(x, mask))
+        return torch.cat(out, dim=1)
+
+    def get_output_dim(self):
+        return self.out_dim
+    def extra_repr(self):
+        return '(stddev={stddev}, num_head={num_head}, num_q={num_q}, out_dim={out_dim}) '.format(**self.__dict__)

@@ -557,3 +557,174 @@ class MixupLoss(TopVirtualLoss):
             return self.compute_accuracy(self.base_loss.get_posterior(), targets)
 
 
+# Author: Snowdar 2019-05-29
+#         Leo     2022-11-17
+class MarginSoftmaxLoss_v1(TopVirtualLoss):
+    """Margin softmax loss.
+    Implements of metric loss.
+        1. am + softmax.
+        2. aam + softmax.
+        3. am + rectangle.
+        4. sub-center and inter-topk penalty.
+    Reference:
+            [1] Wang, F., Cheng, J., Liu, W., & Liu, H. (2018). Additive margin softmax for face verification. IEEE Signal 
+                Processing Letters, 25(7), 926-930.
+            [2] Deng, J., Guo, J., Xue, N., & Zafeiriou, S. (2019). Arcface: Additive angular margin loss for deep face 
+                recognition. Paper presented at the Proceedings of the IEEE Conference on Computer Vision and Pattern 
+                Recognition.
+            [3] Li Ruida and Fang Shuo and Ma Chenguang and Li Liang, Adaptive Rectangle Loss for Speaker Verification.
+            [4] Miao Zhao, Yufeng Ma and Yiwei Ding et al., MULTI-QUERY MULTI-HEAD ATTENTION POOLING AND INTER-TOPK PENALTY FOR SPEAKER VERIFICATION.
+    """
+    def init(self, input_dim, num_targets,
+             sub_k = 1, 
+             method="am",
+             m=0.2,
+             adapt_method = None,  # ["topk", "batch_mean", None]
+             ada_m=0.1,
+             s=30.,
+             topk=5,
+             lambda_bm = 0.1,
+             loss_type = "softmax", # ["softmax", "rectangle"]
+             eps=1.0e-10, 
+             scale_init=False,
+             label_smoothing = 0.0,
+             **args):
+        if adapt_method and adapt_method not in ["topk", "batch_mean"]:
+            raise ValueError("adapt_method now support [topk, batch_mean], but got {} now".format(adapt_method))
+        assert method in ["am", "aam"]
+        self.input_dim = input_dim
+        self.num_targets = num_targets
+        self.sub_k = max(1,sub_k)
+        self.weight = torch.nn.Parameter(torch.randn(self.sub_k * num_targets, input_dim, 1))
+        self.method = method
+        self.s = s # scale factor with feature normalization
+        self.init_m = m
+        self.add_m = m
+        self.adapt = adapt_method
+        self.ada_m = ada_m
+        self.ada_m_scale = ada_m/m # margin
+        self.lambda_m = 1
+        self.topk = topk
+        self.loss_type = loss_type
+        self.label_smoothing = label_smoothing
+        self.lambda_bm = lambda_bm
+        self.eps = eps
+        if self.loss_type == "rectangle":
+            self.soft_plus = torch.nn.Softplus(threshold=20)
+        self.ce_loss = torch.nn.CrossEntropyLoss(label_smoothing = label_smoothing)
+        self.weight_scale =None
+        self.scale_init=scale_init
+        # Init weight.
+        if scale_init:
+            initial_scale = torch.tensor(1.0).log()
+            self.weight_scale = torch.nn.Parameter(initial_scale.clone().detach())
+            std = 0.1
+            a = (3 ** 0.5) * std
+            torch.nn.init.uniform_(self.weight, -a, a)
+            fan_in = self.weight.shape[1] *self.weight[0][0].numel()
+            scale = fan_in ** -0.5  # 1/sqrt(fan_in)
+            with torch.no_grad():
+                self.weight_scale += torch.tensor(scale / std).log()
+
+        else:
+             # torch.nn.init.xavier_normal_(self.weight, gain=1.0)
+            torch.nn.init.normal_(self.weight, 0., 0.01) # It seems better.
+
+    def get_weight(self):
+        if self.scale_init:
+            return self.weight * self.weight_scale.exp()
+        else:
+            return self.weight
+    def forward(self, inputs, targets):
+        """
+        @inputs: a 3-dimensional tensor (a batch), including [samples-index, frames-dim-index, frames-index]
+        """
+        assert len(inputs.shape) == 3
+        assert inputs.shape[2] == 1
+        # with torch.cuda.amp.autocast(enabled=False):
+        ## Normalize
+
+
+        normalized_x = F.normalize(inputs.squeeze(dim=2), dim=1) # [512, 512] [batch_size, output_dim]
+        normalized_weight = F.normalize(self.get_weight().squeeze(dim=2), dim=1) # [1000, 512] [target_num, output_dim]
+        cosine_theta = F.linear(normalized_x, normalized_weight) # Y = W*X
+        if self.sub_k > 1:
+            cosine_theta = torch.reshape(cosine_theta, (-1, self.num_targets, self.sub_k))
+            cosine_theta, _ = torch.max(cosine_theta, dim=2)
+        with torch.cuda.amp.autocast(enabled=False):            
+            self.posterior = (self.s * cosine_theta.detach()).unsqueeze(2)
+            if not self.training:
+                # For valid set.
+                outputs = self.s * cosine_theta
+                return self.ce_loss(outputs, targets)
+
+            ## Margin Penalty
+            # cosine_theta [batch_size, num_class]
+            # targets.unsqueeze(1) [batch_size, 1]
+
+            cosine_theta_target = cosine_theta.gather(1, targets.unsqueeze(1))
+            
+            p_mask = torch.zeros_like(cosine_theta,dtype=torch.bool,device=cosine_theta.device)
+            p_mask.scatter_(1, targets.unsqueeze(1), 1)
+            cosine_theta_n = cosine_theta.masked_fill(p_mask, float("-inf"))            
+
+            # p_mask = F.one_hot(targets, self.num_targets).bool()
+            # cosine_theta_n = cosine_theta.masked_fill(p_mask, float("-inf"))
+            if self.adapt:
+
+                if self.adapt == "topk":
+                    assert self.topk>0
+                    hard_th = torch.topk(cosine_theta_n, k =self.topk,dim=1)[0][:,-1:].detach()
+                    hard_mask = (cosine_theta_n >= hard_th).detach().float()
+                    hard_margin = (self.ada_m_scale * self.add_m ) * hard_mask
+                    
+                elif self.adapt == "batch_mean":
+                    hard_th = torch.mean(cosine_theta_target).detach() - self.lambda_bm
+                    hard_mask = (cosine_theta_n >= hard_th).detach().float()
+                    hard_margin = (self.ada_m_scale * self.add_m ) * hard_mask -  (self.ada_m_scale * self.add_m) / 2
+            else:
+                hard_margin = 0.
+
+            penalty_cosine_theta_p = cosine_theta_target
+            if self.method == "am":
+                # penalty_cosine_theta = cosine_theta_n + hard_margin + self.add_m
+                penalty_cosine_theta = (cosine_theta_n.add_(hard_margin)).add_(self.add_m)
+
+            else:
+                penalty_cosine_theta_p = torch.cos(torch.acos(cosine_theta_target)+self.add_m)
+
+                if self.adapt:
+                    penalty_cosine_theta = torch.cos(torch.acos(cosine_theta)-hard_margin)
+                else:
+                    penalty_cosine_theta = cosine_theta
+            penalty_cosine_theta = penalty_cosine_theta.scatter(1, targets.unsqueeze(1), penalty_cosine_theta_p)
+
+
+            if self.loss_type == "softmax":
+                penalty_cosine_theta = self.lambda_m  * penalty_cosine_theta + \
+                    (1 - self.lambda_m) * cosine_theta
+
+                # print(penalty_cosine_theta.scatter(1, targets.unsqueeze(1), cosine_theta_target))
+                return self.ce_loss(self.s*penalty_cosine_theta,targets)
+            elif self.loss_type == "rectangle":
+                bs = targets.size(0)
+                penalty_cosine_theta_n = penalty_cosine_theta.masked_fill(p_mask, float("-inf"))
+                avg_nlog = torch.log(torch.exp(self.s *penalty_cosine_theta_n).sum()/bs)
+                loss = self.soft_plus(-self.s *penalty_cosine_theta_p + avg_nlog)
+                if self.lambda_m<1:
+                    return (1-self.lambda_m)*self.ce_loss(self.s * cosine_theta, targets) + self.lambda_m* (torch.sum(loss)/bs)
+                return torch.sum(loss)/bs
+            else:
+                raise ValueError("Unsupport loss type: {}.".format(self.loss_type))
+
+    def step(self, lambda_m, add_margin=None):
+        self.lambda_m = lambda_m 
+        if add_margin is not None:
+            self.add_m = max(0,self.init_m+add_margin)
+
+
+    def extra_repr(self):
+        return '(~affine): (input_dim={input_dim}, num_targets={num_targets},  ' \
+               'sub_k={sub_k}, method={method}, add_m={add_m} ' \
+               'adapt_method={adapt} ada_m={ada_m}, s={s} ' \
+               'loss_type={loss_type}, eps={eps}, scale_init={scale_init})'.format(**self.__dict__)
