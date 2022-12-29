@@ -679,7 +679,7 @@ class MQMHASP(torch.nn.Module):
             if norm_type == 'batch_norm':
                 norm = torch.nn.BatchNorm1d(hidden_size * num_head * num_q) 
             elif norm_type == 'layer_norm':
-                norm =  torch.nn.GroupNorm(num_head * num_q, hidden_size * num_head * num_q, dim=1)
+                norm =  torch.nn.GroupNorm(num_head * num_q, hidden_size * num_head * num_q)
             att = torch.nn.Sequential(
                 torch.nn.Conv1d(idim, hidden_size * num_head * num_q, kernel_size=1, groups=num_head),
                 torch.nn.ReLU(),
