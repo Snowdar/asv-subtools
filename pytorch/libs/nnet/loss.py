@@ -728,3 +728,42 @@ class MarginSoftmaxLoss_v1(TopVirtualLoss):
                'sub_k={sub_k}, method={method}, add_m={add_m} ' \
                'adapt_method={adapt} ada_m={ada_m}, s={s} ' \
                'loss_type={loss_type}, eps={eps}, scale_init={scale_init})'.format(**self.__dict__)
+
+
+
+class OCSoftmax(TopVirtualLoss):
+    """Xingjia Xie 2022-12-30
+    Reference:
+    [1] Y. Zhang, F. Jiang, and Z. Duan, “One-class learning towards synthetic voice spoofing detection,”
+    IEEE Signal Processing Letters, vol. 28, pp. 937–941, 2021.
+    """
+    def __init__(self, feat_dim=160, r_real=0.9, r_fake=0.2, alpha=20.0):
+        super(OCSoftmax, self).__init__()
+        self.feat_dim = feat_dim
+        self.r_real = r_real
+        self.r_fake = r_fake
+        self.alpha = alpha
+        self.center = nn.Parameter(torch.randn(1, self.feat_dim))
+        nn.init.kaiming_uniform_(self.center, 0.25)
+        self.softplus = nn.Softplus()
+
+    def forward(self, x, labels):
+        """
+        Args:
+            x: feature matrix with shape (batch_size, feat_dim).
+            labels: ground truth labels with shape (batch_size).
+        """
+        w = F.normalize(self.center, p=2, dim=1)
+        x = F.normalize(x, p=2, dim=1)
+
+        scores = x @ w.transpose(0, 1)
+        output_scores = scores.clone()
+
+        # Xingjia Xie 2022-12-01 label: bona fide->1; spoof->0
+        scores[labels == 1] = scores[labels == 1] - self.r_real
+        scores[labels == 0] = self.r_fake - scores[labels == 0]
+
+        loss = self.softplus(self.alpha * scores).mean()
+
+        return loss
+
