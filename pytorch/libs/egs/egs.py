@@ -41,14 +41,14 @@ class ChunkEgs(Dataset):
         @io_status: if false, do not read data from disk and return zero, which is useful for saving i/o resource 
         when kipping seed index.
         """
-        assert egs_type is "chunk" or egs_type is "vector"
+        assert egs_type == "chunk" or egs_type == "vector"
         assert egs_csv != "" and egs_csv is not None
         head = pd.read_csv(egs_csv, sep=" ", nrows=0).columns
 
         assert "ark-path" in head
         assert "class-label" in head
 
-        if egs_type is "chunk":
+        if egs_type == "chunk":
             if "start-position" in head and "end-position" in head:
                 self.chunk_position = pd.read_csv(egs_csv, sep=" ", usecols=["start-position", "end-position"]).values
             elif "start-position" not in head and "end-position" not in head:
@@ -82,7 +82,7 @@ class ChunkEgs(Dataset):
         else:
             chunk = None
 
-        if self.egs_type is "chunk":
+        if self.egs_type == "chunk":
             egs = kaldi_io.read_mat(egs_path, chunk=chunk)
         else:
             egs = kaldi_io.read_vec_flt(egs_path)
